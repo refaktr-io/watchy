@@ -1,1 +1,1 @@
-BUILD_TRIGGER=2025-08-31T17:16:19Z
+# Force rebuild to test automatic CloudFront cache invalidation

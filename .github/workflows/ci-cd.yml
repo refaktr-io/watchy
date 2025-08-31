@@ -513,6 +513,18 @@ jobs:
         VERSION=$(date -u +%Y.%m.%d.%H%M%S)-${GITHUB_SHA:0:7}
         UPLOAD_COUNT=0
         
+        # Get CloudFront distribution ID for cache invalidation (once, reuse for all monitors)
+        DISTRIBUTION_ID=$(aws cloudfront list-distributions \
+          --query "DistributionList.Items[?Aliases.Items[]=='releases.watchy.cloud'].Id | [0]" \
+          --output text --region ${{ env.AWS_REGION }} 2>/dev/null || echo "")
+        
+        if [ -n "$DISTRIBUTION_ID" ] && [ "$DISTRIBUTION_ID" != "None" ] && [ "$DISTRIBUTION_ID" != "null" ]; then
+          echo "🌐 Found CloudFront distribution: $DISTRIBUTION_ID"
+          echo "🔄 Will invalidate cache for all updated binaries"
+        else
+          echo "⚠️  CloudFront distribution not found, cache invalidation will be skipped"
+        fi
+        
         # Upload each monitor's artifacts
         upload_success=true
         for monitor in slack-monitor github-monitor zoom-monitor; do
@@ -572,6 +584,25 @@ jobs:
               --content-type "application/json" \
               --region ${{ env.AWS_REGION }}; then
               echo "✅ Uploaded metadata for ${monitor}"
+              
+              # Invalidate CloudFront cache for this monitor
+              if [ -n "$DISTRIBUTION_ID" ] && [ "$DISTRIBUTION_ID" != "None" ] && [ "$DISTRIBUTION_ID" != "null" ]; then
+                echo "🔄 Invalidating CloudFront cache for ${monitor}..."
+                
+                # Create invalidation for latest binary, versioned binary, and metadata
+                INVALIDATION_PATHS="/binaries/${monitor}/watchy-${monitor}-latest,/binaries/${monitor}/watchy-${monitor}-${VERSION},/binaries/${monitor}/metadata.json"
+                
+                if INVALIDATION_ID=$(aws cloudfront create-invalidation \
+                  --distribution-id "$DISTRIBUTION_ID" \
+                  --paths "$INVALIDATION_PATHS" \
+                  --query 'Invalidation.Id' \
+                  --output text \
+                  --region ${{ env.AWS_REGION }} 2>/dev/null); then
+                  echo "✅ CloudFront cache invalidation created for ${monitor} (ID: $INVALIDATION_ID)"
+                else
+                  echo "⚠️  Failed to invalidate CloudFront cache for ${monitor} (non-critical)"
+                fi
+              fi
             else
               echo "❌ Failed to upload metadata for ${monitor}"
               upload_success=false
@@ -586,6 +617,15 @@ jobs:
           exit 1
         else
           echo "🎉 All binary uploads completed successfully!"
+          
+          # Final summary for cache invalidation
+          if [ -n "$DISTRIBUTION_ID" ] && [ "$DISTRIBUTION_ID" != "None" ] && [ "$DISTRIBUTION_ID" != "null" ]; then
+            echo "🔄 CloudFront cache invalidations have been initiated for all updated binaries"
+            echo "   Distribution: $DISTRIBUTION_ID"
+            echo "   Note: Cache invalidation may take 5-15 minutes to complete"
+          else
+            echo "⚠️  No CloudFront cache invalidations were performed (distribution not found)"
+          fi
         fi
 
   # ===== DEPLOY PLATFORM (When Platform or Website Changes) =====
@@ -651,6 +691,26 @@ jobs:
             --delete \
             --cache-control "max-age=86400" \
             --region ${{ env.AWS_REGION }}
+          
+          # Invalidate CloudFront cache for updated customer templates
+          RESOURCES_DISTRIBUTION_ID=$(aws cloudfront list-distributions \
+            --query "DistributionList.Items[?Origins.Items[0].DomainName==\`${TEMPLATE_BUCKET}.s3.amazonaws.com\`].Id | [0]" \
+            --output text --region ${{ env.AWS_REGION }} 2>/dev/null || echo "")
+          
+          if [ -n "$RESOURCES_DISTRIBUTION_ID" ] && [ "$RESOURCES_DISTRIBUTION_ID" != "None" ] && [ "$RESOURCES_DISTRIBUTION_ID" != "null" ]; then
+            echo "🔄 Invalidating CloudFront cache for customer templates..."
+            if aws cloudfront create-invalidation \
+              --distribution-id "$RESOURCES_DISTRIBUTION_ID" \
+              --paths "/customer-templates/*" \
+              --region ${{ env.AWS_REGION }} \
+              --output text >/dev/null 2>&1; then
+              echo "✅ CloudFront cache invalidated for customer templates"
+            else
+              echo "⚠️  Failed to invalidate CloudFront cache for customer templates (non-critical)"
+            fi
+          else
+            echo "⚠️  CloudFront distribution not found for template resources, skipping cache invalidation"
+          fi
         else
           echo "⚠️  Template bucket not found, skipping template deployment"
         fi
