@@ -1,3 +1,4 @@
-# Force rebuild to synchronize binary checksums after caching implementation
-# This rebuild will ensure binary checksums match the updated Lambda templates
-# Date: 2025-08-31T20:30:00Z
+# Force rebuild with corrected CloudFront invalidation logic
+# Fixed JMESPath query syntax that was preventing automated cache invalidation
+# Date: 2025-08-31T20:56:00Z  
+# Expected: Proper CloudFront cache invalidation during binary upload
