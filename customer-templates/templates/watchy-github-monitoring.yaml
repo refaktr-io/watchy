@@ -113,7 +113,7 @@ Resources:
               """Get GitHub Nuitka binary information"""
               try:
                   base_url = os.environ.get('WATCHY_BINARY_DISTRIBUTION_URL')
-                  info_url = f"{base_url}/binaries/github-monitor/watchy-github-monitor.json"
+                  info_url = f"{base_url}/binaries/github-monitor/metadata.json"
 
                   with urllib.request.urlopen(info_url, timeout=10) as response:
                       if response.status == 200:
