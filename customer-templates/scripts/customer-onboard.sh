@@ -1,18 +1,20 @@
 #!/bin/bash
 
 # Watchy Cloud Customer Onboarding Script
-# Downloads the latest platform information and helps customers deploy
+# Helps customers deploy Watchy monitoring templates in their AWS environment
 
 set -e
 
-PLATFORM_API="https://watchy.cloud/platform/api"
-DOMAIN="watchy.cloud"
-AWS_PROFILE=${AWS_PROFILE:-"watchy"}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TEMPLATES_DIR="$(dirname "$SCRIPT_DIR")/templates"
+DOCS_DIR="$(dirname "$SCRIPT_DIR")/docs"
+
 AWS_PROFILE=${AWS_PROFILE:-"default"}
 
 echo "🎯 Watchy Cloud - Customer Onboarding"
 echo "====================================="
 echo "AWS Profile: $AWS_PROFILE"
+echo "Templates Directory: $TEMPLATES_DIR"
 echo ""
 
 # Check prerequisites

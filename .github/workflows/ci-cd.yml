@@ -51,8 +51,7 @@ jobs:
           binaries:
             - 'platform/binaries/**'
           platform:
-            - 'platform/saas-apps/**'
-            - 'platform/scripts/**'
+            - 'customer-templates/**'
             - 'platform/deploy/**'
           website:
             - 'website/**'

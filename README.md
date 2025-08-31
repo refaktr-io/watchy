@@ -1,18 +1,41 @@
-# Watchy Cloud Monitoring Templates
+# Watchy Cloud Platform
 
-Advanced SaaS monitoring platform with maximum source code protection using Nuitka native binaries.
+Advanced SaaS monitoring platform with secure native binaries and clear separation between platform infrastructure and customer deliverables.
 
-## Overview
+## 🏗️ **Repository Structure**
 
-This repository contains the complete Watchy Cloud platform for monitoring multiple SaaS applications including Slack, GitHub, and Zoom. The platform uses CloudFormation nested stacks, AWS Lambda with Nuitka-compiled native binaries, and centralized license management through LemonSqueezy.
+```
+watchy.cloud/
+├── 🌐 platform/                   # PLATFORM INFRASTRUCTURE
+│   ├── infrastructure/            # CloudFormation for watchy.cloud
+│   ├── binaries/                  # Monitor source code & builds
+│   ├── deploy/                    # Platform deployment scripts
+│   └── watchy-platform.yaml      # Main platform template
+│
+├── 📦 customer-templates/         # CUSTOMER DELIVERABLES
+│   ├── templates/                 # CloudFormation templates
+│   ├── scripts/                   # Customer setup scripts
+│   └── docs/                      # Customer documentation
+│
+├── 🔧 development/                # DEVELOPMENT RESOURCES  
+│   ├── tests/                     # Testing framework
+│   └── docs/                      # Development documentation
+│
+├── 🌐 website/                    # watchy.cloud website
+└── 📋 [root files]                # README, LICENSE, etc.
+```
 
-## Architecture
+## 🎯 **Clear Separation of Concerns**
 
-- **Parent Stack**: `platform/watchy-platform.yaml` - Manages shared resources and SaaS app deployment
-- **Nested Stacks**: Individual SaaS monitoring applications with conditional deployment
-- **Native Binaries**: Nuitka-compiled Python code for maximum IP protection
-- **License Management**: Centralized LemonSqueezy integration for commercial licensing
-- **Deployment**: Automated deployment to existing watchy.cloud infrastructure
+### **For Platform Developers**
+- Work in `platform/` for infrastructure
+- Use `development/` for CI/CD and testing
+- Deploy via GitHub Actions
+
+### **For Customers**  
+- Download `customer-templates/` folder
+- Follow `customer-templates/README.md`
+- Deploy monitoring in their AWS accounts
 
 ## Quick Start
 
