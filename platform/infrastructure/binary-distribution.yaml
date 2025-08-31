@@ -18,8 +18,17 @@ Parameters:
     AllowedValues: ['dev', 'staging', 'prod']
     Description: 'Environment name'
 
+  HostedZoneId:
+    Type: String
+    Default: ''
+    Description: 'Route 53 Hosted Zone ID for watchy.cloud domain - Leave empty to skip DNS record creation'
+
 Conditions:
   HasSSLCertificate: !Not [!Equals [!Ref CertificateArn, '']]
+  HasHostedZone: !Not [!Equals [!Ref HostedZoneId, '']]
+  CreateDNSRecord: !And 
+    - Condition: HasSSLCertificate
+    - Condition: HasHostedZone
 
 Resources:
   # ===== S3 BUCKET FOR BINARY DISTRIBUTION =====
@@ -292,6 +301,19 @@ Resources:
         - Name: DistributionId
           Value: !Ref BinaryDistribution
 
+  # ===== ROUTE 53 DNS RECORD =====
+  DNSRecord:
+    Type: AWS::Route53::RecordSet
+    Condition: CreateDNSRecord
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt BinaryDistribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2  # CloudFront hosted zone ID (global)
+        EvaluateTargetHealth: false
+
 Outputs:
   BucketName:
     Description: 'Binary distribution S3 bucket name'
@@ -326,3 +348,11 @@ Outputs:
   AccessLogsBucket:
     Description: 'S3 bucket for CloudFront access logs'
     Value: !Ref AccessLogsBucket
+
+  DNSRecordCreated:
+    Description: 'Whether Route 53 DNS record was created'
+    Value: !If [CreateDNSRecord, 'Yes', 'No']
+
+  HostedZoneUsed:
+    Description: 'Route 53 Hosted Zone ID used (if any)'
+    Value: !If [HasHostedZone, !Ref HostedZoneId, 'None']

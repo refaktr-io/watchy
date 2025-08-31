@@ -362,12 +362,27 @@ jobs:
         set -e  # Exit on any error
         
         echo "📋 Starting CloudFormation deployment..."
+        
+        # Get hosted zone ID for watchy.cloud if it exists
+        HOSTED_ZONE_ID=$(aws route53 list-hosted-zones \
+          --query 'HostedZones[?contains(Name, `watchy.cloud`)].Id' \
+          --output text | sed 's|/hostedzone/||' || echo "")
+        
+        if [ -n "$HOSTED_ZONE_ID" ]; then
+          ZONE_PARAM="HostedZoneId=$HOSTED_ZONE_ID"
+          echo "✅ Found hosted zone: $HOSTED_ZONE_ID - DNS record will be created"
+        else
+          ZONE_PARAM="HostedZoneId="
+          echo "⚠️  No hosted zone found - DNS record will not be created"
+        fi
+        
         aws cloudformation deploy \
           --template-file platform/infrastructure/binary-distribution.yaml \
           --stack-name watchy-binary-distribution \
           --parameter-overrides \
             DomainName=releases.watchy.cloud \
             ${CERT_PARAM} \
+            ${ZONE_PARAM} \
             Environment=prod \
           --capabilities CAPABILITY_NAMED_IAM \
           --region ${{ env.AWS_REGION }} \
