@@ -37,8 +37,8 @@ import urllib.error
 import ssl
 
 # Application configuration
-VERSION = "1.0.0-nuitka"
-BUILD_DATE = "2025-07-28T05:09:00Z"
+VERSION = "1.0.1-nuitka"
+BUILD_DATE = "2025-08-31T10:30:00Z"
 SAAS_APP = "Zoom"
 BINARY_TYPE = "nuitka"
 

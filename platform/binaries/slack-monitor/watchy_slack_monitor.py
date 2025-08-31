@@ -15,8 +15,8 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, List
 
 # Version information
-VERSION = "1.0.0-nuitka"
-BUILD_DATE = "2025-08-31T03:24:06Z"
+VERSION = "1.0.1-nuitka"
+BUILD_DATE = "2025-08-31T10:30:00Z"
 
 def fetch_slack_status(api_url: str) -> Dict[str, Any]:
     """
