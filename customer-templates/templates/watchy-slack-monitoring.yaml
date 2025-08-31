@@ -77,9 +77,9 @@ Resources:
       Environment:
         Variables:
           # Slack-specific configuration
-          SAAS_APP_NAME: 'Slack'
+          SAAS_APP_NAME: !Ref SaasAppName
           API_URL: !Ref ApiUrl
-          CLOUDWATCH_NAMESPACE: 'Watchy/Slack'
+          CLOUDWATCH_NAMESPACE: !Sub 'Watchy/${SaasAppName}'
           
           # Platform configuration
           WATCHY_LICENSE_PARAMETER: !Ref WatchyLicenseParameter

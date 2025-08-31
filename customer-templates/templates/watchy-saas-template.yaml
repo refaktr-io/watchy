@@ -109,7 +109,7 @@ Resources:
           WATCHY_STACK_NAME: !Ref ParentStackName
           WATCHY_PLATFORM_VERSION: '4.0.0-nuitka'
       Code:
-        ZipFile: !Sub |
+        ZipFile: |
           import json
           import subprocess
           import os
@@ -531,24 +531,24 @@ Resources:
 Outputs:
   # ===== FUNCTION OUTPUTS =====
   LambdaFunctionName:
-    Description: !Sub '${SaasAppName} monitoring Lambda function name'
+    Description: 'SaaS monitoring Lambda function name'
     Value: !Ref MonitoringLambdaFunction
 
   LambdaFunctionArn:
-    Description: !Sub '${SaasAppName} monitoring Lambda function ARN'
+    Description: 'SaaS monitoring Lambda function ARN'
     Value: !GetAtt MonitoringLambdaFunction.Arn
 
   ScheduleRuleName:
-    Description: !Sub '${SaasAppName} monitoring schedule rule name'
+    Description: 'SaaS monitoring schedule rule name'
     Value: !Ref MonitoringScheduleRule
 
   # ===== ALARM OUTPUTS =====
   ServiceAvailabilityAlarmArn:
-    Description: !Sub '${SaasAppName} service availability alarm ARN'
+    Description: 'SaaS service availability alarm ARN'
     Value: !GetAtt ServiceAvailabilityAlarm.Arn
 
   BinaryExecutionAlarmArn:
-    Description: !Sub '${SaasAppName} Nuitka binary execution alarm ARN'
+    Description: 'SaaS Nuitka binary execution alarm ARN'
     Value: !GetAtt BinaryExecutionAlarm.Arn
 
   # ===== METADATA OUTPUTS =====

@@ -39,11 +39,8 @@ Resources:
             Status: Enabled
             AbortIncompleteMultipartUpload:
               DaysAfterInitiation: 7
-      NotificationConfiguration:
-        CloudWatchConfigurations:
-          - Event: s3:ObjectCreated:*
-            CloudWatchConfiguration:
-              LogGroupName: !Ref BinaryDistributionLogGroup
+      # S3 bucket notifications - using CloudWatchEvents instead of CloudWatchConfigurations
+      # NotificationConfiguration would need SNS/SQS topics or Lambda functions
       Tags:
         - Key: Project
           Value: Watchy
@@ -229,6 +226,10 @@ Resources:
       Scope: CLOUDFRONT
       DefaultAction:
         Allow: {}
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: !Sub '${AWS::StackName}-WebACL'
       Rules:
         # Rate limiting
         - Name: RateLimitRule

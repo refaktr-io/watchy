@@ -1,47 +1,128 @@
 ---
 name: Deployment Issue
-about: Report a deployment or infrastructure problem
+description: Report a deployment or infrastructure problem
 title: "[DEPLOY] "
 labels: ["deployment", "bug"]
 assignees: []
----
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Deployment Issue Report
 
-## Deployment Issue
+        Thank you for reporting a deployment issue. Please provide as much
+        detail as possible to help us resolve the problem quickly.
 
-### Problem Description
-A clear description of what went wrong during deployment.
+  - type: textarea
+    id: problem-description
+    attributes:
+      label: Problem Description
+      description: A clear description of what went wrong during deployment
+      placeholder: Describe the deployment issue you encountered
+    validations:
+      required: true
 
-### GitHub Actions Run
-- Workflow: [e.g., Complete CI/CD Pipeline]
-- Run URL: [Link to the failed GitHub Actions run]
-- Environment: [staging/production]
-- Triggered by: [push to main/manual/PR]
+  - type: input
+    id: workflow-name
+    attributes:
+      label: GitHub Actions Workflow
+      description: Name of the workflow that failed
+      placeholder: e.g., Optimized Watchy Platform CI/CD
+    validations:
+      required: true
 
-### Error Details
-```
-[Paste error logs from GitHub Actions here]
-```
+  - type: input
+    id: run-url
+    attributes:
+      label: GitHub Actions Run URL
+      description: Link to the failed GitHub Actions run
+      placeholder: https://github.com/cloudbennett/watchy.cloud/actions/runs/...
 
-### Expected Behavior
-What should have happened during deployment.
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      description: Which environment was being deployed to?
+      options:
+        - staging
+        - production
+    validations:
+      required: true
 
-### Steps to Reproduce
-1. Go to GitHub Actions
-2. Trigger workflow with '...'
-3. See error at step '...'
+  - type: dropdown
+    id: trigger
+    attributes:
+      label: Triggered by
+      description: How was the deployment triggered?
+      options:
+        - Push to main branch
+        - Manual workflow dispatch
+        - Pull request
+        - Other
+    validations:
+      required: true
 
-### Environment
-- Repository: watchy.cloud
-- Branch: [e.g., main]
-- Commit: [SHA if known]
-- Deployment target: [e.g., s3://watchy.cloud]
+  - type: textarea
+    id: error-logs
+    attributes:
+      label: Error Details
+      description: Paste error logs from GitHub Actions here
+      placeholder: |
+        [Paste complete error logs here]
+      render: shell
+    validations:
+      required: true
 
-### AWS Resources Affected
-- [ ] CloudFormation stacks
-- [ ] S3 buckets
-- [ ] Lambda functions
-- [ ] CloudFront distributions
-- [ ] Other: _______________
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What should have happened during deployment?
+      placeholder: Describe what you expected to happen
 
-### Additional Context
-Any additional information about the deployment issue.
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this issue?
+      placeholder: |
+        1. Go to GitHub Actions
+        2. Trigger workflow with '...'
+        3. See error at step '...'
+
+  - type: input
+    id: branch
+    attributes:
+      label: Branch
+      description: Which branch was being deployed?
+      placeholder: e.g., main
+    validations:
+      required: true
+
+  - type: input
+    id: commit-sha
+    attributes:
+      label: Commit SHA
+      description: Commit hash if known
+      placeholder: e.g., abc123def456
+
+  - type: checkboxes
+    id: aws-resources
+    attributes:
+      label: AWS Resources Affected
+      description: Which AWS resources are experiencing issues?
+      options:
+        - label: CloudFormation stacks
+        - label: S3 buckets
+        - label: Lambda functions
+        - label: CloudFront distributions
+        - label: Binary distribution
+        - label: Website hosting
+        - label: WAF rules
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any additional information about the deployment issue
+      placeholder: Add any other context about the problem here
