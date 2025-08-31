@@ -47,7 +47,7 @@ Parameters:
   # ===== TEMPLATE CONFIGURATION =====
   TemplateBaseUrl:
     Type: String
-    Default: !Sub "https://s3.amazonaws.com/watchy-resources-${Environment}"
+    Default: "https://s3.amazonaws.com/watchy-resources-prod"
     Description: "Base URL for CloudFormation templates"
 
   BinaryDistributionUrl:

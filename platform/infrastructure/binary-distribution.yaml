@@ -66,6 +66,7 @@ Resources:
   TemplateResourcesBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain  # Protect bucket from accidental deletion
+    UpdateReplacePolicy: Retain  # Protect bucket from replacement
     Properties:
       BucketName: !Sub 'watchy-resources-${Environment}'
       PublicAccessBlockConfiguration:
