@@ -255,7 +255,7 @@ jobs:
       (needs.detect-changes.outputs.binaries == 'true' || needs.detect-changes.outputs.infrastructure == 'true' || needs.detect-changes.outputs.force_infrastructure == 'true')
     strategy:
       matrix:
-        monitor: [slack-monitor, github-monitor, zoom-monitor]
+        monitor: [slack-monitor]
     
     steps:
     - name: Install system dependencies
@@ -483,7 +483,7 @@ jobs:
         echo "Artifacts directory contents:"
         ls -la artifacts/ || echo "No artifacts directory found"
         
-        for monitor in slack-monitor github-monitor zoom-monitor; do
+        for monitor in slack-monitor; do
           if [ -d "artifacts/${monitor}-binary" ]; then
             echo "✅ Found artifacts for ${monitor}:"
             ls -la "artifacts/${monitor}-binary/"
@@ -527,7 +527,7 @@ jobs:
         
         # Upload each monitor's artifacts
         upload_success=true
-        for monitor in slack-monitor github-monitor zoom-monitor; do
+        for monitor in slack-monitor; do
           if [ -d "artifacts/${monitor}-binary" ] && [ -f "artifacts/${monitor}-binary/watchy-${monitor}" ]; then
             echo "📤 Uploading ${monitor} binaries..."
             

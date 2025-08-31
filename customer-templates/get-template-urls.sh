@@ -13,16 +13,10 @@ echo "🚀 Watchy Cloud Template URLs"
 echo "=============================================="
 echo
 
-echo "📋 Available Templates:"
+echo "📋 Available Template:"
 echo
 echo "🔸 Slack Monitoring:"
 echo "   ${BASE_URL}/watchy-slack-monitoring.yaml"
-echo
-echo "🔸 GitHub Monitoring:"
-echo "   ${BASE_URL}/watchy-github-monitoring.yaml"
-echo
-echo "🔸 Zoom Monitoring:"
-echo "   ${BASE_URL}/watchy-zoom-monitoring.yaml"
 echo
 
 echo "💡 Usage Example:"

@@ -1,14 +1,14 @@
 #!/bin/bash
 
-# Build all Watchy monitoring binaries locally using Docker
-# This script builds all binaries for AWS Lambda compatibility
+# Build Watchy Slack monitoring binary locally using Docker
+# This script builds the Slack binary for AWS Lambda compatibility
 
 set -e
 
 VERSION=${WATCHY_VERSION:-"1.0.0"}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "🏗️ Building all Watchy monitoring binaries v${VERSION}"
+echo "🏗️ Building Watchy Slack monitoring binary v${VERSION}"
 echo "Target: AWS Lambda x86_64 (Amazon Linux 2023)"
 echo "=================================================="
 
@@ -166,36 +166,32 @@ EOF
     fi
 }
 
-# Build each monitor
+# Build Slack monitor
 build_monitor "slack-monitor"
-build_monitor "github-monitor" 
-build_monitor "zoom-monitor"
 
 echo ""
 echo "📊 Build Summary"
 echo "================"
 
 total_size=0
-for monitor in slack-monitor github-monitor zoom-monitor; do
-    if [ -d "${SCRIPT_DIR}/${monitor}/dist" ]; then
-        echo ""
-        echo "${monitor}:"
-        ls -la "${SCRIPT_DIR}/${monitor}/dist/" | grep -E '\.(gz|zip|json)$' || echo "  No build artifacts found"
-        
-        # Calculate sizes
-        if [ -f "${SCRIPT_DIR}/${monitor}/dist/"*.gz ]; then
-            size=$(du -h "${SCRIPT_DIR}/${monitor}/dist/"*.gz | cut -f1)
-            echo "  Compressed size: ${size}"
-        fi
+if [ -d "${SCRIPT_DIR}/slack-monitor/dist" ]; then
+    echo ""
+    echo "slack-monitor:"
+    ls -la "${SCRIPT_DIR}/slack-monitor/dist/" | grep -E '\.(gz|zip|json)$' || echo "  No build artifacts found"
+    
+    # Calculate sizes
+    if [ -f "${SCRIPT_DIR}/slack-monitor/dist/"*.gz ]; then
+        size=$(du -h "${SCRIPT_DIR}/slack-monitor/dist/"*.gz | cut -f1)
+        echo "  Compressed size: ${size}"
     fi
-done
+fi
 
 echo ""
-echo "✅ All builds completed!"
+echo "✅ Slack build completed!"
 echo ""
 echo "📦 Next steps:"
 echo "1. Upload dist/*.json and *.gz files to your S3 binary distribution"
 echo "2. Update CloudFormation WATCHY_BINARY_DISTRIBUTION_URL parameter"
-echo "3. Deploy Lambda functions"
+echo "3. Deploy Lambda function"
 echo ""
 echo "🚀 Build pipeline complete!"

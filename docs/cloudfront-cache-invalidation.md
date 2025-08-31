@@ -62,7 +62,7 @@ aws cloudfront create-invalidation \
 - Happens immediately after uploads
 
 ### 🔍 **Comprehensive Coverage**
-- Covers all binary types (Slack, GitHub, Zoom)
+- Covers Slack binary cache invalidation
 - Includes metadata files
 - Covers customer templates
 

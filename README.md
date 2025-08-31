@@ -1,6 +1,8 @@
 # Watchy Cloud Platform
 
-Advanced SaaS monitoring platform with secure native binaries and automated infrastructure deployment.
+**Simplified Slack Status Monitoring Platform**
+
+Advanced Slack monitoring solution with secure native binaries, intelligent caching, and automated infrastructure deployment.
 
 ## 🏗️ **Repository Structure**
 
@@ -8,14 +10,14 @@ Advanced SaaS monitoring platform with secure native binaries and automated infr
 watchy.cloud/
 ├── 🌐 platform/                   # Platform infrastructure & binaries
 │   ├── infrastructure/            # CloudFormation templates
-│   ├── binaries/                  # Monitor source code & builds
+│   ├── binaries/slack-monitor/    # Slack monitor source code & builds
 │   ├── deploy/                    # Platform deployment scripts
 │   └── watchy-platform.yaml      # Main platform template
 │
 ├── 📦 customer-templates/         # Customer deployment templates
 │   ├── templates/                 # CloudFormation for customer AWS
-│   ├── scripts/                   # Customer setup scripts
-│   └── docs/                      # Customer documentation
+│   ├── docs/                      # Customer documentation
+│   └── get-template-urls.sh      # Template URL helper
 │
 └── 🌐 website/                    # watchy.cloud website
 ```
@@ -67,11 +69,9 @@ curl -s https://releases.watchy.cloud/binaries/slack-monitor/metadata.json | \
 
 ## 📊 **Platform Components**
 
-### SaaS Monitors
+### Slack Monitor
 
-- **Slack Monitor**: Real-time Slack API monitoring with team health checks
-- **GitHub Monitor**: Repository and API availability monitoring  
-- **Zoom Monitor**: Meeting services and API endpoint monitoring
+- **Slack Monitor**: Real-time Slack API monitoring with team health checks, intelligent binary caching, and 60-70% performance improvement
 
 ### Infrastructure
 
@@ -84,7 +84,7 @@ curl -s https://releases.watchy.cloud/binaries/slack-monitor/metadata.json | \
 ### Local Development
 
 ```bash
-# Build and test monitors locally
+# Build and test Slack monitor locally
 cd platform/binaries/slack-monitor
 ./build.sh
 
@@ -105,7 +105,7 @@ git push origin main
 ## 📋 **Requirements**
 
 - **AWS CLI v2.x** (for local development)
-- **Python 3.11+** (for local builds)
+- **Python 3.12+** (for local builds)
 - **Nuitka compiler** (for local binary compilation)
 
 ## 🆘 **Support & Security**

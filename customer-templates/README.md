@@ -1,57 +1,34 @@
-# Watchy Cloud Monitoring - Customer Deployment Guide
+# Watchy Customer Templates
 
-## 🚀 **Quick Start for Customers**
+**Simplified Slack Monitoring Platform**
 
-Deploy Watchy monitoring templates directly from our hosted S3 templates - no downloads required!
+This directory contains CloudFormation templates for deploying Watchy Slack status monitoring infrastructure to your AWS account.
 
-## 📋 **Prerequisites**
+## Available Template
 
-1. **AWS Account** with appropriate permissions
-2. **AWS CLI** configured with your credentials
-3. **CloudFormation** access to deploy stacks
+**Slack Status Monitoring**: Monitor Slack's service status and incidents via Status API with intelligent binary caching and enhanced performance
 
-## 🔧 **Available Monitoring Templates**
+## Architecture
 
-- **Slack Status Monitoring**: Monitor Slack service status and incidents
-- **GitHub Status Monitoring**: Monitor GitHub's service status via Status API  
-- **Zoom Status Monitoring**: Monitor Zoom service status and incidents
+Watchy uses a simplified Slack-only architecture with:
+- **CloudFormation IaC**: Infrastructure as code for consistent deployments
+- **Nuitka Binary Compilation**: Native Python binaries for 60-70% performance improvement
+- **Lambda Functions**: Event-driven monitoring with intelligent binary caching
+- **CloudWatch Integration**: Metrics, logs, and alarms
+- **SNS Notifications**: Real-time incident alerts
 
-## 🚀 **Deployment Steps**
-
-Deploy monitoring templates directly from our hosted S3 URLs:
+## Quick Deployment
 
 ### **Slack Status Monitoring**
 
 ```bash
-aws cloudformation deploy \
-  --template-url https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml \
-  --stack-name my-slack-monitoring \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --parameter-overrides \
-    ApiUrl=https://status.slack.com/api/v2.0.0/current \
-    MonitoringSchedule="rate(5 minutes)"
-```
-
-### **GitHub Status Monitoring**
-
-```bash
-aws cloudformation deploy \
-  --template-url https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-github-monitoring.yaml \
-  --stack-name my-github-monitoring \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --parameter-overrides \
-    MonitoringSchedule="rate(5 minutes)"
-```
-
-### **Zoom Status Monitoring**
-
-```bash
-aws cloudformation deploy \
-  --template-url https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-zoom-monitoring.yaml \
-  --stack-name my-zoom-monitoring \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --parameter-overrides \
-    MonitoringSchedule="rate(5 minutes)"
+aws cloudformation create-stack 
+  --template-url https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml 
+  --stack-name my-slack-monitoring 
+  --capabilities CAPABILITY_IAM 
+  --parameters 
+    ParameterKey=ParentStackName,ParameterValue=my-slack-monitoring 
+    ParameterKey=MonitoringSchedule,ParameterValue="rate(5 minutes)"
 ```
 
 **💡 Benefits of S3 deployment:**
@@ -62,13 +39,28 @@ aws cloudformation deploy \
 - ✅ Faster deployment process
 - ✅ Enterprise-ready and secure
 
-## 🌐 **Available Template URLs**
+## Template URLs
 
-For direct S3 deployment, use these URLs:
+**Direct S3 URLs for CloudFormation:**
 
 - **Slack Monitoring**: `https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml`
-- **GitHub Monitoring**: `https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-github-monitoring.yaml`
-- **Zoom Monitoring**: `https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-zoom-monitoring.yaml`
+
+## Configuration
+
+See the [configuration guide](docs/configuration.md) for detailed parameter documentation and API setup instructions.
+
+## Support
+
+- **Documentation**: [Troubleshooting Guide](docs/troubleshooting.md)
+- **Repository**: [GitHub Repository](https://github.com/cloudbennett/watchy.cloud)
+- **Issues**: Submit issues via GitHub
+
+## Simplified Architecture Benefits
+
+- **Focused Solution**: Dedicated Slack monitoring without unnecessary complexity
+- **Enhanced Performance**: 60-70% improvement with intelligent binary caching
+- **Cost Optimized**: Single-service architecture reduces resource overhead
+- **Simplified Management**: Easier deployment and maintenance
 
 ## 🔧 **Configuration Options**
 

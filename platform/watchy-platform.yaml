@@ -1,48 +1,48 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Watchy SaaS Monitoring Platform - Multi-SaaS Architecture with Nuitka Binaries'
+Description: 'Watchy Slack Monitoring Platform - Simplified Slack-Only Architecture with Nuitka Binaries'
 
 Metadata:
-  Version: '4.0.0'
-  LastUpdated: '2025-07-26'
+  Version: '5.0.0'
+  LastUpdated: '2025-08-31'
   Changelog:
-    - Multi-SaaS monitoring platform architecture
+    - Simplified to Slack-only monitoring platform
     - Centralized shared resources (IAM, SNS, Parameter Store)
     - Nuitka native binary compilation approach
-    - Modular nested stack design for Slack, GitHub, and Zoom
+    - Focused single-SaaS design for Slack monitoring
 
 Parameters:
   # ===== GLOBAL CONFIGURATION =====
   NotificationEmail:
     Type: String
     Default: 'contact@watchy.cloud'
-    Description: 'Email address for CloudWatch alarm notifications across all SaaS apps'
+    Description: 'Email address for CloudWatch alarm notifications for Slack monitoring'
     AllowedPattern: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     ConstraintDescription: 'Must be a valid email address'
 
   MonitoringSchedule:
     Type: String
     Default: 'rate(5 minutes)'
-    Description: 'Default monitoring frequency for all enabled SaaS apps'
+    Description: 'Monitoring frequency for Slack status checks'
 
   LogLevel:
     Type: String
     Default: 'INFO'
     AllowedValues: ['DEBUG', 'INFO', 'WARN', 'ERROR']
-    Description: 'Log level for all monitoring binaries'
+    Description: 'Log level for Slack monitoring binary'
 
   TimeoutSeconds:
     Type: Number
     Default: 240
     MinValue: 30
     MaxValue: 900
-    Description: 'Timeout in seconds for monitoring operations'
+    Description: 'Timeout in seconds for Slack monitoring operations'
 
   RetryAttempts:
     Type: Number
     Default: 3
     MinValue: 1
     MaxValue: 10
-    Description: 'Number of retry attempts for failed operations'
+    Description: 'Number of retry attempts for failed Slack operations'
 
   # ===== TEMPLATE CONFIGURATION =====
   TemplateBaseUrl:
@@ -55,45 +55,11 @@ Parameters:
     Default: 'https://releases.watchy.cloud'
     Description: 'Base URL for Nuitka binary distribution (CloudFront CDN)'
 
-  # ===== SAAS APP ENABLEMENT =====
-  EnableSlackMonitoring:
-    Type: String
-    Default: 'true'
-    AllowedValues: ['true', 'false']
-    Description: 'Enable Slack status monitoring with Nuitka binary'
-
-  EnableGitHubMonitoring:
-    Type: String
-    Default: 'false'
-    AllowedValues: ['true', 'false']
-    Description: 'Enable GitHub status monitoring with Nuitka binary'
-
-  EnableZoomMonitoring:
-    Type: String
-    Default: 'false'
-    AllowedValues: ['true', 'false']
-    Description: 'Enable Zoom status monitoring with Nuitka binary'
-
-  # ===== SAAS-SPECIFIC API ENDPOINTS =====
+  # ===== SLACK-SPECIFIC API ENDPOINT =====
   SlackApiUrl:
     Type: String
     Default: 'https://status.slack.com/api/v2.0.0/current'
     Description: 'Slack Status API endpoint'
-
-  GitHubApiUrl:
-    Type: String
-    Default: 'https://www.githubstatus.com/api/v2/status.json'
-    Description: 'GitHub Status API endpoint'
-
-  ZoomApiUrl:
-    Type: String
-    Default: 'https://status.zoom.us/api/v2/status.json'
-    Description: 'Zoom Status API endpoint'
-
-Conditions:
-  DeploySlack: !Equals [!Ref EnableSlackMonitoring, 'true']
-  DeployGitHub: !Equals [!Ref EnableGitHubMonitoring, 'true']
-  DeployZoom: !Equals [!Ref EnableZoomMonitoring, 'true']
 
 Resources:
   # ===== SHARED PLATFORM RESOURCES =====
@@ -178,7 +144,7 @@ Resources:
                   - logs:DescribeLogGroups
                 Resource: 
                   - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*Watchy*'
-                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/watchy/*'
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/watchy/slack/*'
               # Parameter Store Access for API keys
               - Effect: Allow
                 Action:
@@ -192,12 +158,11 @@ Resources:
                   - sns:Publish
                 Resource: !Ref WatchyNotificationTopic
 
-  # ===== SAAS APP NESTED STACKS =====
+  # ===== SLACK MONITORING STACK =====
 
   # Slack Monitoring Stack
   SlackMonitoringStack:
     Type: AWS::CloudFormation::Stack
-    Condition: DeploySlack
     Properties:
       TemplateURL: !Sub '${TemplateBaseUrl}/watchy-slack-monitoring.yaml'
       Parameters:
@@ -223,80 +188,22 @@ Resources:
         - Key: ParentStack
           Value: !Ref AWS::StackName
 
-  # GitHub Monitoring Stack
-  GitHubMonitoringStack:
-    Type: AWS::CloudFormation::Stack
-    Condition: DeployGitHub
-    Properties:
-      TemplateURL: !Sub '${TemplateBaseUrl}/watchy-github-monitoring.yaml'
-      Parameters:
-        SaasAppName: 'GitHub'
-        ApiUrl: !Ref GitHubApiUrl
-        MonitoringSchedule: !Ref MonitoringSchedule
-        LogLevel: !Ref LogLevel
-        TimeoutSeconds: !Ref TimeoutSeconds
-        RetryAttempts: !Ref RetryAttempts
-        ApiKeysParameter: !Ref ApiKeysParameter
-        SharedLambdaRoleArn: !GetAtt WatchySharedLambdaRole.Arn
-        NotificationTopicArn: !Ref WatchyNotificationTopic
-        ParentStackName: !Ref AWS::StackName
-        BinaryDistributionUrl: !Ref BinaryDistributionUrl
-        BinaryName: 'watchy-github-monitor'
-      Tags:
-        - Key: Project
-          Value: Watchy
-        - Key: SaasApp
-          Value: GitHub
-        - Key: BinaryType
-          Value: Nuitka
-        - Key: ParentStack
-          Value: !Ref AWS::StackName
-
-  # Zoom Monitoring Stack
-  ZoomMonitoringStack:
-    Type: AWS::CloudFormation::Stack
-    Condition: DeployZoom
-    Properties:
-      TemplateURL: !Sub '${TemplateBaseUrl}/watchy-zoom-monitoring.yaml'
-      Parameters:
-        SaasAppName: 'Zoom'
-        ApiUrl: !Ref ZoomApiUrl
-        MonitoringSchedule: !Ref MonitoringSchedule
-        LogLevel: !Ref LogLevel
-        TimeoutSeconds: !Ref TimeoutSeconds
-        RetryAttempts: !Ref RetryAttempts
-        ApiKeysParameter: !Ref ApiKeysParameter
-        SharedLambdaRoleArn: !GetAtt WatchySharedLambdaRole.Arn
-        NotificationTopicArn: !Ref WatchyNotificationTopic
-        ParentStackName: !Ref AWS::StackName
-        BinaryDistributionUrl: !Ref BinaryDistributionUrl
-        BinaryName: 'watchy-zoom-monitor'
-      Tags:
-        - Key: Project
-          Value: Watchy
-        - Key: SaasApp
-          Value: Zoom
-        - Key: BinaryType
-          Value: Nuitka
-        - Key: ParentStack
-          Value: !Ref AWS::StackName
-
 Outputs:
   # ===== SHARED PLATFORM OUTPUTS =====
   ApiKeysParameter:
-    Description: 'Parameter Store name for SaaS API keys'
+    Description: 'Parameter Store name for Slack API keys'
     Value: !Ref ApiKeysParameter
     Export:
       Name: !Sub '${AWS::StackName}-ApiKeysParameter'
 
   NotificationTopicArn:
-    Description: 'ARN of the shared SNS topic for all SaaS monitoring alerts'
+    Description: 'ARN of the shared SNS topic for Slack monitoring alerts'
     Value: !Ref WatchyNotificationTopic
     Export:
       Name: !Sub '${AWS::StackName}-NotificationTopic'
 
   SharedLambdaRoleArn:
-    Description: 'ARN of the shared Lambda execution role for all SaaS apps'
+    Description: 'ARN of the shared Lambda execution role for Slack monitoring'
     Value: !GetAtt WatchySharedLambdaRole.Arn
     Export:
       Name: !Sub '${AWS::StackName}-SharedLambdaRole'
@@ -305,34 +212,15 @@ Outputs:
     Description: 'Email address configured for platform notifications'
     Value: !Ref NotificationEmail
 
-  # ===== SAAS APP STACK OUTPUTS =====
+  # ===== SLACK MONITORING OUTPUT =====
   SlackMonitoringStackId:
-    Condition: DeploySlack
     Description: 'Stack ID of the Slack monitoring nested stack'
     Value: !Ref SlackMonitoringStack
 
-  GitHubMonitoringStackId:
-    Condition: DeployGitHub
-    Description: 'Stack ID of the GitHub monitoring nested stack'
-    Value: !Ref GitHubMonitoringStack
-
-  ZoomMonitoringStackId:
-    Condition: DeployZoom
-    Description: 'Stack ID of the Zoom monitoring nested stack'
-    Value: !Ref ZoomMonitoringStack
-
   # ===== PLATFORM SUMMARY =====
-  EnabledSaasApps:
-    Description: 'Summary of enabled SaaS monitoring applications'
-    Value: !Sub 
-      - 'Slack: ${SlackEnabled}, GitHub: ${GitHubEnabled}, Zoom: ${ZoomEnabled}'
-      - SlackEnabled: !Ref EnableSlackMonitoring
-        GitHubEnabled: !Ref EnableGitHubMonitoring
-        ZoomEnabled: !Ref EnableZoomMonitoring
-
   PlatformVersion:
     Description: 'Watchy platform version'
-    Value: '4.0.0-nuitka'
+    Value: '5.0.0-slack-only'
 
   BinaryDistributionUrl:
     Description: 'Base URL for Nuitka binary distribution'
