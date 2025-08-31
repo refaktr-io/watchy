@@ -401,6 +401,7 @@ jobs:
           --template-file platform/watchy-platform.yaml \
           --stack-name watchy-platform \
           --parameter-overrides \
+            NotificationEmail=contact@watchy.cloud \
             BinaryDistributionUrl=https://releases.watchy.cloud \
             Environment=prod \
           --capabilities CAPABILITY_NAMED_IAM \

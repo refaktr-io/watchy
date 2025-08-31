@@ -37,6 +37,8 @@ AWS_SECRET_ACCESS_KEY   # AWS deployment credentials
 SSL_CERTIFICATE_ARN     # For *.watchy.cloud (optional)
 ```
 
+**Note**: Platform notifications are sent to `contact@watchy.cloud` by default.
+
 ### 3. Customer Onboarding
 
 ```bash

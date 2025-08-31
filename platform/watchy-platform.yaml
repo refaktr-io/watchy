@@ -14,6 +14,7 @@ Parameters:
   # ===== GLOBAL CONFIGURATION =====
   NotificationEmail:
     Type: String
+    Default: 'contact@watchy.cloud'
     Description: 'Email address for CloudWatch alarm notifications across all SaaS apps'
     AllowedPattern: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     ConstraintDescription: 'Must be a valid email address'
