@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Nuitka Build Script for Watchy Slack Monitor
-# Compiles Python to native x86_64 binary for AWS Lambda
+# Optimized for both GitHub Actions and local development
 
 set -e
 
@@ -11,12 +11,14 @@ BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 BUILD_DIR="build"
 DIST_DIR="dist"
 LAMBDA_DIR="lambda"
+MONITOR_NAME="slack-monitor"
 
 echo "🔨 Building Watchy Slack Monitor with Nuitka v${VERSION}"
 echo "======================================================="
 echo "Build Time: ${BUILD_TIME}"
 echo "Target: AWS Lambda x86_64"
 echo "SaaS App: Slack Status Monitoring"
+echo "Environment: ${CI:+GitHub Actions}${CI:-Local Development}"
 echo ""
 
 # Clean previous builds
@@ -24,17 +26,45 @@ echo "🧹 Cleaning previous builds..."
 rm -rf ${BUILD_DIR} ${DIST_DIR} ${LAMBDA_DIR}
 mkdir -p ${BUILD_DIR} ${DIST_DIR} ${LAMBDA_DIR}
 
-# Set up build environment
-echo "📦 Setting up build environment..."
-python3 -m venv ${BUILD_DIR}/nuitka_env
-source ${BUILD_DIR}/nuitka_env/bin/activate
+# Check if we're in GitHub Actions
+if [ "${CI}" = "true" ] || [ "${GITHUB_ACTIONS}" = "true" ]; then
+    echo "🐳 GitHub Actions Environment - Using system Python"
+    
+    # Install Nuitka directly
+    echo "📦 Installing Nuitka..."
+    pip install nuitka
+    
+    # Install dependencies if requirements.txt exists
+    if [ -f requirements.txt ]; then
+        echo "📋 Installing dependencies..."
+        pip install -r requirements.txt
+    fi
+    
+else
+    echo "💻 Local Development Environment - Using virtual environment"
+    
+    # Set up build environment
+    echo "📦 Setting up build environment..."
+    python3 -m venv ${BUILD_DIR}/nuitka_env
+    source ${BUILD_DIR}/nuitka_env/bin/activate
+    
+    # Upgrade pip and install Nuitka
+    echo "🔧 Installing Nuitka..."
+    pip install --upgrade pip
+    pip install nuitka
+    
+    # Install dependencies
+    if [ -f requirements.txt ]; then
+        echo "📋 Installing dependencies..."
+        pip install -r requirements.txt
+    fi
+fi
 
-# Install Nuitka and dependencies
-echo "⬇️ Installing Nuitka..."
-pip install --upgrade pip
-pip install nuitka
-
-echo "✅ Nuitka installation complete"
+# Run the build
+echo ""
+echo "🏗️ Compiling Python to native binary..."
+echo "Source: watchy_slack_monitor.py"
+echo "Output: watchy-slack-monitor"
 echo ""
 
 # Update version in source
@@ -58,6 +88,11 @@ python -m nuitka \
     --python-flag=no_docstrings \
     --python-flag=no_asserts \
     --disable-console \
+    --include-package=requests \
+    --include-package=boto3 \
+    --include-package=botocore \
+    --include-package=urllib3 \
+    --include-package=certifi \
     watchy_slack_monitor.py
 
 if [ $? -eq 0 ]; then
@@ -94,8 +129,8 @@ fi
 echo ""
 echo "📦 Creating Lambda deployment package..."
 
-# Copy binary to Lambda package
-cp "$BINARY_PATH" "${LAMBDA_DIR}/"
+# Copy binary to Lambda package with the name GitHub Actions expects
+cp "$BINARY_PATH" "${LAMBDA_DIR}/watchy-${MONITOR_NAME}"
 
 # Create requirements for Lambda (empty since everything is in binary)
 cat > ${LAMBDA_DIR}/requirements.txt << EOF
@@ -163,8 +198,13 @@ echo "- ✅ LemonSqueezy integration protected"
 echo "- ✅ Slack monitoring algorithms hidden"
 echo "- ✅ Binary integrity verification with SHA256"
 
-# Deactivate virtual environment
-deactivate
+# Cleanup: Deactivate virtual environment if we're in local development
+if [ "${CI}" != "true" ] && [ "${GITHUB_ACTIONS}" != "true" ]; then
+    echo ""
+    echo "🧹 Cleaning up local environment..."
+    deactivate
+fi
 
 echo ""
 echo "🎉 Slack Monitor build complete!"
+echo "✅ Binary ready at: ${LAMBDA_DIR}/watchy-${MONITOR_NAME}"

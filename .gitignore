@@ -219,4 +219,22 @@ poetry.toml
 # LSP config files
 pyrightconfig.json
 
+# Security scanning reports and artifacts
+bandit-results.txt
+bandit-report.json
+safety-report.json
+trivy-results.sarif
+*.sarif
+
+# Sensitive files that should never be committed
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+**/secrets.yml
+**/secrets.yaml
+**/config/production.yml
+**/config/production.yaml
+
 # End of https://www.toptal.com/developers/gitignore/api/macos,python
