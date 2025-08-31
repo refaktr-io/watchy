@@ -2,7 +2,7 @@
 
 ## 🚀 **Quick Start for Customers**
 
-This guide helps you deploy Watchy monitoring templates in your AWS environment.
+Deploy Watchy monitoring templates directly from our hosted S3 templates - no downloads required!
 
 ## 📋 **Prerequisites**
 
@@ -12,59 +12,78 @@ This guide helps you deploy Watchy monitoring templates in your AWS environment.
 
 ## 🔧 **Available Monitoring Templates**
 
-### **Slack Status Monitoring**
-
-- **Template**: `templates/watchy-slack-monitoring.yaml`
-- **Purpose**: Monitor Slack service status and incidents
-- **Requirements**: Slack API access
-
-### **GitHub Status Monitoring**
-
-- **Purpose**: Monitor GitHub's service status
-- **API**: GitHub Status API
-- **Template**: `templates/watchy-github-monitoring.yaml`
-
-### **Zoom Status Monitoring**
-
-- **Template**: `templates/watchy-zoom-monitoring.yaml`
-- **Purpose**: Monitor Zoom service status and incidents
-- **Requirements**: Zoom API access
-
-### **Custom SaaS Template**
-
-- **Template**: `templates/watchy-saas-template.yaml`
-- **Purpose**: Template for monitoring any SaaS service
-- **Requirements**: Customization for your specific service
+- **Slack Status Monitoring**: Monitor Slack service status and incidents
+- **GitHub Status Monitoring**: Monitor GitHub's service status via Status API  
+- **Zoom Status Monitoring**: Monitor Zoom service status and incidents
+- **Custom SaaS Template**: Template for monitoring any SaaS service (requires customization)
 
 ## 🚀 **Deployment Steps**
 
-### **1. Download Templates**
+Deploy monitoring templates directly from our hosted S3 URLs:
+
+### **Slack Status Monitoring**
 
 ```bash
-# Clone or download the customer templates
-git clone https://github.com/cloudbennett/watchy.cloud.git
-cd watchy.cloud/customer-templates
-```
-
-### **2. Configure Environment**
-
-```bash
-# Run the customer onboarding script
-./scripts/customer-onboard.sh
-```
-
-### **3. Deploy Monitoring**
-
-```bash
-# Deploy a specific monitoring template
 aws cloudformation deploy \
-  --template-file templates/watchy-slack-monitoring.yaml \
+  --template-url https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml \
   --stack-name my-slack-monitoring \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
     ApiUrl=https://status.slack.com/api/v2.0.0/current \
     MonitoringSchedule="rate(5 minutes)"
 ```
+
+### **GitHub Status Monitoring**
+
+```bash
+aws cloudformation deploy \
+  --template-url https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-github-monitoring.yaml \
+  --stack-name my-github-monitoring \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    MonitoringSchedule="rate(5 minutes)"
+```
+
+### **Zoom Status Monitoring**
+
+```bash
+aws cloudformation deploy \
+  --template-url https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-zoom-monitoring.yaml \
+  --stack-name my-zoom-monitoring \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    MonitoringSchedule="rate(5 minutes)"
+```
+
+### **Custom SaaS Monitoring**
+
+```bash
+aws cloudformation deploy \
+  --template-url https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-saas-template.yaml \
+  --stack-name my-custom-monitoring \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    SaasAppName="MyService" \
+    ApiUrl="https://status.myservice.com/api/v1/status" \
+    MonitoringSchedule="rate(10 minutes)"
+```
+
+**💡 Benefits of S3 deployment:**
+
+- ✅ Always uses the latest template version
+- ✅ No downloads or setup required
+- ✅ Direct CloudFormation deployment
+- ✅ Faster deployment process
+- ✅ Enterprise-ready and secure
+
+## 🌐 **Available Template URLs**
+
+For direct S3 deployment, use these URLs:
+
+- **Slack Monitoring**: `https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml`
+- **GitHub Monitoring**: `https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-github-monitoring.yaml`
+- **Zoom Monitoring**: `https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-zoom-monitoring.yaml`
+- **SaaS Template**: `https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-saas-template.yaml`
 
 ## 🔧 **Configuration Options**
 
@@ -91,10 +110,10 @@ After deployment, your monitoring will:
 
 ## 🆘 **Support**
 
-- **Documentation**: See `docs/` folder for detailed guides
-- **Troubleshooting**: Check `docs/troubleshooting.md`
-- **Configuration**: See `docs/configuration.md`
+- **Email**: [contact@watchy.cloud](mailto:contact@watchy.cloud)
+- **Issues**: Contact our support team for troubleshooting
+- **Documentation**: This README contains all deployment information
 
 ## 📝 **License**
 
-These templates are provided under the Watchy Cloud license. See the main repository for license details.
+These templates are provided under the Watchy Cloud license terms.

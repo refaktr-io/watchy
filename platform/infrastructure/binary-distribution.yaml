@@ -57,8 +57,29 @@ Resources:
       Tags:
         - Key: Project
           Value: Watchy
-        - Key: Component
+        - Key: Purpose
           Value: BinaryDistribution
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ===== S3 BUCKET FOR CLOUDFORMATION TEMPLATES =====
+  TemplateResourcesBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain  # Protect bucket from accidental deletion
+    Properties:
+      BucketName: !Sub 'watchy-resources-${Environment}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: false
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: false
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Project
+          Value: Watchy
+        - Key: Purpose
+          Value: CloudFormationTemplates
         - Key: Environment
           Value: !Ref Environment
 
@@ -261,6 +282,27 @@ Resources:
               StringEquals:
                 'AWS:SourceArn': !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${BinaryDistribution}'
 
+  # ===== TEMPLATE RESOURCES BUCKET POLICY =====
+  TemplateResourcesBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref TemplateResourcesBucket
+      PolicyDocument:
+        Statement:
+          - Sid: AllowCloudFormationAccess
+            Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action:
+              - s3:GetObject
+              - s3:GetObjectVersion
+            Resource: !Sub '${TemplateResourcesBucket.Arn}/*'
+          - Sid: AllowPublicReadAccess
+            Effect: Allow
+            Principal: '*'
+            Action: s3:GetObject
+            Resource: !Sub '${TemplateResourcesBucket.Arn}/*'
+
   # ===== CLOUDWATCH LOG GROUP =====
   BinaryDistributionLogGroup:
     Type: AWS::Logs::LogGroup
@@ -348,6 +390,18 @@ Outputs:
   AccessLogsBucket:
     Description: 'S3 bucket for CloudFront access logs'
     Value: !Ref AccessLogsBucket
+
+  TemplateResourcesBucket:
+    Description: 'S3 bucket for CloudFormation templates'
+    Value: !Ref TemplateResourcesBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-TemplatesBucket'
+
+  TemplateBaseUrl:
+    Description: 'Base URL for customer CloudFormation templates'
+    Value: !Sub 'https://s3.amazonaws.com/${TemplateResourcesBucket}/customer-templates/templates'
+    Export:
+      Name: !Sub '${AWS::StackName}-TemplateBaseUrl'
 
   DNSRecordCreated:
     Description: 'Whether Route 53 DNS record was created'

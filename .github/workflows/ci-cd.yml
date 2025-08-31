@@ -397,12 +397,27 @@ jobs:
         
         set -e  # Exit on any error
         
+        # Get the template resources bucket name from the binary distribution stack
+        TEMPLATE_BUCKET=$(aws cloudformation describe-stacks \
+          --stack-name watchy-binary-distribution \
+          --query 'Stacks[0].Outputs[?OutputKey==`TemplateResourcesBucket`].OutputValue' \
+          --output text --region ${{ env.AWS_REGION }} 2>/dev/null || echo "")
+        
+        if [ -n "$TEMPLATE_BUCKET" ]; then
+          TEMPLATE_BASE_URL="https://${TEMPLATE_BUCKET}.s3.amazonaws.com/customer-templates/templates"
+          echo "✅ Using template bucket: $TEMPLATE_BUCKET"
+        else
+          TEMPLATE_BASE_URL="https://watchy-resources-prod.s3.amazonaws.com/customer-templates/templates"
+          echo "⚠️  Using default template URL"
+        fi
+        
         aws cloudformation deploy \
           --template-file platform/watchy-platform.yaml \
           --stack-name watchy-platform \
           --parameter-overrides \
             NotificationEmail=contact@watchy.cloud \
             BinaryDistributionUrl=https://releases.watchy.cloud \
+            TemplateBaseUrl="${TEMPLATE_BASE_URL}" \
             Environment=prod \
           --capabilities CAPABILITY_NAMED_IAM \
           --region ${{ env.AWS_REGION }} \
@@ -601,11 +616,29 @@ jobs:
           --cache-control "max-age=3600" \
           --region ${{ env.AWS_REGION }}
         
-        # Deploy templates to watchy-resources
-        aws s3 sync platform/ s3://watchy-resources/ \
-          --delete \
-          --cache-control "max-age=86400" \
-          --region ${{ env.AWS_REGION }}
+        # Get the template resources bucket name from CloudFormation
+        TEMPLATE_BUCKET=$(aws cloudformation describe-stacks \
+          --stack-name watchy-binary-distribution \
+          --query 'Stacks[0].Outputs[?OutputKey==`TemplateResourcesBucket`].OutputValue' \
+          --output text --region ${{ env.AWS_REGION }} 2>/dev/null || echo "")
+        
+        if [ -n "$TEMPLATE_BUCKET" ]; then
+          echo "✅ Deploying to template bucket: $TEMPLATE_BUCKET"
+          
+          # Deploy platform files to template bucket
+          aws s3 sync platform/ s3://${TEMPLATE_BUCKET}/platform/ \
+            --delete \
+            --cache-control "max-age=86400" \
+            --region ${{ env.AWS_REGION }}
+          
+          # Deploy customer templates to template bucket  
+          aws s3 sync customer-templates/ s3://${TEMPLATE_BUCKET}/customer-templates/ \
+            --delete \
+            --cache-control "max-age=86400" \
+            --region ${{ env.AWS_REGION }}
+        else
+          echo "⚠️  Template bucket not found, skipping template deployment"
+        fi
 
   # ===== TEST STAGE =====
   test-deployment:

@@ -1,0 +1,14 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Import existing watchy-resources bucket into CloudFormation'
+
+Resources:
+  TemplateResourcesBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: 'watchy-resources'
+
+Outputs:
+  BucketName:
+    Value: !Ref TemplateResourcesBucket
+    Description: 'Imported S3 bucket name'
