@@ -127,7 +127,7 @@ Resources:
     Properties:
       Name: !Sub '/${AWS::StackName}/watchy/api-keys'
       Type: String
-      Value: !Sub |
+      Value: |
         {
           "github_token": "PLACEHOLDER_GITHUB_TOKEN",
           "zoom_api_key": "PLACEHOLDER_ZOOM_API_KEY",
