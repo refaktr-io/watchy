@@ -130,7 +130,7 @@ Resources:
                   
                   logger.info(f"Downloading Zoom Nuitka binary v{binary_info['version']}")
                   
-                  with urllib.request.urlopen(binary_info['download_url'], timeout=120) as response:
+                  with urllib.request.urlopen(binary_info['latestUrl'], timeout=120) as response:
                       if response.status != 200:
                           raise Exception(f"Download failed: HTTP {response.status}")
                       
@@ -217,8 +217,15 @@ Resources:
                   # Add metadata
                   output_data.update({
                       'saas_app': 'Zoom',
-                      'binary_type': 'nuitka',
+                      'binary_type': binary_info.get('binary_type', 'nuitka'),
                       'binary_version': binary_info.get('version'),
+                      'binary_sha256': binary_info.get('sha256'),
+                      'binary_size': binary_info.get('binarySize'),
+                      'build_time': binary_info.get('buildTime'),
+                      'git_commit': binary_info.get('gitCommit'),
+                      'build_number': binary_info.get('buildNumber'),
+                      'target_platform': binary_info.get('target_platform'),
+                      'lambda_compatible': binary_info.get('lambda_compatible'),
                       'execution_time': time.time() - start_time,
                       'timestamp': datetime.utcnow().isoformat()
                   })
