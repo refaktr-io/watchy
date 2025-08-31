@@ -1,0 +1,645 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Nested stack for Slack monitoring resources'
+
+Parameters:
+  SlackStatusApiUrl:
+    Type: String
+    Description: 'Slack Status API endpoint URL'
+  
+  MonitoringSchedule:
+    Type: String
+    Description: 'Schedule expression for monitoring frequency'
+  
+  LogLevel:
+    Type: String
+    Description: 'Log level for the monitoring binary'
+  
+  TimeoutSeconds:
+    Type: Number
+    Description: 'Timeout in seconds for monitoring operations'
+  
+  RetryAttempts:
+    Type: Number
+    Description: 'Number of retry attempts for failed operations'
+
+  WatchyLicenseParameter:
+    Type: String
+    Description: 'ARN of the Watchy license parameter from parent stack'
+  
+  ParentStackName:
+    Type: String
+    Description: 'Name of the parent stack'
+
+Resources:
+  # Enhanced IAM Role with download permissions
+  IAMRoleLambdaFunctionMetrics:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ParentStackName}-SlackStatus'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CloudWatchMetricsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogGroups
+                Resource: 
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/slack/status*'
+        - PolicyName: ParameterStoreAccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                Resource: 
+                  - !Ref WatchyLicenseParameter
+
+  # Lambda function with binary download wrapper
+  LambdaFunctionMetrics:
+    Type: AWS::Lambda::Function
+    Properties:
+      Architectures:
+        - x86_64  # Required for Go binary compatibility
+      Description: 'Watchy function with auto-downloading Go binary (latest version)'
+      FunctionName: !Sub '${ParentStackName}-SlackStatusMetrics'
+      Runtime: python3.11
+      Handler: index.lambda_handler
+      Role: !GetAtt IAMRoleLambdaFunctionMetrics.Arn
+      Timeout: 300  # Increased for download + execution
+      MemorySize: 1024  # Increased for binary storage
+      Environment:
+        Variables:
+          SLACK_STATUS_API_URL: !Ref SlackStatusApiUrl
+          CLOUDWATCH_NAMESPACE: 'Slack/Status'
+          AWS_REGION: !Ref AWS::Region
+          WATCHY_API_BASE: 'https://releases.watchy.cloud'
+          WATCHY_LICENSE_PARAMETER: !Ref WatchyLicenseParameter
+          # Configurable parameters for the Go binary
+          WATCHY_LOG_LEVEL: !Ref LogLevel
+          WATCHY_TIMEOUT_SECONDS: !Ref TimeoutSeconds
+          WATCHY_RETRY_ATTEMPTS: !Ref RetryAttempts
+          WATCHY_BINARY_NAME: 'watchy-slack-monitor'
+          WATCHY_STACK_NAME: !Ref ParentStackName
+      Code:
+        ZipFile: |
+          import json
+          import subprocess
+          import os
+          import logging
+          import urllib3
+          import time
+          import hashlib
+          import stat
+          from datetime import datetime
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+
+          # Global cache to persist across warm starts
+          _binary_cache = {}
+
+          def get_latest_binary_info():
+              """Get information about the latest binary version"""
+              try:
+                  api_base = os.environ.get('WATCHY_API_BASE', 'https://releases.watchy.cloud')
+                  
+                  http = urllib3.PoolManager()
+                  
+                  # Get latest version info from Watchy API
+                  version_url = f"{api_base}/slack-monitor/latest/info"
+                  response = http.request('GET', version_url, timeout=10)
+                  
+                  if response.status == 200:
+                      data = json.loads(response.data.decode('utf-8'))
+                      return {
+                          'version': data.get('version'),
+                          'download_url': data.get('download_url'),
+                          'sha256': data.get('sha256'),
+                          'size': data.get('size', 0),
+                          'release_date': data.get('release_date')
+                      }
+                  else:
+                      logger.warning(f"Version API returned {response.status}")
+                      return None
+                      
+              except Exception as e:
+                  logger.error(f"Failed to get binary info: {e}")
+                  return None
+
+          def download_binary(binary_info):
+              """Download and verify the binary"""
+              try:
+                  binary_path = '/tmp/watchy-slack-monitor'
+                  
+                  logger.info(f"Downloading latest binary version {binary_info['version']}...")
+                  
+                  http = urllib3.PoolManager()
+                  response = http.request('GET', binary_info['download_url'], timeout=60)
+                  
+                  if response.status != 200:
+                      raise Exception(f"Download failed: HTTP {response.status}")
+                  
+                  # Write binary
+                  with open(binary_path, 'wb') as f:
+                      f.write(response.data)
+                  
+                  # Make executable
+                  os.chmod(binary_path, stat.S_IRWXU | stat.S_IRGRP | stat.S_IROTH)
+                  
+                  # Verify checksum if provided
+                  if binary_info.get('sha256'):
+                      with open(binary_path, 'rb') as f:
+                          actual_hash = hashlib.sha256(f.read()).hexdigest()
+                      
+                      if actual_hash != binary_info['sha256']:
+                          os.remove(binary_path)
+                          raise Exception(f"Checksum mismatch: expected {binary_info['sha256']}, got {actual_hash}")
+                  
+                  logger.info(f"Latest binary downloaded and verified: {binary_info['version']}")
+                  return binary_path
+                  
+              except Exception as e:
+                  logger.error(f"Binary download failed: {e}")
+                  raise
+
+          def get_cached_binary_info():
+              """Get info about currently cached binary"""
+              try:
+                  version_file = '/tmp/watchy-version.json'
+                  binary_path = '/tmp/watchy-slack-monitor'
+                  
+                  if os.path.exists(version_file) and os.path.exists(binary_path):
+                      with open(version_file, 'r') as f:
+                          return json.loads(f.read())
+                  return None
+              except:
+                  return None
+
+          def cache_binary_info(binary_info):
+              """Cache binary version information"""
+              try:
+                  version_file = '/tmp/watchy-version.json'
+                  cache_data = {
+                      **binary_info,
+                      'cached_at': time.time(),
+                      'cache_date': datetime.utcnow().isoformat()
+                  }
+                  
+                  with open(version_file, 'w') as f:
+                      json.dump(cache_data, f)
+                      
+              except Exception as e:
+                  logger.warning(f"Failed to cache version info: {e}")
+
+          def ensure_latest_binary():
+              """Ensure we have the latest binary available"""
+              try:
+                  # Check global cache first (survives warm starts)
+                  if '/tmp/watchy-slack-monitor' in _binary_cache:
+                      cached_info = _binary_cache['/tmp/watchy-slack-monitor']
+                      if os.path.exists('/tmp/watchy-slack-monitor') and time.time() - cached_info.get('check_time', 0) < 300:
+                          logger.info(f"Using warm cache: {cached_info.get('version', 'unknown')}")
+                          return '/tmp/watchy-slack-monitor', cached_info.get('version', 'cached')
+                  
+                  # Get latest version info
+                  latest_info = get_latest_binary_info()
+                  if not latest_info:
+                      # Fall back to cached binary if available
+                      if os.path.exists('/tmp/watchy-slack-monitor'):
+                          logger.warning("Using cached binary - version check failed")
+                          return '/tmp/watchy-slack-monitor', 'cached-fallback'
+                      else:
+                          raise Exception("No binary available and download failed")
+                  
+                  # Check if we need to download
+                  cached_info = get_cached_binary_info()
+                  binary_path = '/tmp/watchy-slack-monitor'
+                  
+                  if (cached_info and 
+                      cached_info.get('version') == latest_info['version'] and 
+                      os.path.exists(binary_path)):
+                      logger.info(f"Binary up to date: {latest_info['version']}")
+                  else:
+                      # Download latest version
+                      logger.info(f"Updating to latest version: {latest_info['version']}")
+                      binary_path = download_binary(latest_info)
+                      cache_binary_info(latest_info)
+                  
+                  # Update global cache
+                  _binary_cache[binary_path] = {
+                      'version': latest_info['version'],
+                      'check_time': time.time()
+                  }
+                  
+                  return binary_path, latest_info['version']
+                  
+              except Exception as e:
+                  logger.error(f"Binary management failed: {e}")
+                  
+                  # Last resort: check for any existing binary
+                  if os.path.exists('/tmp/watchy-slack-monitor'):
+                      logger.warning("Using existing binary as last resort")
+                      return '/tmp/watchy-slack-monitor', 'emergency-fallback'
+                  
+                  raise Exception(f"No binary available: {e}")
+
+          def lambda_handler(event, context):
+              """Main Lambda handler"""
+              start_time = time.time()
+              
+              try:
+                  # Ensure we have the latest binary
+                  binary_path, version = ensure_latest_binary()
+                  
+                  setup_time = time.time() - start_time
+                  logger.info(f"Latest binary ready: {version} (setup: {setup_time:.2f}s)")
+                  
+                  # Verify binary is executable
+                  if not os.path.exists(binary_path):
+                      raise Exception(f"Binary not found: {binary_path}")
+                  
+                  if not os.access(binary_path, os.X_OK):
+                      raise Exception(f"Binary not executable: {binary_path}")
+                  
+                  # Execute the Go binary
+                  env = os.environ.copy()
+                  
+                  # Add license key from Parameter Store
+                  try:
+                      import boto3
+                      ssm = boto3.client('ssm')
+                      license_param = os.environ.get('WATCHY_LICENSE_PARAMETER')
+                      if license_param:
+                          response = ssm.get_parameter(Name=license_param, WithDecryption=True)
+                          env['WATCHY_LICENSE_KEY'] = response['Parameter']['Value']
+                          logger.info("License key loaded from Parameter Store")
+                      else:
+                          logger.warning("No license parameter specified")
+                  except Exception as e:
+                      logger.error(f"Failed to load license key: {e}")
+                      # Continue execution - let binary handle missing license
+                  
+                  # Add dynamic runtime variables
+                  env['WATCHY_AWS_REQUEST_ID'] = context.aws_request_id
+                  env['WATCHY_FUNCTION_NAME'] = context.function_name
+                  env['WATCHY_FUNCTION_VERSION'] = context.function_version
+                  env['WATCHY_REMAINING_TIME_MS'] = str(context.get_remaining_time_in_millis())
+                  env['WATCHY_TIMESTAMP'] = str(int(time.time()))
+                  
+                  logger.info("Executing latest Watchy Go binary...")
+                  
+                  exec_start = time.time()
+                  
+                  # Option 1: Environment variables (current approach)
+                  result = subprocess.run(
+                      [binary_path],
+                      env=env,
+                      capture_output=True,
+                      text=True,
+                      timeout=240  # Leave time for setup
+                  )
+                  
+                  exec_time = time.time() - exec_start
+                  total_time = time.time() - start_time
+                  
+                  # Log execution results
+                  if result.stdout:
+                      logger.info(f"Binary stdout: {result.stdout}")
+                  
+                  if result.stderr:
+                      logger.warning(f"Binary stderr: {result.stderr}")
+                  
+                  if result.returncode != 0:
+                      raise Exception(f"Binary execution failed (code {result.returncode}): {result.stderr}")
+                  
+                  # Parse JSON output from Go binary
+                  try:
+                      # Look for JSON in the output
+                      lines = [line.strip() for line in result.stdout.split('\n') if line.strip()]
+                      output_data = None
+                      
+                      for line in reversed(lines):
+                          if line.startswith('{') and line.endswith('}'):
+                              output_data = json.loads(line)
+                              break
+                      
+                      if not output_data:
+                          output_data = {
+                              "message": "Monitoring completed successfully",
+                              "stdout": result.stdout
+                          }
+                  except Exception as e:
+                      logger.warning(f"Failed to parse JSON output: {e}")
+                      output_data = {
+                          "message": "Monitoring completed successfully",
+                          "stdout": result.stdout
+                      }
+                  
+                  # Add execution metadata
+                  output_data.update({
+                      'binary_version': version,
+                      'setup_time': round(setup_time, 2),
+                      'execution_time': round(exec_time, 2),
+                      'total_time': round(total_time, 2),
+                      'timestamp': datetime.utcnow().isoformat(),
+                      'channel': 'latest'
+                  })
+                  
+                  logger.info(f"Execution completed successfully (total: {total_time:.2f}s)")
+                  
+                  return {
+                      'statusCode': 200,
+                      'body': json.dumps(output_data)
+                  }
+                  
+              except subprocess.TimeoutExpired:
+                  logger.error("Binary execution timed out")
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({
+                          'error': 'Binary execution timeout',
+                          'total_time': time.time() - start_time
+                      })
+                  }
+              except Exception as e:
+                  logger.error(f"Handler error: {str(e)}")
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({
+                          'error': str(e),
+                          'total_time': time.time() - start_time
+                      })
+                  }
+
+  # EventBridge Rule for scheduled monitoring
+  EventBridgeRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub '${ParentStackName}-SlackStatusEventBridgeRule'
+      Description: 'Watchy rule for Slack Status monitoring schedule'
+      ScheduleExpression: !Ref MonitoringSchedule
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt LambdaFunctionMetrics.Arn
+          Id: SlackStatusMetricsTarget
+
+  # Permission for EventBridge to invoke Lambda
+  LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt LambdaFunctionMetrics.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt EventBridgeRule.Arn
+
+  # CloudWatch Log Group for Lambda
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${LambdaFunctionMetrics}'
+      RetentionInDays: 30
+
+  # CloudWatch Alarms
+  APIResponse:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ParentStackName}-APIResponse'
+      AlarmDescription: 'Watchy alarm when Slack Status API is > 200 response'
+      MetricName: APIResponse
+      Namespace: Slack/Status
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 200
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: breaching
+
+  AppsIntegrationsAPIs:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ParentStackName}-Apps-Integrations-APIs'
+      AlarmDescription: 'Watchy alarm when Slack Status - Apps/Integrations/APIs has an Incident or Outage'
+      MetricName: Apps/Integrations/APIs
+      Namespace: Slack/Status
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: ignore
+
+  Canvases:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ParentStackName}-Canvases'
+      AlarmDescription: 'Watchy alarm when Slack Status - Canvases has an Incident or Outage'
+      MetricName: Canvases
+      Namespace: Slack/Status
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: ignore
+
+  Connectivity:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ParentStackName}-Connectivity'
+      AlarmDescription: 'Watchy alarm when Slack Status - Connectivity has an Incident or Outage'
+      MetricName: Connectivity
+      Namespace: Slack/Status
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: ignore
+
+  Files:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ParentStackName}-Files'
+      AlarmDescription: 'Watchy alarm when Slack Status - Files has an Incident or Outage'
+      MetricName: Files
+      Namespace: Slack/Status
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: ignore
+
+  Huddles:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ParentStackName}-Huddles'
+      AlarmDescription: 'Watchy alarm when Slack Status - Huddles has an Incident or Outage'
+      MetricName: Huddles
+      Namespace: Slack/Status
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: ignore
+
+  LoginSSO:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ParentStackName}-Login-SSO'
+      AlarmDescription: 'Watchy alarm when Slack Status - Login/SSO has an Incident or Outage'
+      MetricName: Login/SSO
+      Namespace: Slack/Status
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: ignore
+
+  Messaging:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ParentStackName}-Messaging'
+      AlarmDescription: 'Watchy alarm when Slack Status - Messaging has an Incident or Outage'
+      MetricName: Messaging
+      Namespace: Slack/Status
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: ignore
+
+  Notifications:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ParentStackName}-Notifications'
+      AlarmDescription: 'Watchy alarm when Slack Status - Notifications has an Incident or Outage'
+      MetricName: Notifications
+      Namespace: Slack/Status
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: ignore
+
+  Search:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ParentStackName}-Search'
+      AlarmDescription: 'Watchy alarm when Slack Status - Search has an Incident or Outage'
+      MetricName: Search
+      Namespace: Slack/Status
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: ignore
+
+  Workflows:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ParentStackName}-Workflows'
+      AlarmDescription: 'Watchy alarm when Slack Status - Workflows has an Incident or Outage'
+      MetricName: Workflows
+      Namespace: Slack/Status
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: ignore
+
+  WorkspaceOrgAdministration:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ParentStackName}-Workspace-OrgAdministration'
+      AlarmDescription: 'Watchy alarm when Slack Status - Workspace/OrgAdministration has an Incident or Outage'
+      MetricName: Workspace/OrgAdministration
+      Namespace: Slack/Status
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: ignore
+
+Outputs:
+  LambdaFunctionName:
+    Description: 'Lambda function name'
+    Value: !Ref LambdaFunctionMetrics
+  
+  BinaryChannel:
+    Description: 'Binary channel (always latest)'
+    Value: 'latest'
+  
+  APIResponseAlarm:
+    Description: 'ARN of the API Response alarm'
+    Value: !GetAtt APIResponse.Arn
+
+  AppsIntegrationsAPIsAlarm:
+    Description: 'ARN of the Apps/Integrations/APIs alarm'
+    Value: !GetAtt AppsIntegrationsAPIs.Arn
+
+  CanvasesAlarm:
+    Description: 'ARN of the Canvases alarm'
+    Value: !GetAtt Canvases.Arn
+
+  ConnectivityAlarm:
+    Description: 'ARN of the Connectivity alarm'
+    Value: !GetAtt Connectivity.Arn
+
+  FilesAlarm:
+    Description: 'ARN of the Files alarm'
+    Value: !GetAtt Files.Arn
+
+  HuddlesAlarm:
+    Description: 'ARN of the Huddles alarm'
+    Value: !GetAtt Huddles.Arn
+
+  LoginSSOAlarm:
+    Description: 'ARN of the Login/SSO alarm'
+    Value: !GetAtt LoginSSO.Arn
+
+  MessagingAlarm:
+    Description: 'ARN of the Messaging alarm'
+    Value: !GetAtt Messaging.Arn
+
+  NotificationsAlarm:
+    Description: 'ARN of the Notifications alarm'
+    Value: !GetAtt Notifications.Arn
+
+  SearchAlarm:
+    Description: 'ARN of the Search alarm'
+    Value: !GetAtt Search.Arn
+
+  WorkflowsAlarm:
+    Description: 'ARN of the Workflows alarm'
+    Value: !GetAtt Workflows.Arn
+
+  WorkspaceOrgAdministrationAlarm:
+    Description: 'ARN of the Workspace/OrgAdministration alarm'
+    Value: !GetAtt WorkspaceOrgAdministration.Arn

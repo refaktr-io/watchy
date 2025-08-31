@@ -1,0 +1,338 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Watchy Binary Distribution Infrastructure - CloudFront + S3'
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: 'releases.watchy.cloud'
+    Description: 'Domain name for binary distribution CDN'
+
+  CertificateArn:
+    Type: String
+    Description: 'ACM Certificate ARN for SSL (must be in us-east-1 for CloudFront)'
+
+  Environment:
+    Type: String
+    Default: 'prod'
+    AllowedValues: ['dev', 'staging', 'prod']
+    Description: 'Environment name'
+
+Resources:
+  # ===== S3 BUCKET FOR BINARY DISTRIBUTION =====
+  BinaryDistributionBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'watchy-releases-${Environment}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+          - Id: DeleteIncompleteUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+      NotificationConfiguration:
+        CloudWatchConfigurations:
+          - Event: s3:ObjectCreated:*
+            CloudWatchConfiguration:
+              LogGroupName: !Ref BinaryDistributionLogGroup
+      Tags:
+        - Key: Project
+          Value: Watchy
+        - Key: Component
+          Value: BinaryDistribution
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ===== ORIGIN ACCESS CONTROL =====
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${AWS::StackName}-OAC'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+        Description: 'OAC for Watchy binary distribution bucket'
+
+  # ===== CLOUDFRONT DISTRIBUTION =====
+  BinaryDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: !Sub 'Watchy Binary Distribution CDN - ${Environment}'
+        Enabled: true
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        PriceClass: PriceClass_100  # US, Canada, Europe only for cost optimization
+        
+        # Origins
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt BinaryDistributionBucket.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+            OriginAccessControlId: !GetAtt OriginAccessControl.Id
+        
+        # Default Cache Behavior
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          Compress: true
+          DefaultTTL: 86400  # 24 hours
+          MaxTTL: 31536000   # 1 year
+          MinTTL: 0
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+            Headers:
+              - Origin
+              - Access-Control-Request-Method
+              - Access-Control-Request-Headers
+          
+        # Cache Behaviors for Different File Types
+        CacheBehaviors:
+          # JSON metadata files - short cache for frequent updates
+          - PathPattern: 'binaries/*/*.json'
+            TargetOriginId: S3Origin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS]
+            CachedMethods: [GET, HEAD]
+            Compress: true
+            DefaultTTL: 300    # 5 minutes
+            MaxTTL: 3600       # 1 hour
+            MinTTL: 0
+            ForwardedValues:
+              QueryString: false
+              Cookies:
+                Forward: none
+              Headers:
+                - Origin
+                - Access-Control-Request-Method
+                - Access-Control-Request-Headers
+            
+          # Binary files (.gz) - longer cache since they're immutable
+          - PathPattern: 'binaries/*/*.gz'
+            TargetOriginId: S3Origin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD]
+            CachedMethods: [GET, HEAD]
+            Compress: false    # Already compressed
+            DefaultTTL: 86400  # 24 hours
+            MaxTTL: 31536000   # 1 year
+            MinTTL: 3600       # 1 hour minimum
+            ForwardedValues:
+              QueryString: false
+              Cookies:
+                Forward: none
+          
+          # Latest symlinks - medium cache
+          - PathPattern: 'binaries/*/latest.*'
+            TargetOriginId: S3Origin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS]
+            CachedMethods: [GET, HEAD]
+            Compress: true
+            DefaultTTL: 3600   # 1 hour
+            MaxTTL: 86400      # 24 hours
+            MinTTL: 300        # 5 minutes
+            ForwardedValues:
+              QueryString: false
+              Cookies:
+                Forward: none
+        
+        # Custom Domain and SSL
+        Aliases:
+          - !Ref DomainName
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+        
+        # Custom Error Pages
+        CustomErrorResponses:
+          - ErrorCode: 404
+            ErrorCachingMinTTL: 300
+            ResponseCode: 404
+            ResponsePagePath: '/error.html'
+          - ErrorCode: 403
+            ErrorCachingMinTTL: 300
+            ResponseCode: 403
+            ResponsePagePath: '/error.html'
+          - ErrorCode: 500
+            ErrorCachingMinTTL: 60
+        
+        # Logging
+        Logging:
+          Bucket: !GetAtt AccessLogsBucket.DomainName
+          IncludeCookies: false
+          Prefix: 'cloudfront-logs/'
+        
+        # Web ACL for security (optional)
+        WebACLId: !Ref WebACL
+
+  # ===== BUCKET POLICY FOR CLOUDFRONT ACCESS =====
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref BinaryDistributionBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub "${BinaryDistributionBucket}/*"
+            Condition:
+              StringEquals:
+                'AWS:SourceArn': !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${BinaryDistribution}"
+
+  # ===== ACCESS LOGS BUCKET =====
+  AccessLogsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'watchy-releases-logs-${Environment}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteLogs
+            Status: Enabled
+            ExpirationInDays: 90
+
+  # ===== WAF WEB ACL FOR SECURITY =====
+  WebACL:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: !Sub '${AWS::StackName}-WebACL'
+      Scope: CLOUDFRONT
+      DefaultAction:
+        Allow: {}
+      Rules:
+        # Rate limiting
+        - Name: RateLimitRule
+          Priority: 1
+          Statement:
+            RateBasedStatement:
+              Limit: 2000
+              AggregateKeyType: IP
+          Action:
+            Block: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: RateLimitRule
+        
+        # AWS Managed Rules - Core Rule Set
+        - Name: AWSManagedRulesCommonRuleSet
+          Priority: 2
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: CommonRuleSetMetric
+
+  # ===== CLOUDWATCH LOG GROUP =====
+  BinaryDistributionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/s3/watchy-releases-${Environment}'
+      RetentionInDays: 30
+
+  # ===== CLOUDWATCH ALARMS =====
+  HighErrorRateAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-HighErrorRate'
+      AlarmDescription: 'High 4xx/5xx error rate on binary distribution'
+      MetricName: 4xxErrorRate
+      Namespace: AWS/CloudFront
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: DistributionId
+          Value: !Ref BinaryDistribution
+
+  HighOriginLatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-HighOriginLatency'
+      AlarmDescription: 'High origin latency on binary distribution'
+      MetricName: OriginLatency
+      Namespace: AWS/CloudFront
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 5000
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: DistributionId
+          Value: !Ref BinaryDistribution
+
+Outputs:
+  BucketName:
+    Description: 'Binary distribution S3 bucket name'
+    Value: !Ref BinaryDistributionBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-BucketName'
+    
+  DistributionId:
+    Description: 'CloudFront distribution ID'
+    Value: !Ref BinaryDistribution
+    Export:
+      Name: !Sub '${AWS::StackName}-DistributionId'
+    
+  DistributionDomainName:
+    Description: 'CloudFront distribution domain name'
+    Value: !GetAtt BinaryDistribution.DomainName
+    Export:
+      Name: !Sub '${AWS::StackName}-DistributionDomain'
+    
+  CustomDomainName:
+    Description: 'Custom domain name for binary distribution'
+    Value: !Ref DomainName
+    Export:
+      Name: !Sub '${AWS::StackName}-CustomDomain'
+    
+  BinaryDistributionUrl:
+    Description: 'Base URL for binary distribution (use this in your platform template)'
+    Value: !Sub 'https://${DomainName}'
+    Export:
+      Name: !Sub '${AWS::StackName}-BaseURL'
+
+  AccessLogsBucket:
+    Description: 'S3 bucket for CloudFront access logs'
+    Value: !Ref AccessLogsBucket
+
+  WebACLArn:
+    Description: 'WAF Web ACL ARN'
+    Value: !GetAtt WebACL.Arn

@@ -1,0 +1,2 @@
+# No Python dependencies needed - everything is in the Nuitka native binary
+# boto3 and botocore are available in Lambda runtime

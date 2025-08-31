@@ -1,0 +1,370 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Watchy SaaS Monitoring Platform - Multi-SaaS Architecture with Nuitka Binaries'
+
+Metadata:
+  Version: '4.0.0'
+  LastUpdated: '2025-07-26'
+  Changelog:
+    - Multi-SaaS monitoring platform architecture
+    - Centralized shared resources with Parameter Store
+    - Nuitka native binary compilation approach
+    - Modular nested stack design for Slack, GitHub, and Zoom
+
+Parameters:
+  # ===== GLOBAL CONFIGURATION =====
+  WatchyLicenseKey:
+    Type: String
+    Description: 'Watchy platform license key for all SaaS monitoring'
+    MinLength: 10
+    ConstraintDescription: 'License key must be at least 10 characters long'
+
+  NotificationEmail:
+    Type: String
+    Description: 'Email address for CloudWatch alarm notifications across all SaaS apps'
+    AllowedPattern: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    ConstraintDescription: 'Must be a valid email address'
+
+  MonitoringSchedule:
+    Type: String
+    Default: 'rate(5 minutes)'
+    Description: 'Default monitoring frequency for all enabled SaaS apps'
+
+  LogLevel:
+    Type: String
+    Default: 'INFO'
+    AllowedValues: ['DEBUG', 'INFO', 'WARN', 'ERROR']
+    Description: 'Log level for all monitoring binaries'
+
+  TimeoutSeconds:
+    Type: Number
+    Default: 240
+    MinValue: 30
+    MaxValue: 900
+    Description: 'Timeout in seconds for monitoring operations'
+
+  RetryAttempts:
+    Type: Number
+    Default: 3
+    MinValue: 1
+    MaxValue: 10
+    Description: 'Number of retry attempts for failed operations'
+
+  # ===== TEMPLATE CONFIGURATION =====
+  TemplateBaseUrl:
+    Type: String
+    Default: 'https://watchy-resources.s3.amazonaws.com/platform/templates'
+    Description: 'Base S3 URL for nested stack templates'
+
+  BinaryDistributionUrl:
+    Type: String
+    Default: 'https://releases.watchy.cloud'
+    Description: 'Base URL for Nuitka binary distribution (CloudFront CDN)'
+
+  # ===== SAAS APP ENABLEMENT =====
+  EnableSlackMonitoring:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: 'Enable Slack status monitoring with Nuitka binary'
+
+  EnableGitHubMonitoring:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: 'Enable GitHub status monitoring with Nuitka binary'
+
+  EnableZoomMonitoring:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: 'Enable Zoom status monitoring with Nuitka binary'
+
+  # ===== SAAS-SPECIFIC API ENDPOINTS =====
+  SlackApiUrl:
+    Type: String
+    Default: 'https://status.slack.com/api/v2.0.0/current'
+    Description: 'Slack Status API endpoint'
+
+  GitHubApiUrl:
+    Type: String
+    Default: 'https://www.githubstatus.com/api/v2/status.json'
+    Description: 'GitHub Status API endpoint'
+
+  ZoomApiUrl:
+    Type: String
+    Default: 'https://status.zoom.us/api/v2/status.json'
+    Description: 'Zoom Status API endpoint'
+
+Conditions:
+  DeploySlack: !Equals [!Ref EnableSlackMonitoring, 'true']
+  DeployGitHub: !Equals [!Ref EnableGitHubMonitoring, 'true']
+  DeployZoom: !Equals [!Ref EnableZoomMonitoring, 'true']
+
+Resources:
+  # ===== SHARED PLATFORM RESOURCES =====
+  
+  # Watchy Platform License Key (Shared by all SaaS apps)
+  # Note: Using String type for CloudFormation compatibility. 
+  # Input parameter has NoEcho=true for security during deployment.
+  # For production, consider using AWS Secrets Manager for enhanced security.
+  WatchyLicenseParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${AWS::StackName}/watchy/license-key'
+      Type: String
+      Value: !Ref WatchyLicenseKey
+      Description: 'Watchy platform license key for all SaaS monitoring binaries'
+      Tags:
+        Project: Watchy
+        Component: Platform
+        StackName: !Ref AWS::StackName
+
+  # API Keys Parameter Store (JSON format for multiple SaaS APIs)
+  # Note: Using String type for CloudFormation compatibility.
+  # For production, consider using AWS Secrets Manager for API keys.
+  ApiKeysParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${AWS::StackName}/watchy/api-keys'
+      Type: String
+      Value: !Sub |
+        {
+          "github_token": "PLACEHOLDER_GITHUB_TOKEN",
+          "zoom_api_key": "PLACEHOLDER_ZOOM_API_KEY",
+          "zoom_api_secret": "PLACEHOLDER_ZOOM_API_SECRET",
+          "slack_oauth_token": "PLACEHOLDER_SLACK_TOKEN",
+          "custom_webhooks": {
+            "slack": "PLACEHOLDER_SLACK_WEBHOOK",
+            "teams": "PLACEHOLDER_TEAMS_WEBHOOK"
+          }
+        }
+      Description: 'API keys and secrets for SaaS integrations (JSON format)'
+      Tags:
+        Project: Watchy
+        Component: ApiKeys
+        StackName: !Ref AWS::StackName
+
+  # Shared SNS Topic for All SaaS Monitoring Alerts
+  WatchyNotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub '${AWS::StackName}-WatchyPlatformAlerts'
+      DisplayName: !Sub 'Watchy Platform Alerts - ${AWS::StackName}'
+      Tags:
+        - Key: Project
+          Value: Watchy
+        - Key: Component
+          Value: Notifications
+        - Key: StackName
+          Value: !Ref AWS::StackName
+
+  # Email Subscription to SNS Topic
+  WatchyEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref WatchyNotificationTopic
+      Protocol: email
+      Endpoint: !Ref NotificationEmail
+
+  # Shared IAM Role for All Lambda Functions
+  WatchySharedLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-WatchyPlatformRole'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: WatchyPlatformPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # CloudWatch Metrics for all SaaS apps
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: '*'
+              # CloudWatch Logs with Watchy namespace
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogGroups
+                Resource: 
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*Watchy*'
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/watchy/*'
+              # Parameter Store Access for license and API keys
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                Resource: 
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${AWS::StackName}/watchy/license-key'
+                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${AWS::StackName}/watchy/api-keys'
+              # SNS Publish for custom notifications
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Ref WatchyNotificationTopic
+
+  # ===== SAAS APP NESTED STACKS =====
+
+  # Slack Monitoring Stack
+  SlackMonitoringStack:
+    Type: AWS::CloudFormation::Stack
+    Condition: DeploySlack
+    Properties:
+      TemplateURL: !Sub '${TemplateBaseUrl}/watchy-slack-monitoring.yaml'
+      Parameters:
+        SaasAppName: 'Slack'
+        ApiUrl: !Ref SlackApiUrl
+        MonitoringSchedule: !Ref MonitoringSchedule
+        LogLevel: !Ref LogLevel
+        TimeoutSeconds: !Ref TimeoutSeconds
+        RetryAttempts: !Ref RetryAttempts
+        WatchyLicenseParameter: !Ref WatchyLicenseParameter
+        ApiKeysParameter: !Ref ApiKeysParameter
+        SharedLambdaRoleArn: !GetAtt WatchySharedLambdaRole.Arn
+        NotificationTopicArn: !Ref WatchyNotificationTopic
+        ParentStackName: !Ref AWS::StackName
+        BinaryDistributionUrl: !Ref BinaryDistributionUrl
+        BinaryName: 'watchy-slack-monitor'
+      Tags:
+        - Key: Project
+          Value: Watchy
+        - Key: SaasApp
+          Value: Slack
+        - Key: BinaryType
+          Value: Nuitka
+        - Key: ParentStack
+          Value: !Ref AWS::StackName
+
+  # GitHub Monitoring Stack
+  GitHubMonitoringStack:
+    Type: AWS::CloudFormation::Stack
+    Condition: DeployGitHub
+    Properties:
+      TemplateURL: !Sub '${TemplateBaseUrl}/watchy-github-monitoring.yaml'
+      Parameters:
+        SaasAppName: 'GitHub'
+        ApiUrl: !Ref GitHubApiUrl
+        MonitoringSchedule: !Ref MonitoringSchedule
+        LogLevel: !Ref LogLevel
+        TimeoutSeconds: !Ref TimeoutSeconds
+        RetryAttempts: !Ref RetryAttempts
+        WatchyLicenseParameter: !Ref WatchyLicenseParameter
+        ApiKeysParameter: !Ref ApiKeysParameter
+        SharedLambdaRoleArn: !GetAtt WatchySharedLambdaRole.Arn
+        NotificationTopicArn: !Ref WatchyNotificationTopic
+        ParentStackName: !Ref AWS::StackName
+        BinaryDistributionUrl: !Ref BinaryDistributionUrl
+        BinaryName: 'watchy-github-monitor'
+      Tags:
+        - Key: Project
+          Value: Watchy
+        - Key: SaasApp
+          Value: GitHub
+        - Key: BinaryType
+          Value: Nuitka
+        - Key: ParentStack
+          Value: !Ref AWS::StackName
+
+  # Zoom Monitoring Stack
+  ZoomMonitoringStack:
+    Type: AWS::CloudFormation::Stack
+    Condition: DeployZoom
+    Properties:
+      TemplateURL: !Sub '${TemplateBaseUrl}/watchy-zoom-monitoring.yaml'
+      Parameters:
+        SaasAppName: 'Zoom'
+        ApiUrl: !Ref ZoomApiUrl
+        MonitoringSchedule: !Ref MonitoringSchedule
+        LogLevel: !Ref LogLevel
+        TimeoutSeconds: !Ref TimeoutSeconds
+        RetryAttempts: !Ref RetryAttempts
+        WatchyLicenseParameter: !Ref WatchyLicenseParameter
+        ApiKeysParameter: !Ref ApiKeysParameter
+        SharedLambdaRoleArn: !GetAtt WatchySharedLambdaRole.Arn
+        NotificationTopicArn: !Ref WatchyNotificationTopic
+        ParentStackName: !Ref AWS::StackName
+        BinaryDistributionUrl: !Ref BinaryDistributionUrl
+        BinaryName: 'watchy-zoom-monitor'
+      Tags:
+        - Key: Project
+          Value: Watchy
+        - Key: SaasApp
+          Value: Zoom
+        - Key: BinaryType
+          Value: Nuitka
+        - Key: ParentStack
+          Value: !Ref AWS::StackName
+
+Outputs:
+  # ===== SHARED PLATFORM OUTPUTS =====
+  PlatformLicenseParameter:
+    Description: 'Parameter Store name for Watchy platform license key'
+    Value: !Ref WatchyLicenseParameter
+    Export:
+      Name: !Sub '${AWS::StackName}-LicenseParameter'
+
+  ApiKeysParameter:
+    Description: 'Parameter Store name for SaaS API keys'
+    Value: !Ref ApiKeysParameter
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiKeysParameter'
+
+  NotificationTopicArn:
+    Description: 'ARN of the shared SNS topic for all SaaS monitoring alerts'
+    Value: !Ref WatchyNotificationTopic
+    Export:
+      Name: !Sub '${AWS::StackName}-NotificationTopic'
+
+  SharedLambdaRoleArn:
+    Description: 'ARN of the shared Lambda execution role for all SaaS apps'
+    Value: !GetAtt WatchySharedLambdaRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-SharedLambdaRole'
+
+  NotificationEmail:
+    Description: 'Email address configured for platform notifications'
+    Value: !Ref NotificationEmail
+
+  # ===== SAAS APP STACK OUTPUTS =====
+  SlackMonitoringStackId:
+    Condition: DeploySlack
+    Description: 'Stack ID of the Slack monitoring nested stack'
+    Value: !Ref SlackMonitoringStack
+
+  GitHubMonitoringStackId:
+    Condition: DeployGitHub
+    Description: 'Stack ID of the GitHub monitoring nested stack'
+    Value: !Ref GitHubMonitoringStack
+
+  ZoomMonitoringStackId:
+    Condition: DeployZoom
+    Description: 'Stack ID of the Zoom monitoring nested stack'
+    Value: !Ref ZoomMonitoringStack
+
+  # ===== PLATFORM SUMMARY =====
+  EnabledSaasApps:
+    Description: 'Summary of enabled SaaS monitoring applications'
+    Value: !Sub 
+      - 'Slack: ${SlackEnabled}, GitHub: ${GitHubEnabled}, Zoom: ${ZoomEnabled}'
+      - SlackEnabled: !Ref EnableSlackMonitoring
+        GitHubEnabled: !Ref EnableGitHubMonitoring
+        ZoomEnabled: !Ref EnableZoomMonitoring
+
+  PlatformVersion:
+    Description: 'Watchy platform version'
+    Value: '4.0.0-nuitka'
+
+  BinaryDistributionUrl:
+    Description: 'Base URL for Nuitka binary distribution'
+    Value: !Ref BinaryDistributionUrl
