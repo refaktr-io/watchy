@@ -298,6 +298,17 @@ Resources:
               - s3:GetObject
               - s3:GetObjectVersion
             Resource: !Sub '${TemplateResourcesBucket.Arn}/*'
+          - Sid: AllowCrossAccountCloudFormationAccess
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action:
+              - s3:GetObject
+              - s3:GetObjectVersion
+              - s3:ListBucket
+            Resource: 
+              - !Sub '${TemplateResourcesBucket.Arn}/*'
+              - !Sub '${TemplateResourcesBucket.Arn}'
           - Sid: AllowPublicReadAccess
             Effect: Allow
             Principal: '*'

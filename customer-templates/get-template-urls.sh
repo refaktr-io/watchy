@@ -34,7 +34,8 @@ echo "  --template-url ${BASE_URL}/watchy-slack-monitoring.yaml \\"
 echo "  --stack-name my-slack-monitoring \\"
 echo "  --capabilities CAPABILITY_NAMED_IAM \\"
 echo "  --parameter-overrides \\"
-echo "    MonitoringSchedule=\"rate(5 minutes)\""
+echo "    MonitoringSchedule=\"rate(5 minutes)\" \\"
+echo "  --profile watchy"
 echo
 
 echo "📚 For more deployment examples, see the customer documentation."
