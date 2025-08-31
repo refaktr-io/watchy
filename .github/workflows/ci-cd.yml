@@ -707,13 +707,6 @@ jobs:
         
         echo "📤 Deploying platform files v${VERSION}..."
         
-        # Deploy platform files to watchy.cloud (under /platform/)
-        aws s3 sync platform/ s3://watchy.cloud/platform/ \
-          --delete \
-          --exclude "index.html" \
-          --cache-control "max-age=3600" \
-          --region ${{ env.AWS_REGION }}
-        
         # Get the template resources bucket name from CloudFormation
         TEMPLATE_BUCKET=$(aws cloudformation describe-stacks \
           --stack-name watchy-binary-distribution \
@@ -735,21 +728,23 @@ jobs:
             --cache-control "max-age=86400" \
             --region ${{ env.AWS_REGION }}
           
-          # Invalidate CloudFront cache for updated customer templates
+          echo "✅ Platform files deployed to releases.watchy.cloud"
+          
+          # Invalidate CloudFront cache for updated templates and platform files
           RESOURCES_DISTRIBUTION_ID=$(aws cloudfront list-distributions \
             --query "DistributionList.Items[?Origins.Items[0].DomainName==\`${TEMPLATE_BUCKET}.s3.amazonaws.com\`].Id | [0]" \
             --output text --region ${{ env.AWS_REGION }} 2>/dev/null || echo "")
           
           if [ -n "$RESOURCES_DISTRIBUTION_ID" ] && [ "$RESOURCES_DISTRIBUTION_ID" != "None" ] && [ "$RESOURCES_DISTRIBUTION_ID" != "null" ]; then
-            echo "🔄 Invalidating CloudFront cache for customer templates..."
+            echo "🔄 Invalidating CloudFront cache for templates and platform files..."
             if aws cloudfront create-invalidation \
               --distribution-id "$RESOURCES_DISTRIBUTION_ID" \
-              --paths "/customer-templates/*" \
+              --paths "/customer-templates/*" "/platform/*" \
               --region ${{ env.AWS_REGION }} \
               --output text >/dev/null 2>&1; then
-              echo "✅ CloudFront cache invalidated for customer templates"
+              echo "✅ CloudFront cache invalidated for templates and platform files"
             else
-              echo "⚠️  Failed to invalidate CloudFront cache for customer templates (non-critical)"
+              echo "⚠️  Failed to invalidate CloudFront cache (non-critical)"
             fi
           else
             echo "⚠️  CloudFront distribution not found for template resources, skipping cache invalidation"
@@ -779,10 +774,10 @@ jobs:
         fi
         
         # Test platform files
-        if curl -f https://watchy.cloud/platform/; then
-          echo "✅ Platform files are accessible"
+        if curl -f https://releases.watchy.cloud/platform/watchy-platform.yaml; then
+          echo "✅ Platform files are accessible on releases.watchy.cloud"
         else
-          echo "⚠️  Platform root not directly accessible (expected)"
+          echo "⚠️  Platform files not accessible on releases.watchy.cloud"
         fi
         
         # Test binary distribution
