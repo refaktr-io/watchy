@@ -238,7 +238,7 @@ Resources:
             Principal:
               Service: cloudfront.amazonaws.com
             Action: s3:PutObject
-            Resource: !Sub '${AccessLogsBucket}/cloudfront-logs/*'
+            Resource: !Sub '${AccessLogsBucket.Arn}/cloudfront-logs/*'
             Condition:
               StringEquals:
                 'AWS:SourceArn': !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${BinaryDistribution}'
