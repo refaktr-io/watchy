@@ -39,13 +39,6 @@ SSL_CERTIFICATE_ARN     # For *.watchy.cloud (optional)
 
 **Note**: Platform notifications are sent to `contact@watchy.cloud` by default.
 
-### 3. Customer Onboarding
-
-```bash
-cd platform/scripts
-./customer-onboard.sh
-```
-
 ## 🔒 **Security & Binary Integrity**
 
 ### Security Features

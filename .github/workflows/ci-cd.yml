@@ -438,11 +438,10 @@ jobs:
   deploy-binaries:
     name: Deploy Binaries to S3
     runs-on: ubuntu-latest
-    needs: [detect-changes, build-binaries, deploy-infrastructure]
+    needs: [detect-changes, build-binaries]
     if: |
       (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
       (needs.build-binaries.result == 'success') &&
-      (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped') &&
       (needs.detect-changes.outputs.binaries == 'true' || needs.detect-changes.outputs.infrastructure == 'true' || needs.detect-changes.outputs.force_infrastructure == 'true')
     
     steps:
@@ -450,8 +449,8 @@ jobs:
       run: |
         echo "🚀 Binary deployment conditions met:"
         echo "   - Build result: ${{ needs.build-binaries.result }}"
-        echo "   - Infrastructure result: ${{ needs.deploy-infrastructure.result }}"
         echo "   - Binaries changed: ${{ needs.detect-changes.outputs.binaries }}"
+        echo "   - Infrastructure changed: ${{ needs.detect-changes.outputs.infrastructure }}"
         echo "   - Force infrastructure: ${{ needs.detect-changes.outputs.force_infrastructure }}"
     
     - name: Checkout code
