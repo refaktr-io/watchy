@@ -74,7 +74,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
+        python-version: '3.12'
     
     - name: Install validation tools
       run: |
@@ -112,7 +112,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
+        python-version: '3.12'
     
     # Secret detection (simple but effective)
     - name: Check for potential secrets
@@ -247,6 +247,8 @@ jobs:
   build-binaries:
     name: Build Native Binaries
     runs-on: ubuntu-latest
+    container:
+      image: amazonlinux:2023
     needs: [detect-changes, validate]
     if: |
       (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
@@ -256,13 +258,18 @@ jobs:
         monitor: [slack-monitor, github-monitor, zoom-monitor]
     
     steps:
+    - name: Install system dependencies
+      run: |
+        yum update -y
+        yum install -y python3.12 python3.12-pip python3.12-devel gcc gcc-c++ make git tar gzip
+        python3.12 -m pip install --upgrade pip
+        
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
+    - name: Set up Python environment
+      run: |
+        python3.12 -m pip install nuitka wheel setuptools
     
     - name: Check if monitor changed
       id: monitor-changed
@@ -296,7 +303,7 @@ jobs:
         
         # Set environment variables for build
         export WATCHY_VERSION=$(date -u +%Y.%m.%d.%H%M%S)-${GITHUB_SHA:0:7}
-        export PYTHON_VERSION=3.11
+        export PYTHON_VERSION=3.12
         
         # Build the binary
         ./build.sh

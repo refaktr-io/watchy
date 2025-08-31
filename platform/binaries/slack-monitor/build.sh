@@ -32,12 +32,12 @@ if [ "${CI}" = "true" ] || [ "${GITHUB_ACTIONS}" = "true" ]; then
     
     # Install Nuitka directly
     echo "📦 Installing Nuitka..."
-    pip install nuitka
+    python3.12 -m pip install nuitka
     
     # Install dependencies if requirements.txt exists
     if [ -f requirements.txt ]; then
         echo "📋 Installing dependencies..."
-        pip install -r requirements.txt
+        python3.12 -m pip install -r requirements.txt
     fi
     
 else
@@ -50,13 +50,13 @@ else
     
     # Upgrade pip and install Nuitka
     echo "🔧 Installing Nuitka..."
-    pip install --upgrade pip
-    pip install nuitka
+    python3 -m pip install --upgrade pip
+    python3 -m pip install nuitka
     
     # Install dependencies
     if [ -f requirements.txt ]; then
         echo "📋 Installing dependencies..."
-        pip install -r requirements.txt
+        python3 -m pip install -r requirements.txt
     fi
 fi
 
@@ -77,7 +77,7 @@ rm -f watchy_slack_monitor.py.bak
 echo "🔨 Compiling Slack monitor to native binary..."
 echo "This may take several minutes..."
 
-python -m nuitka \
+python3.12 -m nuitka \
     --standalone \
     --onefile \
     --assume-yes-for-downloads \

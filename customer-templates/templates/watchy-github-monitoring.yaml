@@ -65,7 +65,7 @@ Resources:
         - x86_64
       Description: 'Watchy GitHub status monitoring with Nuitka native binary'
       FunctionName: !Sub '${ParentStackName}-GitHubMonitor'
-      Runtime: python3.11
+      Runtime: python3.12
       Handler: index.lambda_handler
       Role: !Ref SharedLambdaRoleArn
       Timeout: 300

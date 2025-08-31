@@ -65,7 +65,7 @@ Resources:
         - x86_64
       Description: 'Watchy Zoom status monitoring with Nuitka native binary'
       FunctionName: !Sub '${ParentStackName}-ZoomMonitor'
-      Runtime: python3.11
+      Runtime: python3.12
       Handler: index.lambda_handler
       Role: !Ref SharedLambdaRoleArn
       Timeout: 300
