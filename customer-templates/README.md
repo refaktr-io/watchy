@@ -13,41 +13,48 @@ This guide helps you deploy Watchy monitoring templates in your AWS environment.
 ## 🔧 **Available Monitoring Templates**
 
 ### **Slack Status Monitoring**
+
 - **Template**: `templates/watchy-slack-monitoring.yaml`
 - **Purpose**: Monitor Slack service status and incidents
 - **Requirements**: Slack API access
 
-### **GitHub Status Monitoring**  
+### **GitHub Status Monitoring**
+
+- **Purpose**: Monitor GitHub's service status
+- **API**: GitHub Status API
 - **Template**: `templates/watchy-github-monitoring.yaml`
-- **Purpose**: Monitor GitHub service status and incidents
-- **Requirements**: GitHub API access
 
 ### **Zoom Status Monitoring**
+
 - **Template**: `templates/watchy-zoom-monitoring.yaml`
 - **Purpose**: Monitor Zoom service status and incidents
 - **Requirements**: Zoom API access
 
 ### **Custom SaaS Template**
-- **Template**: `templates/watchy-saas-template.yaml` 
+
+- **Template**: `templates/watchy-saas-template.yaml`
 - **Purpose**: Template for monitoring any SaaS service
 - **Requirements**: Customization for your specific service
 
 ## 🚀 **Deployment Steps**
 
 ### **1. Download Templates**
+
 ```bash
 # Clone or download the customer templates
 git clone https://github.com/cloudbennett/watchy.cloud.git
 cd watchy.cloud/customer-templates
 ```
 
-### **2. Configure Environment** 
+### **2. Configure Environment**
+
 ```bash
 # Run the customer onboarding script
 ./scripts/customer-onboard.sh
 ```
 
 ### **3. Deploy Monitoring**
+
 ```bash
 # Deploy a specific monitoring template
 aws cloudformation deploy \
@@ -62,11 +69,13 @@ aws cloudformation deploy \
 ## 🔧 **Configuration Options**
 
 ### **Common Parameters**
+
 - `MonitoringSchedule`: How often to check (e.g., "rate(5 minutes)")
 - `ApiUrl`: The status API endpoint to monitor
 - `SaasAppName`: Display name for the service
 
 ### **Alert Configuration**
+
 - Configure SNS topics for notifications
 - Set up email/SMS alerts
 - Customize alert thresholds
@@ -74,8 +83,9 @@ aws cloudformation deploy \
 ## 📊 **Monitoring Dashboard**
 
 After deployment, your monitoring will:
+
 - ✅ Check service status regularly
-- ✅ Send alerts when issues are detected  
+- ✅ Send alerts when issues are detected
 - ✅ Log all status changes
 - ✅ Provide CloudWatch metrics
 
