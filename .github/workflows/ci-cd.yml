@@ -21,6 +21,12 @@ on:
         default: false
         type: boolean
 
+# Global permissions for the workflow
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
 env:
   AWS_REGION: us-east-1
 
@@ -93,6 +99,9 @@ jobs:
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     
     steps:
     - name: Checkout code
