@@ -270,12 +270,21 @@ jobs:
         if [ "${{ needs.detect-changes.outputs.force_infrastructure }}" == "true" ]; then
           echo "changed=true" >> $GITHUB_OUTPUT
           echo "🔄 Force rebuild enabled for ${{ matrix.monitor }}"
-        elif git diff --name-only HEAD~1 HEAD | grep -q "platform/binaries/${{ matrix.monitor }}/"; then
+        elif [ "${{ needs.detect-changes.outputs.binaries }}" == "true" ]; then
           echo "changed=true" >> $GITHUB_OUTPUT
-          echo "📝 Changes detected in ${{ matrix.monitor }}"
+          echo "📝 Binary changes detected, building ${{ matrix.monitor }}"
+        elif [ "${{ needs.detect-changes.outputs.infrastructure }}" == "true" ]; then
+          echo "changed=true" >> $GITHUB_OUTPUT
+          echo "🏗️ Infrastructure changes detected, rebuilding ${{ matrix.monitor }}"
         else
-          echo "changed=false" >> $GITHUB_OUTPUT
-          echo "✅ No changes in ${{ matrix.monitor }}, skipping build"
+          # Fallback: check if specific monitor files exist and have been modified recently
+          if find platform/binaries/${{ matrix.monitor }}/ -name "*.py" -newer platform/binaries/${{ matrix.monitor }}/build.sh 2>/dev/null | grep -q .; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "� Recent changes detected in ${{ matrix.monitor }} files"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "🔄 Building ${{ matrix.monitor }} (default behavior)"
+          fi
         fi
     
     - name: Build ${{ matrix.monitor }}

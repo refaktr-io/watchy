@@ -18,6 +18,22 @@ The build pipeline compiles Python applications into standalone native binaries 
 
 ### 1. GitHub Actions (Recommended for Production)
 
+The GitHub Actions workflow automatically builds binaries when:
+- Files in `platform/binaries/` are modified
+- Infrastructure changes are detected
+- Force rebuild is triggered
+
+**To force a rebuild of all binaries:**
+```bash
+# Update the force build trigger file
+echo "BUILD_TRIGGER=$(date -u +%Y-%m-%dT%H:%M:%SZ)" > platform/binaries/FORCE_BUILD
+git add platform/binaries/FORCE_BUILD
+git commit -m "Force binary rebuild"
+git push origin main
+```
+
+### 2. Local Development Builds
+
 Automated builds triggered by:
 - Push to `main` or `develop` branches
 - Manual workflow dispatch
