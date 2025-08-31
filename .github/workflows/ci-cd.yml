@@ -515,7 +515,7 @@ jobs:
         
         # Get CloudFront distribution ID for cache invalidation (once, reuse for all monitors)
         DISTRIBUTION_ID=$(aws cloudfront list-distributions \
-          --query "DistributionList.Items[?Aliases.Items[]=='releases.watchy.cloud'].Id | [0]" \
+          --query "DistributionList.Items[?contains(Aliases.Items, 'releases.watchy.cloud')].Id | [0]" \
           --output text --region ${{ env.AWS_REGION }} 2>/dev/null || echo "")
         
         if [ -n "$DISTRIBUTION_ID" ] && [ "$DISTRIBUTION_ID" != "None" ] && [ "$DISTRIBUTION_ID" != "null" ]; then
