@@ -24,9 +24,6 @@ echo
 echo "🔸 Zoom Monitoring:"
 echo "   ${BASE_URL}/watchy-zoom-monitoring.yaml"
 echo
-echo "🔸 SaaS Template (Generic):"
-echo "   ${BASE_URL}/watchy-saas-template.yaml"
-echo
 
 echo "💡 Usage Example:"
 echo "aws cloudformation deploy \\"

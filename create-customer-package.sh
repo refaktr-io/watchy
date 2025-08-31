@@ -45,8 +45,6 @@ cat > "${CUSTOMER_PACKAGE_DIR}/index.html" << 'EOF'
             <code class="template-url">https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-github-monitoring.yaml</code></li>
         <li><strong>Zoom Monitoring:</strong><br>
             <code class="template-url">https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-zoom-monitoring.yaml</code></li>
-        <li><strong>SaaS Template:</strong><br>
-            <code class="template-url">https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-saas-template.yaml</code></li>
     </ul>
     
     <h2>Example Deployment</h2>

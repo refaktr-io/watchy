@@ -26,7 +26,6 @@ TEMPLATES=(
     "watchy-slack-monitoring.yaml"
     "watchy-github-monitoring.yaml" 
     "watchy-zoom-monitoring.yaml"
-    "watchy-saas-template.yaml"
 )
 
 MISSING_TEMPLATES=()

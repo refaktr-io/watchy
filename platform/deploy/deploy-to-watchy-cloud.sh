@@ -80,7 +80,6 @@ mkdir -p dist/platform/{templates,binaries,docs,api}
 # Process CloudFormation templates
 echo "📋 Processing CloudFormation templates..."
 cp platform/watchy-platform.yaml dist/platform/templates/
-cp platform/saas-apps/watchy-saas-template.yaml dist/platform/templates/
 cp platform/saas-apps/watchy-slack-monitoring.yaml dist/platform/templates/
 cp platform/saas-apps/watchy-github-monitoring.yaml dist/platform/templates/
 cp platform/saas-apps/watchy-zoom-monitoring.yaml dist/platform/templates/
@@ -312,7 +311,6 @@ cat > dist/platform/api/version.json << EOF
     "components": {
         "templates": {
             "parent": "https://$DOMAIN_NAME/platform/templates/watchy-platform.yaml",
-            "saas_template": "https://$DOMAIN_NAME/platform/templates/watchy-saas-template.yaml",
             "saas_apps": {
                 "slack": "https://$DOMAIN_NAME/platform/templates/watchy-slack-monitoring.yaml",
                 "github": "https://$DOMAIN_NAME/platform/templates/watchy-github-monitoring.yaml",
@@ -739,9 +737,6 @@ cat > dist/platform/templates/index.html << 'EOF'
         </div>
         
         <div class="template">
-            <h2>📋 SaaS Template (Base)</h2>
-            <p>Standardized base template for creating new SaaS monitoring applications. Use this as a starting point for adding new SaaS apps.</p>
-            <a href="watchy-saas-template.yaml" class="view-btn">View Template</a>
         </div>
     </div>
 </body>

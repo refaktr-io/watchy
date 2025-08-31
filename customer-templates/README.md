@@ -15,7 +15,6 @@ Deploy Watchy monitoring templates directly from our hosted S3 templates - no do
 - **Slack Status Monitoring**: Monitor Slack service status and incidents
 - **GitHub Status Monitoring**: Monitor GitHub's service status via Status API  
 - **Zoom Status Monitoring**: Monitor Zoom service status and incidents
-- **Custom SaaS Template**: Template for monitoring any SaaS service (requires customization)
 
 ## 🚀 **Deployment Steps**
 
@@ -55,19 +54,6 @@ aws cloudformation deploy \
     MonitoringSchedule="rate(5 minutes)"
 ```
 
-### **Custom SaaS Monitoring**
-
-```bash
-aws cloudformation deploy \
-  --template-url https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-saas-template.yaml \
-  --stack-name my-custom-monitoring \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --parameter-overrides \
-    SaasAppName="MyService" \
-    ApiUrl="https://status.myservice.com/api/v1/status" \
-    MonitoringSchedule="rate(10 minutes)"
-```
-
 **💡 Benefits of S3 deployment:**
 
 - ✅ Always uses the latest template version
@@ -83,7 +69,6 @@ For direct S3 deployment, use these URLs:
 - **Slack Monitoring**: `https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml`
 - **GitHub Monitoring**: `https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-github-monitoring.yaml`
 - **Zoom Monitoring**: `https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-zoom-monitoring.yaml`
-- **SaaS Template**: `https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-saas-template.yaml`
 
 ## 🔧 **Configuration Options**
 
@@ -91,7 +76,6 @@ For direct S3 deployment, use these URLs:
 
 - `MonitoringSchedule`: How often to check (e.g., "rate(5 minutes)")
 - `ApiUrl`: The status API endpoint to monitor
-- `SaasAppName`: Display name for the service
 
 ### **Alert Configuration**
 

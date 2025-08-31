@@ -31,11 +31,6 @@ watchy-platform.yaml (Parent Stack)
 - **Resources**: SNS topics, IAM roles, Parameter Store, nested stack deployment
 - **Parameters**: License key, customer ID, SaaS app selection
 
-### SaaS Template (`platform/saas-apps/watchy-saas-template.yaml`)
-- **Purpose**: Standardized template for any SaaS app monitoring
-- **Features**: Binary download, execution, CloudWatch integration
-- **Reusable**: Base for all SaaS-specific implementations
-
 ### Binary Monitors
 
 #### Slack Monitor (`platform/binaries/slack-monitor/`)
