@@ -1,0 +1,192 @@
+name: Deploy Watchy Platform to watchy.cloud
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy'
+        required: false
+        default: 'main'
+
+env:
+  BUCKET_NAME: watchy.cloud
+  DOMAIN_NAME: watchy.cloud
+  AWS_REGION: us-east-1
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc g++ ccache curl jq
+    
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install nuitka boto3 urllib3
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Extract version
+      id: version
+      run: |
+        if [[ $GITHUB_REF == refs/tags/v* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/v}
+        elif [[ "${{ github.event.inputs.version }}" != "" ]]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          VERSION="main-${GITHUB_SHA::8}"
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "WATCHY_VERSION=$VERSION" >> $GITHUB_ENV
+    
+    - name: Validate environment
+      run: |
+        echo "🔍 Validating deployment environment..."
+        
+        # Check AWS access
+        aws sts get-caller-identity
+        
+        # Check bucket access
+        aws s3 ls s3://$BUCKET_NAME/ | head -5
+        
+        # Check if main index.html exists (to ensure we don't overwrite)
+        if aws s3 ls s3://$BUCKET_NAME/index.html; then
+          echo "✅ Found existing index.html - will preserve it"
+        else
+          echo "⚠️  No existing index.html found"
+        fi
+        
+        echo "✅ Environment validation complete"
+    
+    - name: Deploy platform
+      run: |
+        echo "🚀 Starting Watchy Platform deployment..."
+        echo "Version: $WATCHY_VERSION"
+        echo "Target: s3://$BUCKET_NAME/platform/"
+        
+        ./deploy.sh
+    
+    - name: Verify deployment
+      run: |
+        echo "🔍 Verifying deployment..."
+        
+        # Wait for S3 propagation
+        sleep 10
+        
+        # Test platform API
+        echo "Testing platform API..."
+        api_response=$(curl -s "https://$DOMAIN_NAME/platform/api/version.json" || echo '{}')
+        
+        if echo "$api_response" | jq -e '.version' > /dev/null 2>&1; then
+          deployed_version=$(echo "$api_response" | jq -r '.version')
+          echo "✅ Platform API working - deployed version: $deployed_version"
+        else
+          echo "⚠️  Platform API not yet accessible (CloudFront propagation may be in progress)"
+        fi
+        
+        # Test templates
+        echo "Testing CloudFormation templates..."
+        if curl -s -f "https://$DOMAIN_NAME/platform/templates/watchy-platform.yaml" > /dev/null; then
+          echo "✅ CloudFormation templates accessible"
+        else
+          echo "⚠️  Templates not yet accessible"
+        fi
+        
+        # Test platform page
+        echo "Testing platform page..."
+        if curl -s -f "https://$DOMAIN_NAME/platform/" > /dev/null; then
+          echo "✅ Platform page accessible"
+        else
+          echo "⚠️  Platform page not yet accessible"
+        fi
+        
+        echo "🎉 Deployment verification complete!"
+    
+    - name: Create release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Watchy Cloud Platform v${{ steps.version.outputs.version }}
+        body: |
+          ## Watchy Cloud Platform v${{ steps.version.outputs.version }}
+          
+          ### 🚀 Quick Deploy Links
+          
+          **Complete Platform:**
+          [Deploy to AWS](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=watchy-platform&templateURL=https://watchy-resources.s3.amazonaws.com/platform/templates/watchy-platform.yaml)
+          
+          **Individual SaaS Monitoring:**
+          - [Slack Monitoring](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=watchy-slack&templateURL=https://watchy-resources.s3.amazonaws.com/platform/templates/watchy-slack-monitoring.yaml)
+          - [GitHub Monitoring](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=watchy-github&templateURL=https://watchy-resources.s3.amazonaws.com/platform/templates/watchy-github-monitoring.yaml)
+          - [Zoom Monitoring](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=watchy-zoom&templateURL=https://watchy-resources.s3.amazonaws.com/platform/templates/watchy-zoom-monitoring.yaml)
+          
+          ### 📊 Platform Resources
+          - 🌐 [Platform Overview](https://watchy.cloud/platform/)
+          - 📋 [All Templates](https://watchy-resources.s3.amazonaws.com/platform/templates/)
+          - 🔌 [Platform API](https://watchy.cloud/platform/api/version.json)
+          - 📚 [Documentation](https://watchy.cloud/platform/docs/)
+          
+          ### 🔒 Security Features
+          - ✅ Nuitka native binary compilation (maximum IP protection)
+          - ✅ LemonSqueezy license validation embedded
+          - ✅ Parameter Store encryption for API keys
+          - ✅ Binary integrity verification (SHA256)
+          - ✅ Source code completely hidden from customers
+          
+          ### 📦 What's Included
+          - Complete CloudFormation templates for multi-SaaS monitoring
+          - Native Nuitka binaries for Slack, GitHub, and Zoom monitoring
+          - CloudWatch integration with metrics and alarms
+          - SNS alerting for critical service outages
+          - Centralized license management
+          
+          ### 🚀 Getting Started
+          1. Get your Watchy license key
+          2. Click one of the deploy links above
+          3. Enter your license key and notification email
+          4. Deploy and start monitoring!
+        draft: false
+        prerelease: false
+    
+    - name: Notify on success
+      if: success()
+      run: |
+        echo "🎉 Deployment successful!"
+        echo ""
+        echo "📊 Platform deployed to:"
+        echo "  - Platform: https://watchy.cloud/platform/"
+        echo "  - Templates: https://watchy-resources.s3.amazonaws.com/platform/templates/"
+        echo "  - API: https://watchy.cloud/platform/api/version.json"
+        echo ""
+        echo "🚀 Quick deploy URL:"
+        echo "https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=watchy-platform&templateURL=https://watchy-resources.s3.amazonaws.com/platform/templates/watchy-platform.yaml"
+    
+    - name: Notify on failure
+      if: failure()
+      run: |
+        echo "❌ Deployment failed!"
+        echo "Check the logs above for details."

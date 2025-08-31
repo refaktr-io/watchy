@@ -1,0 +1,636 @@
+name: Build Watchy Monitoring Binaries
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'platform/binaries/**'
+      - '.github/workflows/build-binaries.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'platform/binaries/**'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build'
+        required: true
+        default: '1.0.0'
+        type: string
+      upload_to_s3:
+        description: 'Upload binaries to S3'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  WATCHY_VERSION: ${{ github.event.inputs.version || '1.0.0' }}
+  AWS_REGION: us-east-1
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  build-slack-monitor:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Configure AWS credentials
+      if: github.ref == 'refs/heads/main' || github.event.inputs.upload_to_s3 == 'true'
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Create build script
+      run: |
+        cd platform/binaries/slack-monitor
+        cat > docker-build.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        VERSION=${WATCHY_VERSION:-"1.0.0"}
+        BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        
+        echo "🐳 Building Watchy Slack Monitor with Docker + Nuitka v${VERSION}"
+        echo "Target: AWS Lambda x86_64 (Amazon Linux 2023)"
+        
+        # Clean previous builds
+        rm -rf build dist lambda
+        mkdir -p build dist lambda
+        
+        # Create Dockerfile for Amazon Linux 2023 (latest Lambda runtime)
+        cat > Dockerfile << 'DOCKERFILE'
+        FROM public.ecr.aws/lambda/python:3.11-x86_64
+        
+        # Install development tools for Amazon Linux 2023
+        RUN dnf update -y && \
+            dnf groupinstall -y "Development Tools" && \
+            dnf install -y \
+                gcc \
+                gcc-c++ \
+                make \
+                zlib-devel \
+                openssl-devel \
+                libffi-devel \
+                bzip2-devel \
+                xz-devel \
+                sqlite-devel \
+                readline-devel \
+                tk-devel \
+                gdbm-devel \
+                ncurses-devel \
+                python3-devel && \
+            dnf clean all
+        
+        # Install Python packages in Lambda environment
+        RUN pip install --upgrade pip setuptools wheel
+        RUN pip install nuitka requests boto3 certifi urllib3
+        
+        # Set working directory
+        WORKDIR /build
+        
+        # Copy source files
+        COPY watchy_slack_monitor.py .
+        COPY requirements.txt .
+        
+        # Create build script
+        COPY docker-build-internal.sh .
+        RUN chmod +x docker-build-internal.sh
+        
+        CMD ["./docker-build-internal.sh"]
+        DOCKERFILE
+        
+        # Create internal build script
+        cat > docker-build-internal.sh << 'INTERNAL'
+        #!/bin/bash
+        set -e
+        
+        VERSION=${WATCHY_VERSION:-"1.0.0"}
+        BUILD_TIME=${WATCHY_BUILD_TIME:-$(date -u +"%Y-%m-%dT%H:%M:%SZ")}
+        
+        echo "🔨 Starting Docker build for Slack Monitor..."
+        echo "Version: ${VERSION}"
+        echo "Build Time: ${BUILD_TIME}"
+        echo "Target: Amazon Linux 2023 x86_64"
+        
+        # Install requirements if they exist
+        if [ -f requirements.txt ]; then
+            echo "📦 Installing Python requirements..."
+            pip install -r requirements.txt
+        fi
+        
+        # Compile with Nuitka for Amazon Linux 2023
+        echo "🔨 Compiling with Nuitka for Lambda runtime..."
+        python -m nuitka \
+            --standalone \
+            --onefile \
+            --assume-yes-for-downloads \
+            --follow-imports \
+            --output-filename=watchy-slack-monitor \
+            --output-dir=/output \
+            --python-flag=no_warnings \
+            --python-flag=no_docstrings \
+            --python-flag=no_asserts \
+            --linux-onefile-icon=NONE \
+            --disable-console \
+            --include-package=requests \
+            --include-package=boto3 \
+            --include-package=botocore \
+            --include-package=urllib3 \
+            --include-package=certifi \
+            watchy_slack_monitor.py
+        
+        echo "✅ Nuitka compilation complete!"
+        
+        # Verify binary
+        if [ -f "/output/watchy-slack-monitor" ]; then
+            echo "✅ Binary created successfully"
+            ls -la /output/watchy-slack-monitor
+            file /output/watchy-slack-monitor
+            ldd /output/watchy-slack-monitor || echo "Static binary (no dynamic dependencies)"
+        else
+            echo "❌ Binary not found!"
+            exit 1
+        fi
+        
+        # Create binary metadata
+        BINARY_SIZE=$(stat -c%s /output/watchy-slack-monitor)
+        BINARY_HASH=$(sha256sum /output/watchy-slack-monitor | cut -d' ' -f1)
+        
+        cat > /output/watchy-slack-monitor.json << METADATA
+        {
+          "version": "${VERSION}",
+          "build_time": "${BUILD_TIME}",
+          "saas_app": "Slack",
+          "binary_type": "nuitka",
+          "binary_size": ${BINARY_SIZE},
+          "sha256": "${BINARY_HASH}",
+          "download_url": "https://releases.watchy.cloud/binaries/slack-monitor/watchy-slack-monitor-${VERSION}.gz",
+          "compression": "gzip",
+          "target_architecture": "x86_64",
+          "target_os": "linux",
+          "lambda_compatible": true,
+          "runtime_environment": "amazon-linux-2023",
+          "python_version": "3.11"
+        }
+        METADATA
+        
+        echo "📊 Binary Info:"
+        echo "  Size: ${BINARY_SIZE} bytes"
+        echo "  SHA256: ${BINARY_HASH}"
+        
+        echo "🎉 Docker build complete!"
+        INTERNAL
+        
+        chmod +x docker-build-internal.sh
+        
+        # Build Docker image
+        echo "🐳 Building Docker image..."
+        docker build -t watchy-slack-builder:${VERSION} .
+        
+        # Run build
+        echo "🚀 Running build inside Docker..."
+        docker run --rm \
+            -v "${SCRIPT_DIR}/build:/output" \
+            -e WATCHY_VERSION="${VERSION}" \
+            -e WATCHY_BUILD_TIME="${BUILD_TIME}" \
+            watchy-slack-builder:${VERSION}
+        
+        # Create distribution packages
+        if [ -f "build/watchy-slack-monitor" ]; then
+            echo "📦 Creating distribution packages..."
+            
+            # Copy and compress
+            cp build/watchy-slack-monitor dist/watchy-slack-monitor-${VERSION}
+            cp build/watchy-slack-monitor.json dist/
+            gzip -c dist/watchy-slack-monitor-${VERSION} > dist/watchy-slack-monitor-${VERSION}.gz
+            
+            # Create Lambda package
+            cp build/watchy-slack-monitor lambda/
+            cd lambda && zip -r ../dist/watchy-slack-lambda-${VERSION}.zip . && cd ..
+            
+            echo "✅ Build completed successfully!"
+        else
+            echo "❌ Build failed!"
+            exit 1
+        fi
+        
+        # Cleanup
+        docker rmi watchy-slack-builder:${VERSION} || true
+        rm -f Dockerfile docker-build-internal.sh
+        EOF
+        
+        chmod +x docker-build.sh
+    
+    - name: Build Slack Monitor Binary
+      run: |
+        cd platform/binaries/slack-monitor
+        ./docker-build.sh
+      env:
+        WATCHY_VERSION: ${{ env.WATCHY_VERSION }}
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: slack-monitor-binaries-${{ env.WATCHY_VERSION }}
+        path: |
+          platform/binaries/slack-monitor/dist/
+        retention-days: 30
+    
+    - name: Upload to S3
+      if: (github.ref == 'refs/heads/main' || github.event.inputs.upload_to_s3 == 'true') && success()
+      run: |
+        cd platform/binaries/slack-monitor/dist
+        
+        # Upload versioned files
+        aws s3 cp watchy-slack-monitor.json s3://watchy-releases/binaries/slack-monitor/watchy-slack-monitor-${{ env.WATCHY_VERSION }}.json
+        aws s3 cp watchy-slack-monitor-${{ env.WATCHY_VERSION }}.gz s3://watchy-releases/binaries/slack-monitor/
+        
+        # Upload as 'latest'
+        aws s3 cp watchy-slack-monitor.json s3://watchy-releases/binaries/slack-monitor/watchy-slack-monitor.json
+        aws s3 cp watchy-slack-monitor-${{ env.WATCHY_VERSION }}.gz s3://watchy-releases/binaries/slack-monitor/watchy-slack-monitor.gz
+        
+        echo "✅ Uploaded to S3: s3://watchy-releases/binaries/slack-monitor/"
+
+  build-github-monitor:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Configure AWS credentials
+      if: github.ref == 'refs/heads/main' || github.event.inputs.upload_to_s3 == 'true'
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Create build script
+      run: |
+        cd platform/binaries/github-monitor
+        cat > docker-build.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        VERSION=${WATCHY_VERSION:-"1.0.0"}
+        BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        
+        echo "🐳 Building Watchy GitHub Monitor with Docker + Nuitka v${VERSION}"
+        echo "Target: AWS Lambda x86_64 (Amazon Linux 2023)"
+        
+        # Clean and create directories
+        rm -rf build dist lambda
+        mkdir -p build dist lambda
+        
+        # Create Dockerfile
+        cat > Dockerfile << 'DOCKERFILE'
+        FROM public.ecr.aws/lambda/python:3.11-x86_64
+        
+        RUN dnf update -y && \
+            dnf groupinstall -y "Development Tools" && \
+            dnf install -y gcc gcc-c++ make zlib-devel openssl-devel libffi-devel bzip2-devel xz-devel sqlite-devel readline-devel tk-devel gdbm-devel ncurses-devel python3-devel && \
+            dnf clean all
+        
+        RUN pip install --upgrade pip setuptools wheel && \
+            pip install nuitka requests boto3 certifi urllib3
+        
+        WORKDIR /build
+        COPY watchy_github_monitor.py .
+        COPY requirements.txt .
+        COPY docker-build-internal.sh .
+        RUN chmod +x docker-build-internal.sh
+        
+        CMD ["./docker-build-internal.sh"]
+        DOCKERFILE
+        
+        # Create internal build script for GitHub monitor
+        cat > docker-build-internal.sh << 'INTERNAL'
+        #!/bin/bash
+        set -e
+        
+        VERSION=${WATCHY_VERSION:-"1.0.0"}
+        BUILD_TIME=${WATCHY_BUILD_TIME:-$(date -u +"%Y-%m-%dT%H:%M:%SZ")}
+        
+        echo "🔨 Building GitHub Monitor..."
+        
+        if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+        fi
+        
+        python -m nuitka \
+            --standalone \
+            --onefile \
+            --assume-yes-for-downloads \
+            --follow-imports \
+            --output-filename=watchy-github-monitor \
+            --output-dir=/output \
+            --python-flag=no_warnings \
+            --python-flag=no_docstrings \
+            --python-flag=no_asserts \
+            --linux-onefile-icon=NONE \
+            --disable-console \
+            --include-package=requests \
+            --include-package=boto3 \
+            --include-package=botocore \
+            --include-package=urllib3 \
+            --include-package=certifi \
+            watchy_github_monitor.py
+        
+        # Create metadata
+        BINARY_SIZE=$(stat -c%s /output/watchy-github-monitor)
+        BINARY_HASH=$(sha256sum /output/watchy-github-monitor | cut -d' ' -f1)
+        
+        cat > /output/watchy-github-monitor.json << METADATA
+        {
+          "version": "${VERSION}",
+          "build_time": "${BUILD_TIME}",
+          "saas_app": "GitHub",
+          "binary_type": "nuitka",
+          "binary_size": ${BINARY_SIZE},
+          "sha256": "${BINARY_HASH}",
+          "download_url": "https://releases.watchy.cloud/binaries/github-monitor/watchy-github-monitor-${VERSION}.gz",
+          "compression": "gzip",
+          "target_architecture": "x86_64",
+          "target_os": "linux",
+          "lambda_compatible": true,
+          "runtime_environment": "amazon-linux-2023",
+          "python_version": "3.11"
+        }
+        METADATA
+        
+        echo "✅ GitHub Monitor build complete!"
+        INTERNAL
+        
+        chmod +x docker-build-internal.sh
+        
+        # Build and run
+        docker build -t watchy-github-builder:${VERSION} .
+        docker run --rm -v "${SCRIPT_DIR}/build:/output" -e WATCHY_VERSION="${VERSION}" -e WATCHY_BUILD_TIME="${BUILD_TIME}" watchy-github-builder:${VERSION}
+        
+        # Package
+        if [ -f "build/watchy-github-monitor" ]; then
+            cp build/watchy-github-monitor dist/watchy-github-monitor-${VERSION}
+            cp build/watchy-github-monitor.json dist/
+            gzip -c dist/watchy-github-monitor-${VERSION} > dist/watchy-github-monitor-${VERSION}.gz
+            cp build/watchy-github-monitor lambda/
+            cd lambda && zip -r ../dist/watchy-github-lambda-${VERSION}.zip . && cd ..
+            echo "✅ GitHub Monitor packaged!"
+        fi
+        
+        # Cleanup
+        docker rmi watchy-github-builder:${VERSION} || true
+        rm -f Dockerfile docker-build-internal.sh
+        EOF
+        
+        chmod +x docker-build.sh
+    
+    - name: Build GitHub Monitor Binary
+      run: |
+        cd platform/binaries/github-monitor
+        ./docker-build.sh
+      env:
+        WATCHY_VERSION: ${{ env.WATCHY_VERSION }}
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: github-monitor-binaries-${{ env.WATCHY_VERSION }}
+        path: |
+          platform/binaries/github-monitor/dist/
+        retention-days: 30
+    
+    - name: Upload to S3
+      if: (github.ref == 'refs/heads/main' || github.event.inputs.upload_to_s3 == 'true') && success()
+      run: |
+        cd platform/binaries/github-monitor/dist
+        aws s3 cp watchy-github-monitor.json s3://watchy-releases/binaries/github-monitor/watchy-github-monitor-${{ env.WATCHY_VERSION }}.json
+        aws s3 cp watchy-github-monitor-${{ env.WATCHY_VERSION }}.gz s3://watchy-releases/binaries/github-monitor/
+        aws s3 cp watchy-github-monitor.json s3://watchy-releases/binaries/github-monitor/watchy-github-monitor.json
+        aws s3 cp watchy-github-monitor-${{ env.WATCHY_VERSION }}.gz s3://watchy-releases/binaries/github-monitor/watchy-github-monitor.gz
+
+  build-zoom-monitor:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Configure AWS credentials
+      if: github.ref == 'refs/heads/main' || github.event.inputs.upload_to_s3 == 'true'
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Create build script
+      run: |
+        cd platform/binaries/zoom-monitor
+        cat > docker-build.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        VERSION=${WATCHY_VERSION:-"1.0.0"}
+        BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        
+        echo "🐳 Building Watchy Zoom Monitor with Docker + Nuitka v${VERSION}"
+        
+        rm -rf build dist lambda
+        mkdir -p build dist lambda
+        
+        cat > Dockerfile << 'DOCKERFILE'
+        FROM public.ecr.aws/lambda/python:3.11-x86_64
+        
+        RUN dnf update -y && \
+            dnf groupinstall -y "Development Tools" && \
+            dnf install -y gcc gcc-c++ make zlib-devel openssl-devel libffi-devel bzip2-devel xz-devel sqlite-devel readline-devel tk-devel gdbm-devel ncurses-devel python3-devel && \
+            dnf clean all
+        
+        RUN pip install --upgrade pip setuptools wheel && \
+            pip install nuitka requests boto3 certifi urllib3
+        
+        WORKDIR /build
+        COPY watchy_zoom_monitor.py .
+        COPY requirements.txt .
+        COPY docker-build-internal.sh .
+        RUN chmod +x docker-build-internal.sh
+        
+        CMD ["./docker-build-internal.sh"]
+        DOCKERFILE
+        
+        cat > docker-build-internal.sh << 'INTERNAL'
+        #!/bin/bash
+        set -e
+        
+        VERSION=${WATCHY_VERSION:-"1.0.0"}
+        BUILD_TIME=${WATCHY_BUILD_TIME:-$(date -u +"%Y-%m-%dT%H:%M:%SZ")}
+        
+        echo "🔨 Building Zoom Monitor..."
+        
+        if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+        fi
+        
+        python -m nuitka \
+            --standalone \
+            --onefile \
+            --assume-yes-for-downloads \
+            --follow-imports \
+            --output-filename=watchy-zoom-monitor \
+            --output-dir=/output \
+            --python-flag=no_warnings \
+            --python-flag=no_docstrings \
+            --python-flag=no_asserts \
+            --linux-onefile-icon=NONE \
+            --disable-console \
+            --include-package=requests \
+            --include-package=boto3 \
+            --include-package=botocore \
+            --include-package=urllib3 \
+            --include-package=certifi \
+            watchy_zoom_monitor.py
+        
+        BINARY_SIZE=$(stat -c%s /output/watchy-zoom-monitor)
+        BINARY_HASH=$(sha256sum /output/watchy-zoom-monitor | cut -d' ' -f1)
+        
+        cat > /output/watchy-zoom-monitor.json << METADATA
+        {
+          "version": "${VERSION}",
+          "build_time": "${BUILD_TIME}",
+          "saas_app": "Zoom",
+          "binary_type": "nuitka",
+          "binary_size": ${BINARY_SIZE},
+          "sha256": "${BINARY_HASH}",
+          "download_url": "https://releases.watchy.cloud/binaries/zoom-monitor/watchy-zoom-monitor-${VERSION}.gz",
+          "compression": "gzip",
+          "target_architecture": "x86_64",
+          "target_os": "linux",
+          "lambda_compatible": true,
+          "runtime_environment": "amazon-linux-2023",
+          "python_version": "3.11"
+        }
+        METADATA
+        
+        echo "✅ Zoom Monitor build complete!"
+        INTERNAL
+        
+        chmod +x docker-build-internal.sh
+        
+        docker build -t watchy-zoom-builder:${VERSION} .
+        docker run --rm -v "${SCRIPT_DIR}/build:/output" -e WATCHY_VERSION="${VERSION}" -e WATCHY_BUILD_TIME="${BUILD_TIME}" watchy-zoom-builder:${VERSION}
+        
+        if [ -f "build/watchy-zoom-monitor" ]; then
+            cp build/watchy-zoom-monitor dist/watchy-zoom-monitor-${VERSION}
+            cp build/watchy-zoom-monitor.json dist/
+            gzip -c dist/watchy-zoom-monitor-${VERSION} > dist/watchy-zoom-monitor-${VERSION}.gz
+            cp build/watchy-zoom-monitor lambda/
+            cd lambda && zip -r ../dist/watchy-zoom-lambda-${VERSION}.zip . && cd ..
+        fi
+        
+        docker rmi watchy-zoom-builder:${VERSION} || true
+        rm -f Dockerfile docker-build-internal.sh
+        EOF
+        
+        chmod +x docker-build.sh
+    
+    - name: Build Zoom Monitor Binary
+      run: |
+        cd platform/binaries/zoom-monitor
+        ./docker-build.sh
+      env:
+        WATCHY_VERSION: ${{ env.WATCHY_VERSION }}
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: zoom-monitor-binaries-${{ env.WATCHY_VERSION }}
+        path: |
+          platform/binaries/zoom-monitor/dist/
+        retention-days: 30
+    
+    - name: Upload to S3
+      if: (github.ref == 'refs/heads/main' || github.event.inputs.upload_to_s3 == 'true') && success()
+      run: |
+        cd platform/binaries/zoom-monitor/dist
+        aws s3 cp watchy-zoom-monitor.json s3://watchy-releases/binaries/zoom-monitor/watchy-zoom-monitor-${{ env.WATCHY_VERSION }}.json
+        aws s3 cp watchy-zoom-monitor-${{ env.WATCHY_VERSION }}.gz s3://watchy-releases/binaries/zoom-monitor/
+        aws s3 cp watchy-zoom-monitor.json s3://watchy-releases/binaries/zoom-monitor/watchy-zoom-monitor.json
+        aws s3 cp watchy-zoom-monitor-${{ env.WATCHY_VERSION }}.gz s3://watchy-releases/binaries/zoom-monitor/watchy-zoom-monitor.gz
+
+  create-release:
+    if: github.ref == 'refs/heads/main'
+    needs: [build-slack-monitor, build-github-monitor, build-zoom-monitor]
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+    
+    - name: Create Release Summary
+      run: |
+        echo "# Watchy Monitoring Binaries v${{ env.WATCHY_VERSION }}" > release-notes.md
+        echo "" >> release-notes.md
+        echo "Built on $(date -u)" >> release-notes.md
+        echo "" >> release-notes.md
+        echo "## Built Binaries:" >> release-notes.md
+        echo "- 📱 Slack Monitor" >> release-notes.md
+        echo "- 🐙 GitHub Monitor" >> release-notes.md
+        echo "- 📹 Zoom Monitor" >> release-notes.md
+        echo "" >> release-notes.md
+        echo "## Technical Details:" >> release-notes.md
+        echo "- **Runtime**: Amazon Linux 2023" >> release-notes.md
+        echo "- **Architecture**: x86_64" >> release-notes.md
+        echo "- **Python Version**: 3.11" >> release-notes.md
+        echo "- **Compiler**: Nuitka (standalone)" >> release-notes.md
+        echo "- **AWS Lambda Compatible**: ✅" >> release-notes.md
+        echo "" >> release-notes.md
+        echo "## Distribution:" >> release-notes.md
+        echo "Binaries are automatically uploaded to \`s3://watchy-releases/binaries/\`" >> release-notes.md
+    
+    - name: Configure AWS credentials for CDN
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+    
+    - name: Invalidate CloudFront Distribution
+      run: |
+        echo "🔄 Invalidating CloudFront cache for fresh binaries..."
+        aws cloudfront create-invalidation \
+          --distribution-id EPU2NZMTP8HSG \
+          --paths "/binaries/*" \
+          --query 'Invalidation.Id' \
+          --output text
+        echo "✅ CloudFront invalidation triggered"
+    
+    - name: Upload release artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: watchy-release-${{ env.WATCHY_VERSION }}
+        path: |
+          artifacts/
+          release-notes.md
+        retention-days: 90
