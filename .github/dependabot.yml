@@ -1,0 +1,78 @@
+# Dependabot configuration for watchy.cloud
+# This file configures automated dependency updates for the repository
+version: 2
+updates:
+  # Python dependencies for Slack Monitor
+  - package-ecosystem: "pip"
+    directory: "/platform/binaries/slack-monitor"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    assignees:
+      - "cloudbennett"
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "slack-monitor"
+    
+  # Python dependencies for GitHub Monitor
+  - package-ecosystem: "pip"
+    directory: "/platform/binaries/github-monitor"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:15"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    assignees:
+      - "cloudbennett"
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-monitor"
+      
+  # Python dependencies for Zoom Monitor
+  - package-ecosystem: "pip"
+    directory: "/platform/binaries/zoom-monitor"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:30"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    assignees:
+      - "cloudbennett"
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "zoom-monitor"
+
+  # GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 3
+    assignees:
+      - "cloudbennett"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"

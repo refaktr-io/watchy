@@ -2,6 +2,17 @@
 
 Advanced SaaS monitoring platform with secure native binaries and clear separation between platform infrastructure and customer deliverables.
 
+## 🔒 **Security Features**
+
+This repository implements comprehensive security scanning and monitoring:
+
+- **🔍 Automated Security Scanning**: Dependency vulnerabilities, Python security analysis, secret detection
+- **🤖 Automated Updates**: Dependabot for weekly dependency updates and security patches  
+- **🛡️ Security Workflow**: Security scans on every main branch push with CI/CD integration
+- **📊 Continuous Monitoring**: GitHub Security tab integration and deployment notifications
+
+See [SECURITY.md](SECURITY.md) for complete security policy and procedures.
+
 ## 🏗️ **Repository Structure**
 
 ```
