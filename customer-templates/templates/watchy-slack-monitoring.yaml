@@ -150,7 +150,7 @@ Resources:
                       cached_info.get('sha256') == latest_info['sha256']):
                       
                       logger.info(f"✅ Using cached Slack binary v{latest_info['version']} (size: {cached_info.get('binarySize', 'unknown')} bytes)")
-                      return binary_path, latest_info['version']
+                      return binary_path, latest_info['version'], latest_info
                   
                   # Download new binary
                   logger.info(f"🔄 Downloading updated Slack binary v{latest_info['version']}")
@@ -170,7 +170,7 @@ Resources:
                   except Exception as e:
                       logger.warning(f"Failed to cache binary info: {e}")
                   
-                  return binary_path, latest_info['version']
+                  return binary_path, latest_info['version'], latest_info
                   
               except Exception as e:
                   logger.error(f"Failed to ensure binary: {e}")
@@ -224,7 +224,7 @@ Resources:
                   logger.info("🚀 Starting Slack status monitoring...")
                   
                   # Ensure we have the latest Slack binary (with intelligent caching)
-                  binary_path, version = ensure_nuitka_binary()
+                  binary_path, version, latest_info = ensure_nuitka_binary()
                   
                   # Load credentials
                   ssm = boto3.client('ssm')
@@ -269,15 +269,15 @@ Resources:
                   # Add metadata
                   output_data.update({
                       'saas_app': 'Slack',
-                      'binary_type': binary_info.get('binary_type', 'nuitka'),
-                      'binary_version': binary_info.get('version'),
-                      'binary_sha256': binary_info.get('sha256'),
-                      'binary_size': binary_info.get('binarySize'),
-                      'build_time': binary_info.get('buildTime'),
-                      'git_commit': binary_info.get('gitCommit'),
-                      'build_number': binary_info.get('buildNumber'),
-                      'target_platform': binary_info.get('target_platform'),
-                      'lambda_compatible': binary_info.get('lambda_compatible'),
+                      'binary_type': latest_info.get('binary_type', 'nuitka'),
+                      'binary_version': latest_info.get('version'),
+                      'binary_sha256': latest_info.get('sha256'),
+                      'binary_size': latest_info.get('binarySize'),
+                      'build_time': latest_info.get('buildTime'),
+                      'git_commit': latest_info.get('gitCommit'),
+                      'build_number': latest_info.get('buildNumber'),
+                      'target_platform': latest_info.get('target_platform'),
+                      'lambda_compatible': latest_info.get('lambda_compatible'),
                       'execution_time': time.time() - start_time,
                       'timestamp': datetime.utcnow().isoformat()
                   })
