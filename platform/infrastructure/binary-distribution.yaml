@@ -202,7 +202,7 @@ Resources:
             Principal:
               Service: cloudfront.amazonaws.com
             Action: s3:GetObject
-            Resource: !Sub "${BinaryDistributionBucket}/*"
+            Resource: !Sub "${BinaryDistributionBucket.Arn}/*"
             Condition:
               StringEquals:
                 'AWS:SourceArn': !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${BinaryDistribution}"
@@ -247,7 +247,7 @@ Resources:
             Principal:
               Service: cloudfront.amazonaws.com
             Action: s3:GetBucketAcl
-            Resource: !Ref AccessLogsBucket
+            Resource: !GetAtt AccessLogsBucket.Arn
             Condition:
               StringEquals:
                 'AWS:SourceArn': !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${BinaryDistribution}'
