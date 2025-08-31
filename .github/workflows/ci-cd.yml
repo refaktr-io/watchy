@@ -313,6 +313,7 @@ jobs:
   deploy-infrastructure:
     name: Deploy Infrastructure
     runs-on: ubuntu-latest
+    timeout-minutes: 45  # CloudFront distributions can take 15-20 minutes
     needs: [detect-changes, validate]
     if: |
       (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
@@ -343,8 +344,10 @@ jobs:
     
     - name: Deploy Binary Distribution Infrastructure
       if: steps.check-binary-dist.outputs.exists == 'false' || needs.detect-changes.outputs.infrastructure == 'true'
+      timeout-minutes: 30  # CloudFront distributions can take 15-20 minutes
       run: |
         echo "🚀 Deploying binary distribution infrastructure..."
+        echo "⏰ This may take up to 20 minutes for CloudFront distribution creation..."
         
         # Set certificate parameter based on availability
         if [ -n "${{ secrets.SSL_CERTIFICATE_ARN }}" ]; then
@@ -355,6 +358,10 @@ jobs:
           echo "⚠️  No SSL certificate provided - deploying without custom domain"
         fi
         
+        # Deploy with extended timeout and better error handling
+        set -e  # Exit on any error
+        
+        echo "📋 Starting CloudFormation deployment..."
         aws cloudformation deploy \
           --template-file platform/infrastructure/binary-distribution.yaml \
           --stack-name watchy-binary-distribution \
@@ -365,10 +372,15 @@ jobs:
           --capabilities CAPABILITY_NAMED_IAM \
           --region ${{ env.AWS_REGION }} \
           --no-fail-on-empty-changeset
+        
+        echo "✅ Binary distribution infrastructure deployment completed!"
     
     - name: Deploy Main Platform Infrastructure
+      timeout-minutes: 15  # Platform infrastructure is typically faster than CloudFront
       run: |
         echo "🚀 Deploying main platform infrastructure..."
+        
+        set -e  # Exit on any error
         
         aws cloudformation deploy \
           --template-file platform/watchy-platform.yaml \
@@ -379,6 +391,8 @@ jobs:
           --capabilities CAPABILITY_NAMED_IAM \
           --region ${{ env.AWS_REGION }} \
           --no-fail-on-empty-changeset
+        
+        echo "✅ Main platform infrastructure deployment completed!"
 
   # ===== DEPLOY BINARIES (Only if Built Successfully) =====
   deploy-binaries:
