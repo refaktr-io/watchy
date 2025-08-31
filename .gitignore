@@ -1,6 +1,19 @@
 # Created by https://www.toptal.com/developers/gitignore/api/macos,python
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos,python
 
+# Watchy Cloud Platform - Build Artifacts
+build/
+dist/
+*.log
+*.zip
+*.gz
+*.tar.gz
+docker-build.sh
+docker-build-internal.sh
+Dockerfile
+watchy-*-monitor
+watchy-*-nuitka-lambda-*.zip
+
 ### macOS ###
 # General
 .DS_Store

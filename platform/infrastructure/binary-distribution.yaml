@@ -25,9 +25,9 @@ Resources:
       BucketName: !Sub 'watchy-releases-${Environment}'
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
-        BlockPublicPolicy: true
+        BlockPublicPolicy: false
         IgnorePublicAcls: true
-        RestrictPublicBuckets: true
+        RestrictPublicBuckets: false
       VersioningConfiguration:
         Status: Enabled
       LifecycleConfiguration:

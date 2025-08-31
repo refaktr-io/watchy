@@ -16,7 +16,7 @@ from typing import Dict, Any, List
 
 # Version information
 VERSION = "1.0.0-nuitka"
-BUILD_DATE = "2025-07-28T05:08:30Z"
+BUILD_DATE = "2025-08-31T03:24:06Z"
 
 def validate_license(license_key: str) -> bool:
     """

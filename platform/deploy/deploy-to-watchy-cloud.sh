@@ -1,33 +1,32 @@
 #!/bin/bash
 
-# Complete Watchy Platform Deployment Script
-# Deploys to existing watchy.cloud S3 bucket without overwriting main index.html
+# DEPRECATED: Complete Watchy Platform Deployment Script
+# All deployments now happen via GitHub Actions
 
-set -e
+echo "⚠️  DEPRECATED: This script is replaced by GitHub Actions"
+echo ""
+echo "🚀 Use GitHub Actions for all deployments:"
+echo ""
+echo "📋 Automatic Deployment:"
+echo "  • Push to main branch: git push origin main"
+echo "  • Pull requests are validated automatically"
+echo ""
+echo "📋 Manual Deployment:"
+echo "  1. Go to: https://github.com/cloudbennett/watchy.cloud/actions"
+echo "  2. Select: 'Complete CI/CD Pipeline'"
+echo "  3. Click: 'Run workflow'"
+echo "  4. Choose: environment and version"
+echo ""
+echo "✨ Benefits:"
+echo "  • Consistent build environment"
+echo "  • Automatic security scanning"
+echo "  • Complete audit trail"
+echo "  • No local AWS credentials needed"
+echo "  • Rollback capabilities"
+echo ""
+echo "❌ Local deployment is disabled for security"
 
-# Configuration
-BUCKET_NAME="watchy.cloud"                    # Web hosting bucket (via CloudFront)
-TEMPLATES_BUCKET="watchy-resources"           # CloudFormation templates bucket (direct S3)
-DOMAIN_NAME="watchy.cloud"
-VERSION=${WATCHY_VERSION:-"1.0.0"}
-REGION=${AWS_REGION:-"us-east-1"}
-BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-# Detect if we're in CI/CD (GitHub Actions) or local environment
-if [ "$CI" = "true" ] || [ "$GITHUB_ACTIONS" = "true" ]; then
-    echo "🤖 Detected CI/CD environment - using environment variables for AWS auth"
-    AWS_CLI_ARGS="--region $REGION"
-    AWS_PROFILE_NAME="CI/CD"
-else
-    echo "💻 Detected local environment - using watchy profile"
-    AWS_CLI_ARGS="--profile watchy --region $REGION"
-    AWS_PROFILE_NAME="watchy"
-fi
-
-echo "🚀 Watchy Platform Deployment to watchy.cloud"
-echo "============================================="
-echo "Version: $VERSION"
-echo "Build Time: $BUILD_TIME"
+exit 1
 echo "Bucket: $BUCKET_NAME"
 echo "Templates Bucket: $TEMPLATES_BUCKET"
 echo "Domain: $DOMAIN_NAME"

@@ -1,33 +1,32 @@
 #!/bin/bash
 
-# Deploy Watchy Binary Distribution Infrastructure
-# This script creates the CloudFront distribution and S3 bucket for binary hosting
+# DEPRECATED: Deploy Watchy Binary Distribution Infrastructure
+# This functionality is now handled by GitHub Actions
 
-set -e
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TEMPLATE_FILE="${SCRIPT_DIR}/binary-distribution.yaml"
-STACK_NAME="watchy-binary-distribution"
-ENVIRONMENT="prod"
-DOMAIN_NAME="releases.watchy.cloud"
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-echo -e "${BLUE}🚀 Deploying Watchy Binary Distribution Infrastructure${NC}"
-echo "============================================================"
-echo "Stack Name: ${STACK_NAME}"
-echo "Domain: ${DOMAIN_NAME}"
-echo "Environment: ${ENVIRONMENT}"
+echo "⚠️  DEPRECATED: Infrastructure deployment is now handled by GitHub Actions"
 echo ""
+echo "🚀 Infrastructure is deployed automatically via GitHub Actions:"
+echo ""
+echo "📋 Automatic Deployment:"
+echo "  • Infrastructure deploys when you push to main branch"
+echo "  • CloudFormation templates are validated on every PR"
+echo ""
+echo "📋 Manual Infrastructure Deployment:"
+echo "  1. Go to: https://github.com/cloudbennett/watchy.cloud/actions"
+echo "  2. Select: 'Complete CI/CD Pipeline'"
+echo "  3. Click: 'Run workflow'"
+echo "  4. Infrastructure will deploy as part of the pipeline"
+echo ""
+echo "🏗️ This script deployed:"
+echo "  • CloudFront distribution (releases.watchy.cloud)"
+echo "  • S3 bucket for binary hosting"
+echo "  • SSL certificate integration"
+echo "  • CDN caching rules"
+echo ""
+echo "❌ Local infrastructure deployment is disabled"
+echo "✅ Use GitHub Actions for consistent, auditable deployments"
 
-# Check if AWS CLI is configured
-if ! aws sts get-caller-identity --profile watchy >/dev/null 2>&1; then
-    echo -e "${RED}❌ AWS CLI not configured or profile 'watchy' not found${NC}"
+exit 1
     echo "Please configure AWS CLI with: aws configure --profile watchy"
     exit 1
 fi

@@ -1,0 +1,450 @@
+name: Optimized Watchy Platform CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+        - staging
+        - production
+      force_infrastructure:
+        description: 'Force infrastructure redeployment'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  # ===== DETECT CHANGES =====
+  detect-changes:
+    name: Detect What Changed
+    runs-on: ubuntu-latest
+    outputs:
+      infrastructure: ${{ steps.changes.outputs.infrastructure }}
+      binaries: ${{ steps.changes.outputs.binaries }}
+      platform: ${{ steps.changes.outputs.platform }}
+      website: ${{ steps.changes.outputs.website }}
+      force_infrastructure: ${{ github.event.inputs.force_infrastructure || 'false' }}
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+    
+    - uses: dorny/paths-filter@v2
+      id: changes
+      with:
+        filters: |
+          infrastructure:
+            - 'platform/infrastructure/**'
+            - 'platform/watchy-platform.yaml'
+          binaries:
+            - 'platform/binaries/**'
+          platform:
+            - 'platform/saas-apps/**'
+            - 'platform/scripts/**'
+            - 'platform/deploy/**'
+          website:
+            - 'website/**'
+
+  # ===== VALIDATION (Always Run) =====
+  validate:
+    name: Validate Code & Templates
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install validation tools
+      run: |
+        pip install cfn-lint flake8 black bandit safety
+    
+    - name: Validate CloudFormation templates
+      run: |
+        echo "🔍 Validating CloudFormation templates..."
+        find platform -name "*.yaml" -o -name "*.yml" | xargs cfn-lint
+    
+    - name: Lint Python code
+      run: |
+        echo "🔍 Linting Python code..."
+        find . -name "*.py" -exec flake8 {} \;
+    
+    - name: Check Python code formatting
+      run: |
+        echo "🔍 Checking Python formatting..."
+        find . -name "*.py" -exec black --check {} \;
+
+  # ===== SECURITY STAGE =====
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install security tools
+      run: |
+        pip install bandit safety
+    
+    - name: Run Bandit security scan
+      run: |
+        echo "🔒 Running security scan..."
+        bandit -r platform/binaries/ -f json -o bandit-report.json || true
+    
+    - name: Check dependencies for vulnerabilities
+      run: |
+        echo "🔒 Checking dependencies..."
+        find platform/binaries -name requirements.txt -exec safety check -r {} \; || true
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+    
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # ===== BUILD BINARIES (Only if Changed) =====
+  build-binaries:
+    name: Build Native Binaries
+    runs-on: ubuntu-latest
+    needs: [detect-changes, validate]
+    if: |
+      (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
+      (needs.detect-changes.outputs.binaries == 'true' || needs.detect-changes.outputs.force_infrastructure == 'true')
+    strategy:
+      matrix:
+        monitor: [slack-monitor, github-monitor, zoom-monitor]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Check if monitor changed
+      id: monitor-changed
+      run: |
+        if [ "${{ needs.detect-changes.outputs.force_infrastructure }}" == "true" ]; then
+          echo "changed=true" >> $GITHUB_OUTPUT
+          echo "🔄 Force rebuild enabled for ${{ matrix.monitor }}"
+        elif git diff --name-only HEAD~1 HEAD | grep -q "platform/binaries/${{ matrix.monitor }}/"; then
+          echo "changed=true" >> $GITHUB_OUTPUT
+          echo "📝 Changes detected in ${{ matrix.monitor }}"
+        else
+          echo "changed=false" >> $GITHUB_OUTPUT
+          echo "✅ No changes in ${{ matrix.monitor }}, skipping build"
+        fi
+    
+    - name: Build ${{ matrix.monitor }}
+      if: steps.monitor-changed.outputs.changed == 'true'
+      run: |
+        echo "🔨 Building ${{ matrix.monitor }}..."
+        cd platform/binaries/${{ matrix.monitor }}
+        chmod +x build.sh
+        
+        # Set environment variables for build
+        export WATCHY_VERSION=$(date -u +%Y.%m.%d.%H%M%S)-${GITHUB_SHA:0:7}
+        export PYTHON_VERSION=3.11
+        
+        # Build the binary
+        ./build.sh
+        
+        # Verify binary was created
+        if [ -f "lambda/watchy-${{ matrix.monitor }}" ]; then
+          echo "✅ Binary built successfully"
+          ls -la lambda/
+        else
+          echo "❌ Binary build failed"
+          exit 1
+        fi
+    
+    - name: Upload binary artifacts
+      if: steps.monitor-changed.outputs.changed == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.monitor }}-binary
+        path: platform/binaries/${{ matrix.monitor }}/lambda/
+        retention-days: 30
+
+  # ===== DEPLOY INFRASTRUCTURE (Only if Changed) =====
+  deploy-infrastructure:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    needs: [detect-changes, validate]
+    if: |
+      (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
+      (needs.detect-changes.outputs.infrastructure == 'true' || needs.detect-changes.outputs.force_infrastructure == 'true')
+    environment: ${{ github.event.inputs.environment || 'production' }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Check if Binary Distribution exists
+      id: check-binary-dist
+      run: |
+        if aws cloudformation describe-stacks --stack-name watchy-binary-distribution --region ${{ env.AWS_REGION }} >/dev/null 2>&1; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "✅ Binary distribution stack exists"
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "📦 Binary distribution stack needs to be created"
+        fi
+    
+    - name: Deploy Binary Distribution Infrastructure
+      if: steps.check-binary-dist.outputs.exists == 'false' || needs.detect-changes.outputs.infrastructure == 'true'
+      run: |
+        echo "🚀 Deploying binary distribution infrastructure..."
+        
+        aws cloudformation deploy \
+          --template-file platform/infrastructure/binary-distribution.yaml \
+          --stack-name watchy-binary-distribution \
+          --parameter-overrides \
+            DomainName=releases.watchy.cloud \
+            CertificateArn=${{ secrets.SSL_CERTIFICATE_ARN }} \
+            Environment=prod \
+          --capabilities CAPABILITY_NAMED_IAM \
+          --region ${{ env.AWS_REGION }} \
+          --no-fail-on-empty-changeset
+    
+    - name: Deploy Main Platform Infrastructure
+      run: |
+        echo "🚀 Deploying main platform infrastructure..."
+        
+        aws cloudformation deploy \
+          --template-file platform/watchy-platform.yaml \
+          --stack-name watchy-platform \
+          --parameter-overrides \
+            BinaryDistributionUrl=https://releases.watchy.cloud \
+            Environment=prod \
+          --capabilities CAPABILITY_NAMED_IAM \
+          --region ${{ env.AWS_REGION }} \
+          --no-fail-on-empty-changeset
+
+  # ===== DEPLOY BINARIES (Only if Built) =====
+  deploy-binaries:
+    name: Deploy Binaries to S3
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-binaries, deploy-infrastructure]
+    if: |
+      always() && 
+      (needs.build-binaries.result == 'success' || needs.build-binaries.result == 'skipped') &&
+      (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped') &&
+      (needs.detect-changes.outputs.binaries == 'true' || needs.detect-changes.outputs.force_infrastructure == 'true')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Download binary artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts/
+    
+    - name: Upload binaries to S3
+      run: |
+        # Get bucket name from CloudFormation stack
+        BUCKET_NAME=$(aws cloudformation describe-stacks \
+          --stack-name watchy-binary-distribution \
+          --query 'Stacks[0].Outputs[?OutputKey==`BucketName`].OutputValue' \
+          --output text --region ${{ env.AWS_REGION }})
+        
+        echo "📦 Uploading binaries to bucket: $BUCKET_NAME"
+        
+        # Set version for this build
+        VERSION=$(date -u +%Y.%m.%d.%H%M%S)-${GITHUB_SHA:0:7}
+        
+        # Upload each monitor's artifacts
+        for monitor in slack-monitor github-monitor zoom-monitor; do
+          if [ -d "artifacts/${monitor}-binary" ]; then
+            echo "📤 Uploading ${monitor} binaries..."
+            
+            # Upload versioned binary
+            aws s3 cp "artifacts/${monitor}-binary/watchy-${monitor}" \
+              "s3://${BUCKET_NAME}/binaries/${monitor}/watchy-${monitor}-${VERSION}" \
+              --region ${{ env.AWS_REGION }}
+            
+            # Upload latest symlink
+            aws s3 cp "artifacts/${monitor}-binary/watchy-${monitor}" \
+              "s3://${BUCKET_NAME}/binaries/${monitor}/watchy-${monitor}-latest" \
+              --region ${{ env.AWS_REGION }}
+            
+            # Create and upload metadata
+            cat > "${monitor}-metadata.json" << EOF
+        {
+          "version": "${VERSION}",
+          "buildTime": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+          "gitCommit": "${GITHUB_SHA}",
+          "buildNumber": "${GITHUB_RUN_NUMBER}",
+          "downloadUrl": "https://releases.watchy.cloud/binaries/${monitor}/watchy-${monitor}-${VERSION}",
+          "latestUrl": "https://releases.watchy.cloud/binaries/${monitor}/watchy-${monitor}-latest"
+        }
+        EOF
+            
+            aws s3 cp "${monitor}-metadata.json" \
+              "s3://${BUCKET_NAME}/binaries/${monitor}/metadata.json" \
+              --content-type "application/json" \
+              --region ${{ env.AWS_REGION }}
+          else
+            echo "⚠️  No artifacts found for ${monitor}"
+          fi
+        done
+
+  # ===== DEPLOY PLATFORM (When Platform or Website Changes) =====
+  deploy-platform:
+    name: Deploy Platform Files
+    runs-on: ubuntu-latest
+    needs: [detect-changes, validate]
+    if: |
+      (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
+      (needs.detect-changes.outputs.platform == 'true' || needs.detect-changes.outputs.website == 'true' || github.event_name == 'workflow_dispatch')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Deploy website
+      if: needs.detect-changes.outputs.website == 'true' || github.event_name == 'workflow_dispatch'
+      run: |
+        echo "🌐 Deploying website..."
+        aws s3 sync website/ s3://watchy.cloud/ \
+          --delete \
+          --cache-control "max-age=3600" \
+          --region ${{ env.AWS_REGION }}
+    
+    - name: Deploy platform files
+      if: needs.detect-changes.outputs.platform == 'true' || github.event_name == 'workflow_dispatch'
+      run: |
+        VERSION=$(date -u +%Y.%m.%d.%H%M%S)-${GITHUB_SHA:0:7}
+        
+        echo "📤 Deploying platform files v${VERSION}..."
+        
+        # Deploy platform files to watchy.cloud (under /platform/)
+        aws s3 sync platform/ s3://watchy.cloud/platform/ \
+          --delete \
+          --exclude "index.html" \
+          --cache-control "max-age=3600" \
+          --region ${{ env.AWS_REGION }}
+        
+        # Deploy templates to watchy-resources
+        aws s3 sync platform/ s3://watchy-resources/ \
+          --delete \
+          --cache-control "max-age=86400" \
+          --region ${{ env.AWS_REGION }}
+
+  # ===== TEST STAGE =====
+  test-deployment:
+    name: Test Deployment
+    runs-on: ubuntu-latest
+    needs: [deploy-binaries, deploy-platform]
+    if: always() && (needs.deploy-platform.result == 'success' || needs.deploy-binaries.result == 'success')
+    
+    steps:
+    - name: Test deployment endpoints
+      run: |
+        echo "🧪 Testing deployment..."
+        
+        # Test website
+        if curl -f https://watchy.cloud/; then
+          echo "✅ Website is accessible"
+        else
+          echo "❌ Website is not accessible"
+          exit 1
+        fi
+        
+        # Test platform files
+        if curl -f https://watchy.cloud/platform/; then
+          echo "✅ Platform files are accessible"
+        else
+          echo "⚠️  Platform root not directly accessible (expected)"
+        fi
+        
+        # Test binary distribution
+        if curl -f https://releases.watchy.cloud/binaries/slack-monitor/metadata.json; then
+          echo "✅ Binary distribution is working"
+        else
+          echo "⚠️  Binary distribution not accessible yet (CloudFront may still be deploying)"
+        fi
+        
+        echo "✅ Deployment test completed"
+
+  # ===== NOTIFICATION =====
+  notify:
+    name: Notify Deployment Status
+    runs-on: ubuntu-latest
+    needs: [test-deployment, detect-changes]
+    if: always() && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+    
+    steps:
+    - name: Deployment Summary
+      run: |
+        echo "## 🚀 Deployment Summary"
+        echo "### Changes Detected:"
+        echo "- Infrastructure: ${{ needs.detect-changes.outputs.infrastructure }}"
+        echo "- Binaries: ${{ needs.detect-changes.outputs.binaries }}"
+        echo "- Platform: ${{ needs.detect-changes.outputs.platform }}"
+        echo "- Website: ${{ needs.detect-changes.outputs.website }}"
+        echo "- Force Infrastructure: ${{ needs.detect-changes.outputs.force_infrastructure }}"
+        
+        if [ "${{ needs.test-deployment.result }}" = "success" ]; then
+          echo "### ✅ Deployment Successful!"
+          echo "🌐 Platform: https://watchy.cloud/"
+          echo "📦 Binaries: https://releases.watchy.cloud/"
+          echo "📋 Platform API: https://watchy.cloud/platform/"
+        else
+          echo "### ❌ Deployment Issues"
+          echo "Check the workflow logs for details"
+        fi

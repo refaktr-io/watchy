@@ -1,0 +1,17 @@
+{
+  "version": "1.0.0",
+  "build_time": "2025-08-30T20:24:00Z",
+  "download_url": "https://releases.watchy.cloud/github-monitor/watchy-github-monitor",
+  "sha256": "placeholder_checksum_will_be_updated_after_build",
+  "compression": "none",
+  "binary_type": "nuitka",
+  "target_platform": "linux-x86_64",
+  "lambda_compatible": true,
+  "metadata": {
+    "saas_app": "GitHub",
+    "monitor_type": "status",
+    "python_version": "3.11",
+    "compiler": "nuitka",
+    "compiler_version": "2.7.13"
+  }
+}
