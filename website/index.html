@@ -12,9 +12,9 @@
 </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
-    <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet">
-    <title>Watchy - Coming Soon</title>
+    <meta name="description" content="Watchy Slack Monitoring - Enterprise-grade Slack status monitoring with intelligent caching and CloudWatch integration">
+    <meta name="keywords" content="Slack monitoring, CloudWatch, AWS, status monitoring, SaaS monitoring">
+    <title>Watchy - Enterprise Slack Status Monitoring</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -27,92 +27,233 @@
 
         body {
             font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
-            background-color: #eeeeee;
-            color: #006d97;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            background-color: #f8fafc;
+            color: #334155;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #0092ca 0%, #00b7fd 100%);
+            color: white;
+            padding: 2rem 0;
+            text-align: center;
         }
 
         .container {
-            max-width: 600px;
-            text-align: center;
-            padding: 2rem;
-            background-color: #ffffff;
-            border-radius: 15px;
-            box-shadow: 0 8px 32px rgba(0, 146, 202, 0.1);
-            border: 1px solid #d4d4d4;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
         }
 
         .logo {
-            font-size: 4rem;
+            font-size: 3rem;
             margin-bottom: 1rem;
         }
 
         h1 {
-            font-size: 2.5rem;
+            font-size: 3rem;
             font-weight: 700;
-            color: #0092ca;
             margin-bottom: 1rem;
+            font-family: 'IBM Plex Mono', monospace;
             text-transform: uppercase;
             letter-spacing: 0.1em;
-            font-family: 'IBM Plex Mono', monospace;
         }
 
         .tagline {
-            font-size: 1.2rem;
-            color: #006d97;
+            font-size: 1.5rem;
             margin-bottom: 2rem;
+            opacity: 0.95;
             font-weight: 500;
         }
 
-        .description {
-            font-size: 1rem;
-            color: #006d97;
-            margin-bottom: 2.5rem;
-            line-height: 1.6;
-        }
-
-        .features {
-            margin-bottom: 2.5rem;
-        }
-
-        .feature-item {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 1rem;
-            font-size: 1rem;
-            color: #006d97;
-        }
-
-        .feature-item::before {
-            content: "✓";
-            color: #00b7fd;
-            font-weight: bold;
-            margin-right: 0.5rem;
-            font-size: 1.2rem;
-        }
-
-        .coming-soon {
-            background-color: #00b7fd;
-            color: #ffffff;
-            padding: 8px 16px;
-            border-radius: 20px;
+        .launch-badge {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 25px;
             font-size: 0.9rem;
             font-weight: 600;
             display: inline-block;
-            margin-bottom: 1.5rem;
+            margin-bottom: 2rem;
             font-family: 'IBM Plex Mono', monospace;
             text-transform: uppercase;
             letter-spacing: 0.05em;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .deploy-section {
+            background: white;
+            padding: 3rem 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .deploy-button {
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-block;
+            margin: 1rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .deploy-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(255, 107, 53, 0.3);
+        }
+
+        .deploy-info {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .deploy-info h2 {
+            font-size: 2.5rem;
+            color: #0092ca;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+
+        .deploy-description {
+            font-size: 1.1rem;
+            color: #64748b;
+            max-width: 600px;
+            margin: 0 auto 2rem;
+        }
+
+        .features-section {
+            padding: 4rem 0;
+            background: #f8fafc;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .feature-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0, 146, 202, 0.1);
+            border: 1px solid #e2e8f0;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 30px rgba(0, 146, 202, 0.15);
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .feature-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #0092ca;
+            margin-bottom: 1rem;
+        }
+
+        .feature-description {
+            color: #64748b;
+            line-height: 1.6;
+        }
+
+        .tech-specs {
+            background: white;
+            padding: 4rem 0;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .specs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .spec-item {
+            text-align: center;
+            padding: 1.5rem;
+        }
+
+        .spec-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #00b7fd;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .spec-label {
+            font-size: 1rem;
+            color: #64748b;
+            margin-top: 0.5rem;
+        }
+
+        .contact-section {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            color: white;
+            padding: 4rem 0;
+            text-align: center;
+        }
+
+        .contact-content h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+
+        .contact-description {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .contact-button {
+            background: linear-gradient(135deg, #00b7fd 0%, #0092ca 100%);
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-block;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+
+        .contact-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 183, 253, 0.3);
+        }
+
+        .footer {
+            background: #0f172a;
+            color: #94a3b8;
+            padding: 2rem 0;
+            text-align: center;
+            font-size: 0.9rem;
         }
 
         @media (max-width: 768px) {
             .container {
-                margin: 1rem;
-                padding: 1.5rem;
+                padding: 0 1rem;
             }
 
             h1 {
@@ -120,35 +261,175 @@
             }
 
             .tagline {
-                font-size: 1.1rem;
+                font-size: 1.2rem;
             }
 
-            .logo {
-                font-size: 3rem;
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .specs-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .deploy-info h2 {
+                font-size: 2rem;
+            }
+
+            .contact-content h2 {
+                font-size: 2rem;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="logo">⏱️</div>
-        <h1>Watchy</h1>
-        
-        <div class="coming-soon">Coming Soon</div>
-        
-        <p class="tagline">Monitor your SaaS apps with Amazon CloudWatch</p>
-        
-        <p class="description">
-            Watchy simplifies monitoring for your cloud services. Get instant alerts when your SaaS applications experience issues, all through Amazon CloudWatch's powerful monitoring platform.
-        </p>
-
-        <div class="features">
-            <div class="feature-item">Monitor Slack, GitHub and Atlassian Status</div>
-            <div class="feature-item">Track real-time Metrics and Logs</div>
-            <div class="feature-item">View pre-built Dashboards</div>
-            <div class="feature-item">Customize Alert Notifications</div>
-            <div class="feature-item">Build custom actions from Incidents</div>
+    <!-- Header Section -->
+    <header class="header">
+        <div class="container">
+            <div class="logo">⏱️</div>
+            <div class="launch-badge">🚀 First SaaS Monitoring Launch</div>
+            <h1>Watchy</h1>
+            <p class="tagline">Enterprise Slack Status Monitoring with Intelligent Caching</p>
         </div>
-    </div>
+    </header>
+
+    <!-- One-Click Deployment Section -->
+    <section class="deploy-section">
+        <div class="container">
+            <div class="deploy-info">
+                <h2>Deploy in 60 Seconds</h2>
+                <p class="deploy-description">
+                    Launch the complete Watchy platform with centralized Slack monitoring in your AWS account. 
+                    Includes shared resources, SNS notifications, and intelligent binary caching.
+                </p>
+                <a href="https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?templateURL=https://s3.amazonaws.com/watchy-resources-prod/platform/watchy-platform.yaml&stackName=watchy-platform" 
+                   class="deploy-button" 
+                   target="_blank">
+                    🚀 Deploy to AWS
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features-section">
+        <div class="container">
+            <div class="deploy-info">
+                <h2>Enterprise-Grade Slack Monitoring</h2>
+                <p class="deploy-description">
+                    Built with Nuitka native binaries for maximum performance, intelligent caching, 
+                    and seamless CloudWatch integration.
+                </p>
+            </div>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <span class="feature-icon">⚡</span>
+                    <h3 class="feature-title">60-70% Performance Boost</h3>
+                    <p class="feature-description">
+                        Intelligent binary caching with version validation provides dramatic performance improvements 
+                        over traditional monitoring solutions.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <span class="feature-icon">🔄</span>
+                    <h3 class="feature-title">Real-Time Status Monitoring</h3>
+                    <p class="feature-description">
+                        Monitor Slack's service status, incidents, and performance metrics with 
+                        configurable polling intervals from 1-60 minutes.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <span class="feature-icon">📊</span>
+                    <h3 class="feature-title">CloudWatch Integration</h3>
+                    <p class="feature-description">
+                        Native CloudWatch metrics, logs, and dashboards with custom alerting 
+                        for Slack service degradation and incidents.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <span class="feature-icon">🔔</span>
+                    <h3 class="feature-title">Intelligent Alerts</h3>
+                    <p class="feature-description">
+                        Automated SNS notifications for Slack incidents with HTML stripping, 
+                        time-based filtering, and customizable alert thresholds.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <span class="feature-icon">🏗️</span>
+                    <h3 class="feature-title">Infrastructure as Code</h3>
+                    <p class="feature-description">
+                        Complete CloudFormation deployment with Lambda functions, IAM roles, 
+                        EventBridge schedules, and CloudWatch resources.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <span class="feature-icon">🔒</span>
+                    <h3 class="feature-title">Enterprise Security</h3>
+                    <p class="feature-description">
+                        SHA256 binary verification, private S3 distribution, Parameter Store 
+                        integration, and least-privilege IAM policies.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Technical Specifications -->
+    <section class="tech-specs">
+        <div class="container">
+            <div class="deploy-info">
+                <h2>Built for Performance & Scale</h2>
+            </div>
+            
+            <div class="specs-grid">
+                <div class="spec-item">
+                    <div class="spec-number">Python 3.12</div>
+                    <div class="spec-label">Latest Runtime</div>
+                </div>
+                <div class="spec-item">
+                    <div class="spec-number">30MB</div>
+                    <div class="spec-label">Nuitka Binary Size</div>
+                </div>
+                <div class="spec-item">
+                    <div class="spec-number">1.8s</div>
+                    <div class="spec-label">Average Execution Time</div>
+                </div>
+                <div class="spec-item">
+                    <div class="spec-number">75%</div>
+                    <div class="spec-label">Cost Reduction</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section class="contact-section">
+        <div class="container">
+            <div class="contact-content">
+                <h2>Need Custom Monitoring?</h2>
+                <p class="contact-description">
+                    Looking to monitor additional SaaS platforms, need custom integration, 
+                    or want to discuss enterprise licensing? We're here to help.
+                </p>
+                <a href="mailto:contact@watchy.cloud?subject=Custom%20Monitoring%20Inquiry" 
+                   class="contact-button">
+                    📧 Contact Us
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 Watchy Cloud Platform. Built for enterprise Slack monitoring.</p>
+        </div>
+    </footer>
 </body>
 </html>

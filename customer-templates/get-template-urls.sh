@@ -7,26 +7,44 @@ set -e
 
 # Configuration - customers always use production templates
 TEMPLATE_BUCKET="watchy-resources-prod"
-BASE_URL="https://s3.amazonaws.com/${TEMPLATE_BUCKET}/customer-templates/templates"
+PLATFORM_URL="https://s3.amazonaws.com/${TEMPLATE_BUCKET}/platform/watchy-platform.yaml"
+SLACK_URL="https://s3.amazonaws.com/${TEMPLATE_BUCKET}/customer-templates/templates/watchy-slack-monitoring.yaml"
 
 echo "🚀 Watchy Cloud Template URLs"
 echo "=============================================="
 echo
 
-echo "📋 Available Template:"
+echo "📋 Recommended Deployment (Platform):"
 echo
-echo "🔸 Slack Monitoring:"
-echo "   ${BASE_URL}/watchy-slack-monitoring.yaml"
+echo "🔸 Watchy Platform (Includes Slack Monitoring):"
+echo "   ${PLATFORM_URL}"
 echo
 
-echo "💡 Usage Example:"
+echo "📋 Individual Component (Advanced Users):"
+echo
+echo "🔸 Slack Monitoring Only:"
+echo "   ${SLACK_URL}"
+echo
+
+echo "💡 Platform Deployment (Recommended):"
 echo "aws cloudformation deploy \\"
-echo "  --template-url ${BASE_URL}/watchy-slack-monitoring.yaml \\"
+echo "  --template-url ${PLATFORM_URL} \\"
+echo "  --stack-name watchy-platform \\"
+echo "  --capabilities CAPABILITY_NAMED_IAM \\"
+echo "  --parameter-overrides \\"
+echo "    NotificationEmail=your-email@domain.com \\"
+echo "    MonitoringSchedule=\"rate(5 minutes)\" \\"
+echo "  --profile your-aws-profile"
+echo
+
+echo "💡 Individual Component Deployment:"
+echo "aws cloudformation deploy \\"
+echo "  --template-url ${SLACK_URL} \\"
 echo "  --stack-name my-slack-monitoring \\"
 echo "  --capabilities CAPABILITY_NAMED_IAM \\"
 echo "  --parameter-overrides \\"
 echo "    MonitoringSchedule=\"rate(5 minutes)\" \\"
-echo "  --profile watchy"
+echo "  --profile your-aws-profile"
 echo
 
 echo "📚 For more deployment examples, see the customer documentation."

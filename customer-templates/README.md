@@ -1,16 +1,27 @@
 # Watchy Customer Templates
 
-**Simplified Slack Monitoring Platform**
+## Simplified Slack Monitoring Platform
 
 This directory contains CloudFormation templates for deploying Watchy Slack status monitoring infrastructure to your AWS account.
 
-## Available Template
+## Deployment Options
 
-**Slack Status Monitoring**: Monitor Slack's service status and incidents via Status API with intelligent binary caching and enhanced performance
+### **Option 1: Platform Template (Recommended)**
+
+Deploy the complete Watchy platform with centralized resources and Slack monitoring:
+
+**Platform Template**: Monitor Slack's service status with shared resources, centralized configuration, and optimized architecture
+
+### **Option 2: Individual Component**
+
+Deploy only the Slack monitoring component for advanced users who want granular control:
+
+**Slack Component**: Slack-only monitoring for integration with existing infrastructure
 
 ## Architecture
 
-Watchy uses a simplified Slack-only architecture with:
+Watchy uses a platform-first architecture with:
+
 - **CloudFormation IaC**: Infrastructure as code for consistent deployments
 - **Nuitka Binary Compilation**: Native Python binaries for 60-70% performance improvement
 - **Lambda Functions**: Event-driven monitoring with intelligent binary caching
@@ -19,15 +30,27 @@ Watchy uses a simplified Slack-only architecture with:
 
 ## Quick Deployment
 
-### **Slack Status Monitoring**
+### **Watchy Platform (Recommended)**
 
 ```bash
-aws cloudformation create-stack 
-  --template-url https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml 
-  --stack-name my-slack-monitoring 
-  --capabilities CAPABILITY_IAM 
-  --parameters 
-    ParameterKey=ParentStackName,ParameterValue=my-slack-monitoring 
+aws cloudformation create-stack \
+  --template-url https://s3.amazonaws.com/watchy-resources-prod/platform/watchy-platform.yaml \
+  --stack-name watchy-platform \
+  --capabilities CAPABILITY_IAM \
+  --parameters \
+    ParameterKey=NotificationEmail,ParameterValue=your-email@domain.com \
+    ParameterKey=MonitoringSchedule,ParameterValue="rate(5 minutes)"
+```
+
+### **Slack Component Only (Advanced)**
+
+```bash
+aws cloudformation create-stack \
+  --template-url https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml \
+  --stack-name my-slack-monitoring \
+  --capabilities CAPABILITY_IAM \
+  --parameters \
+    ParameterKey=ParentStackName,ParameterValue=my-slack-monitoring \
     ParameterKey=MonitoringSchedule,ParameterValue="rate(5 minutes)"
 ```
 
@@ -43,7 +66,8 @@ aws cloudformation create-stack
 
 **Direct S3 URLs for CloudFormation:**
 
-- **Slack Monitoring**: `https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml`
+- **Platform Template (Recommended)**: `https://s3.amazonaws.com/watchy-resources-prod/platform/watchy-platform.yaml`
+- **Slack Component Only**: `https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml`
 
 ## Configuration
 
