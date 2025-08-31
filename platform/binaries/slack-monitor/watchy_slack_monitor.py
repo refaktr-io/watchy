@@ -18,6 +18,80 @@ from typing import Dict, Any, List
 VERSION = "1.0.1-nuitka"
 BUILD_DATE = "2025-08-31T10:30:00Z"
 
+# Binary cache for intelligent caching
+_binary_cache = {}
+
+def get_nuitka_binary_info():
+    """Get Slack Nuitka binary information"""
+    try:
+        base_url = os.environ.get('WATCHY_BINARY_DISTRIBUTION_URL', 'https://releases.watchy.cloud')
+        info_url = f"{base_url}/binaries/slack-monitor/metadata.json"
+        
+        req = urllib.request.Request(info_url)
+        req.add_header('User-Agent', f'Watchy-SlackMonitor/{VERSION}')
+        
+        with urllib.request.urlopen(req, timeout=10) as response:
+            if response.status == 200:
+                return json.loads(response.read().decode('utf-8'))
+        return None
+    except Exception as e:
+        print(f"Failed to get Slack binary info: {e}")
+        return None
+
+def ensure_nuitka_binary():
+    """Ensure we have the latest Nuitka binary with intelligent caching"""
+    try:
+        binary_path = "/tmp/watchy-slack-monitor"
+        cache_info_path = "/tmp/watchy-slack-cache.json"
+        
+        # Get latest binary information
+        latest_info = get_nuitka_binary_info()
+        if not latest_info:
+            raise Exception("Failed to get binary information")
+        
+        # Check if we have cached binary info
+        cached_info = None
+        if os.path.exists(cache_info_path):
+            try:
+                with open(cache_info_path, 'r') as f:
+                    cached_info = json.loads(f.read())
+            except Exception:
+                cached_info = None
+        
+        # Check if binary exists and versions match
+        if (cached_info and 
+            os.path.exists(binary_path) and 
+            cached_info.get('version') == latest_info['version'] and
+            cached_info.get('sha256') == latest_info['sha256']):
+            
+            print(f"✅ Using cached Slack binary v{latest_info['version']} (size: {cached_info.get('binarySize', 'unknown')} bytes)")
+            return binary_path, latest_info['version']
+        
+        # For standalone binary, we ARE the binary, so no download needed
+        # This is just for consistency with Lambda implementation
+        print(f"🔄 Running Slack binary v{latest_info.get('version', VERSION)}")
+        
+        # Cache the binary info for consistency
+        try:
+            with open(cache_info_path, 'w') as f:
+                json.dump({
+                    'version': latest_info.get('version', VERSION),
+                    'sha256': latest_info.get('sha256', ''),
+                    'binarySize': latest_info.get('binarySize'),
+                    'cached_at': time.time(),
+                    'cache_date': datetime.utcnow().isoformat()
+                }, f)
+            print("💾 Cached binary info for future use")
+        except Exception as e:
+            print(f"Failed to cache binary info: {e}")
+        
+        return "/usr/local/bin/watchy-slack-monitor", latest_info.get('version', VERSION)
+        
+    except Exception as e:
+        print(f"Failed to ensure binary: {e}")
+        # For standalone binary, continue execution anyway
+        return "/usr/local/bin/watchy-slack-monitor", VERSION
+
 def fetch_slack_status(api_url: str) -> Dict[str, Any]:
     """
     Fetch Slack status from status API
