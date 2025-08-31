@@ -7,7 +7,7 @@ set -e
 
 # Configuration - customers always use production templates
 TEMPLATE_BUCKET="watchy-resources-prod"
-PLATFORM_URL="https://releases.watchy.cloud/platform/watchy-platform.yaml"
+PLATFORM_URL="https://s3.amazonaws.com/watchy-releases-prod/platform/watchy-platform.yaml"
 SLACK_URL="https://s3.amazonaws.com/${TEMPLATE_BUCKET}/customer-templates/templates/watchy-slack-monitoring.yaml"
 
 echo "🚀 Watchy Cloud Template URLs"

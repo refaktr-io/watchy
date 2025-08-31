@@ -34,7 +34,7 @@ Watchy uses a platform-first architecture with:
 
 ```bash
 aws cloudformation create-stack \
-  --template-url https://releases.watchy.cloud/platform/watchy-platform.yaml \
+  --template-url https://s3.amazonaws.com/watchy-releases-prod/platform/watchy-platform.yaml \
   --stack-name watchy-platform \
   --capabilities CAPABILITY_IAM \
   --parameters \
@@ -66,7 +66,7 @@ aws cloudformation create-stack \
 
 **Direct S3 URLs for CloudFormation:**
 
-- **Platform Template (Recommended)**: `https://releases.watchy.cloud/platform/watchy-platform.yaml`
+- **Platform Template (Recommended)**: `https://s3.amazonaws.com/watchy-releases-prod/platform/watchy-platform.yaml`
 - **Slack Component Only**: `https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml`
 
 ## Configuration
