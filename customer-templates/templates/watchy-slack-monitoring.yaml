@@ -145,11 +145,15 @@ Resources:
                   
                   os.chmod(binary_path, stat.S_IRWXU | stat.S_IRGRP | stat.S_IROTH)
                   
-                  # Verify checksum
+                  # Verify checksum by reading the file from disk
                   if binary_info.get('sha256'):
-                      actual_hash = hashlib.sha256(binary_data).hexdigest()
+                      with open(binary_path, 'rb') as f:
+                          file_data = f.read()
+                      actual_hash = hashlib.sha256(file_data).hexdigest()
                       if actual_hash != binary_info['sha256']:
                           os.remove(binary_path)
+                          logger.error(f"Expected SHA256: {binary_info['sha256']}")
+                          logger.error(f"Actual SHA256: {actual_hash}")
                           raise Exception("Slack binary checksum mismatch")
                   
                   logger.info("✅ Slack Nuitka binary ready")
