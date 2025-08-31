@@ -346,12 +346,21 @@ jobs:
       run: |
         echo "🚀 Deploying binary distribution infrastructure..."
         
+        # Set certificate parameter based on availability
+        if [ -n "${{ secrets.SSL_CERTIFICATE_ARN }}" ]; then
+          CERT_PARAM="CertificateArn=${{ secrets.SSL_CERTIFICATE_ARN }}"
+          echo "✅ Using SSL certificate for custom domain"
+        else
+          CERT_PARAM="CertificateArn="
+          echo "⚠️  No SSL certificate provided - deploying without custom domain"
+        fi
+        
         aws cloudformation deploy \
           --template-file platform/infrastructure/binary-distribution.yaml \
           --stack-name watchy-binary-distribution \
           --parameter-overrides \
             DomainName=releases.watchy.cloud \
-            CertificateArn=${{ secrets.SSL_CERTIFICATE_ARN }} \
+            ${CERT_PARAM} \
             Environment=prod \
           --capabilities CAPABILITY_NAMED_IAM \
           --region ${{ env.AWS_REGION }} \
