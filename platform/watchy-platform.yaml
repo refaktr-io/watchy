@@ -43,23 +43,6 @@ Parameters:
     MaxValue: 10
     Description: 'Number of retry attempts for failed Slack operations'
 
-  # ===== TEMPLATE CONFIGURATION =====
-  TemplateBaseUrl:
-    Type: String
-    Default: "https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates"
-    Description: "Base URL for CloudFormation templates"
-
-  BinaryDistributionUrl:
-    Type: String
-    Default: 'https://releases.watchy.cloud'
-    Description: 'Base URL for Nuitka binary distribution (CloudFront CDN)'
-
-  # ===== SLACK-SPECIFIC API ENDPOINT =====
-  SlackApiUrl:
-    Type: String
-    Default: 'https://status.slack.com/api/v2.0.0/current'
-    Description: 'Slack Status API endpoint'
-
 Resources:
   # ===== SHARED PLATFORM RESOURCES =====
   
@@ -163,10 +146,10 @@ Resources:
   SlackMonitoringStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: !Sub '${TemplateBaseUrl}/watchy-slack-monitoring.yaml'
+      TemplateURL: 'https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml'
       Parameters:
         SaasAppName: 'Slack'
-        ApiUrl: !Ref SlackApiUrl
+        ApiUrl: 'https://status.slack.com/api/v2.0.0/current'
         MonitoringSchedule: !Ref MonitoringSchedule
         LogLevel: !Ref LogLevel
         TimeoutSeconds: !Ref TimeoutSeconds
@@ -175,7 +158,7 @@ Resources:
         SharedLambdaRoleArn: !GetAtt WatchySharedLambdaRole.Arn
         NotificationTopicArn: !Ref WatchyNotificationTopic
         ParentStackName: !Ref AWS::StackName
-        BinaryDistributionUrl: !Ref BinaryDistributionUrl
+        BinaryDistributionUrl: 'https://releases.watchy.cloud'
         BinaryName: 'watchy-slack-monitor'
       Tags:
         - Key: Project
@@ -222,5 +205,5 @@ Outputs:
     Value: '5.0.0-slack-only'
 
   BinaryDistributionUrl:
-    Description: 'Base URL for Nuitka binary distribution'
-    Value: !Ref BinaryDistributionUrl
+    Description: 'Base URL for binary distribution'
+    Value: 'https://releases.watchy.cloud'
