@@ -123,6 +123,59 @@ Resources:
                   logger.error(f"Failed to get Zoom binary info: {e}")
                   return None
 
+          def ensure_nuitka_binary():
+              """Ensure we have the latest Nuitka binary with intelligent caching"""
+              try:
+                  binary_path = "/tmp/watchy-zoom-monitor"
+                  cache_info_path = "/tmp/watchy-zoom-cache.json"
+                  
+                  # Get latest binary information
+                  latest_info = get_nuitka_binary_info()
+                  if not latest_info:
+                      raise Exception("Failed to get binary information")
+                  
+                  # Check if we have cached binary info
+                  cached_info = None
+                  if os.path.exists(cache_info_path):
+                      try:
+                          with open(cache_info_path, 'r') as f:
+                              cached_info = json.loads(f.read())
+                      except:
+                          cached_info = None
+                  
+                  # Check if binary exists and versions match
+                  if (cached_info and 
+                      os.path.exists(binary_path) and 
+                      cached_info.get('version') == latest_info['version'] and
+                      cached_info.get('sha256') == latest_info['sha256']):
+                      
+                      logger.info(f"✅ Using cached Zoom binary v{latest_info['version']} (size: {cached_info.get('binarySize', 'unknown')} bytes)")
+                      return binary_path, latest_info['version']
+                  
+                  # Download new binary
+                  logger.info(f"🔄 Downloading updated Zoom binary v{latest_info['version']}")
+                  binary_path = download_zoom_binary(latest_info)
+                  
+                  # Cache the binary info
+                  try:
+                      with open(cache_info_path, 'w') as f:
+                          json.dump({
+                              'version': latest_info['version'],
+                              'sha256': latest_info['sha256'],
+                              'binarySize': latest_info.get('binarySize'),
+                              'cached_at': time.time(),
+                              'cache_date': datetime.utcnow().isoformat()
+                          }, f)
+                      logger.info(f"💾 Cached binary info for future use")
+                  except Exception as e:
+                      logger.warning(f"Failed to cache binary info: {e}")
+                  
+                  return binary_path, latest_info['version']
+                  
+              except Exception as e:
+                  logger.error(f"Failed to ensure binary: {e}")
+                  raise
+
           def download_zoom_binary(binary_info):
               """Download Zoom monitoring Nuitka binary"""
               try:
@@ -163,19 +216,14 @@ Resources:
                   raise
 
           def lambda_handler(event, context):
-              """Zoom monitoring handler with Nuitka binary"""
+              """Zoom monitoring handler with intelligent binary caching"""
               start_time = time.time()
               
               try:
                   logger.info("🚀 Starting Zoom status monitoring...")
                   
-                  # Get latest Zoom binary
-                  binary_info = get_nuitka_binary_info()
-                  if not binary_info:
-                      raise Exception("Failed to get Zoom binary information")
-                  
-                  # Download Zoom binary
-                  binary_path = download_zoom_binary(binary_info)
+                  # Ensure we have the latest Zoom binary (with intelligent caching)
+                  binary_path, version = ensure_nuitka_binary()
                   
                   # Load credentials
                   ssm = boto3.client('ssm')

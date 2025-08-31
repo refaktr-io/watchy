@@ -1,1 +1,2 @@
-# Force rebuild to test automatic CloudFront cache invalidation
+# Force rebuild to test intelligent binary caching system
+# This will test the new caching mechanism across all Lambda functions
