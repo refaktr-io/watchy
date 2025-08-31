@@ -261,7 +261,7 @@ jobs:
     - name: Install system dependencies
       run: |
         yum update -y
-        yum install -y python3.12 python3.12-pip python3.12-devel gcc gcc-c++ make git tar gzip
+        yum install -y python3.12 python3.12-pip python3.12-devel gcc gcc-c++ make git tar gzip patchelf
         python3.12 -m pip install --upgrade pip
         
     - name: Checkout code
