@@ -497,7 +497,11 @@ jobs:
             
             echo "✅ Successfully uploaded all artifacts for ${monitor}"
             
-            # Create and upload metadata
+            # Calculate SHA256 checksum for integrity verification
+            BINARY_SHA256=$(sha256sum "artifacts/${monitor}-binary/watchy-${monitor}" | cut -d' ' -f1)
+            BINARY_SIZE=$(stat -c%s "artifacts/${monitor}-binary/watchy-${monitor}" 2>/dev/null || stat -f%z "artifacts/${monitor}-binary/watchy-${monitor}")
+            
+            # Create and upload metadata with SHA256 checksum
             cat > "${monitor}-metadata.json" << EOF
         {
           "version": "${VERSION}",
@@ -505,9 +509,17 @@ jobs:
           "gitCommit": "${GITHUB_SHA}",
           "buildNumber": "${GITHUB_RUN_NUMBER}",
           "downloadUrl": "https://releases.watchy.cloud/binaries/${monitor}/watchy-${monitor}-${VERSION}",
-          "latestUrl": "https://releases.watchy.cloud/binaries/${monitor}/watchy-${monitor}-latest"
+          "latestUrl": "https://releases.watchy.cloud/binaries/${monitor}/watchy-${monitor}-latest",
+          "sha256": "${BINARY_SHA256}",
+          "binarySize": ${BINARY_SIZE},
+          "target_platform": "linux-x86_64",
+          "lambda_compatible": true,
+          "binary_type": "nuitka"
         }
         EOF
+            
+            echo "🔒 Binary SHA256: ${BINARY_SHA256}"
+            echo "📏 Binary Size: ${BINARY_SIZE} bytes"
             
             if aws s3 cp "${monitor}-metadata.json" \
               "s3://${BUCKET_NAME}/binaries/${monitor}/metadata.json" \
