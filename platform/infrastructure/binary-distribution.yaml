@@ -20,7 +20,6 @@ Parameters:
 
 Conditions:
   HasSSLCertificate: !Not [!Equals [!Ref CertificateArn, '']]
-  HasCustomDomain: !Not [!Equals [!Ref DomainName, '']]
 
 Resources:
   # ===== S3 BUCKET FOR BINARY DISTRIBUTION =====
