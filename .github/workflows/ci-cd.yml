@@ -652,10 +652,53 @@ jobs:
       if: needs.detect-changes.outputs.website == 'true' || github.event_name == 'workflow_dispatch'
       run: |
         echo "🌐 Deploying website..."
+        echo "📁 Website files to deploy:"
+        ls -la website/
+        
+        # Deploy website files to S3 bucket
         aws s3 sync website/ s3://watchy.cloud/ \
           --delete \
           --cache-control "max-age=3600" \
           --region ${{ env.AWS_REGION }}
+        
+        echo "✅ Website files deployed to S3"
+        
+        # Find CloudFront distribution for watchy.cloud
+        echo "🔍 Finding CloudFront distribution for watchy.cloud..."
+        WEBSITE_DISTRIBUTION_ID=$(aws cloudfront list-distributions \
+          --query "DistributionList.Items[?contains(Aliases.Items, 'watchy.cloud')].Id | [0]" \
+          --output text --region ${{ env.AWS_REGION }} 2>/dev/null || echo "")
+        
+        if [ -n "$WEBSITE_DISTRIBUTION_ID" ] && [ "$WEBSITE_DISTRIBUTION_ID" != "None" ] && [ "$WEBSITE_DISTRIBUTION_ID" != "null" ]; then
+          echo "✅ Found CloudFront distribution: $WEBSITE_DISTRIBUTION_ID"
+          
+          # Create cache invalidation for website files
+          echo "🔄 Invalidating CloudFront cache for website..."
+          INVALIDATION_ID=$(aws cloudfront create-invalidation \
+            --distribution-id "$WEBSITE_DISTRIBUTION_ID" \
+            --paths "/index.html" "/*" \
+            --query 'Invalidation.Id' \
+            --output text \
+            --region ${{ env.AWS_REGION }})
+          
+          if [ -n "$INVALIDATION_ID" ]; then
+            echo "✅ Created CloudFront invalidation: $INVALIDATION_ID"
+            echo "⏳ Waiting for cache invalidation to complete..."
+            
+            # Wait for invalidation to complete (with timeout)
+            timeout 300 aws cloudfront wait invalidation-completed \
+              --distribution-id "$WEBSITE_DISTRIBUTION_ID" \
+              --id "$INVALIDATION_ID" \
+              --region ${{ env.AWS_REGION }} || echo "⚠️ Invalidation timeout, continuing..."
+            
+            echo "✅ Website cache invalidation completed"
+            echo "🌐 Website updated at: https://watchy.cloud"
+          else
+            echo "❌ Failed to create CloudFront invalidation"
+          fi
+        else
+          echo "⚠️ CloudFront distribution for watchy.cloud not found, skipping cache invalidation"
+        fi
     
     - name: Deploy platform files
       if: needs.detect-changes.outputs.platform == 'true' || github.event_name == 'workflow_dispatch'
