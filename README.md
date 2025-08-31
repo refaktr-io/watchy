@@ -93,7 +93,6 @@ cd platform/scripts
 ### Infrastructure
 
 - **Binary Distribution**: CloudFront CDN serving Nuitka binaries
-- **License Management**: Centralized LemonSqueezy validation
 - **Monitoring**: CloudWatch integration with custom metrics
 
 ### Configuration
@@ -102,7 +101,6 @@ Environment variables for platform operation:
 
 - `WATCHY_VERSION`: Platform version (auto-generated)
 - `WATCHY_BINARY_DISTRIBUTION_URL`: Binary CDN endpoint
-- `WATCHY_LICENSE_PARAMETER`: SSM parameter for license key
 
 ## Security Features
 

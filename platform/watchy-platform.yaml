@@ -6,18 +6,19 @@ Metadata:
   LastUpdated: '2025-07-26'
   Changelog:
     - Multi-SaaS monitoring platform architecture
-    - Centralized shared resources with Parameter Store
+    - Centralized shared resOuOutputs:
+  # ===== SHARED PLATFORM OUTPUTS =====
+  ApiKeysParameter:
+    Description: 'Parameter Store name for SaaS API keys'
+    Value: !Ref ApiKeysParameter
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiKeysParameter'=== SHARED PLATFORM OUTPUTS =====
+  PlatformApiKeysParameter:th Parameter Store
     - Nuitka native binary compilation approach
     - Modular nested stack design for Slack, GitHub, and Zoom
 
 Parameters:
   # ===== GLOBAL CONFIGURATION =====
-  WatchyLicenseKey:
-    Type: String
-    Description: 'Watchy platform license key for all SaaS monitoring'
-    MinLength: 10
-    ConstraintDescription: 'License key must be at least 10 characters long'
-
   NotificationEmail:
     Type: String
     Description: 'Email address for CloudWatch alarm notifications across all SaaS apps'
@@ -103,22 +104,6 @@ Conditions:
 Resources:
   # ===== SHARED PLATFORM RESOURCES =====
   
-  # Watchy Platform License Key (Shared by all SaaS apps)
-  # Note: Using String type for CloudFormation compatibility. 
-  # Input parameter has NoEcho=true for security during deployment.
-  # For production, consider using AWS Secrets Manager for enhanced security.
-  WatchyLicenseParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub '/${AWS::StackName}/watchy/license-key'
-      Type: String
-      Value: !Ref WatchyLicenseKey
-      Description: 'Watchy platform license key for all SaaS monitoring binaries'
-      Tags:
-        Project: Watchy
-        Component: Platform
-        StackName: !Ref AWS::StackName
-
   # API Keys Parameter Store (JSON format for multiple SaaS APIs)
   # Note: Using String type for CloudFormation compatibility.
   # For production, consider using AWS Secrets Manager for API keys.
@@ -200,13 +185,12 @@ Resources:
                 Resource: 
                   - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*Watchy*'
                   - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/watchy/*'
-              # Parameter Store Access for license and API keys
+              # Parameter Store Access for API keys
               - Effect: Allow
                 Action:
                   - ssm:GetParameter
                   - ssm:GetParameters
                 Resource: 
-                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${AWS::StackName}/watchy/license-key'
                   - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${AWS::StackName}/watchy/api-keys'
               # SNS Publish for custom notifications
               - Effect: Allow
@@ -229,7 +213,6 @@ Resources:
         LogLevel: !Ref LogLevel
         TimeoutSeconds: !Ref TimeoutSeconds
         RetryAttempts: !Ref RetryAttempts
-        WatchyLicenseParameter: !Ref WatchyLicenseParameter
         ApiKeysParameter: !Ref ApiKeysParameter
         SharedLambdaRoleArn: !GetAtt WatchySharedLambdaRole.Arn
         NotificationTopicArn: !Ref WatchyNotificationTopic
@@ -259,7 +242,6 @@ Resources:
         LogLevel: !Ref LogLevel
         TimeoutSeconds: !Ref TimeoutSeconds
         RetryAttempts: !Ref RetryAttempts
-        WatchyLicenseParameter: !Ref WatchyLicenseParameter
         ApiKeysParameter: !Ref ApiKeysParameter
         SharedLambdaRoleArn: !GetAtt WatchySharedLambdaRole.Arn
         NotificationTopicArn: !Ref WatchyNotificationTopic
@@ -289,7 +271,6 @@ Resources:
         LogLevel: !Ref LogLevel
         TimeoutSeconds: !Ref TimeoutSeconds
         RetryAttempts: !Ref RetryAttempts
-        WatchyLicenseParameter: !Ref WatchyLicenseParameter
         ApiKeysParameter: !Ref ApiKeysParameter
         SharedLambdaRoleArn: !GetAtt WatchySharedLambdaRole.Arn
         NotificationTopicArn: !Ref WatchyNotificationTopic
@@ -308,12 +289,6 @@ Resources:
 
 Outputs:
   # ===== SHARED PLATFORM OUTPUTS =====
-  PlatformLicenseParameter:
-    Description: 'Parameter Store name for Watchy platform license key'
-    Value: !Ref WatchyLicenseParameter
-    Export:
-      Name: !Sub '${AWS::StackName}-LicenseParameter'
-
   ApiKeysParameter:
     Description: 'Parameter Store name for SaaS API keys'
     Value: !Ref ApiKeysParameter

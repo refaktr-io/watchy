@@ -4,18 +4,16 @@ Watchy GitHub Monitor - Nuitka Source
 =====================================
 
 Native binary source for GitHub service monitoring.
-Compiles to native executable for maximum IP protection.
+Compiles to native executable for maximum protection.
 
 Features:
 - GitHub API status monitoring
 - Git operations monitoring  
 - Repository activity tracking
-- LemonSqueezy license validation
 - CloudWatch metrics publishing
 - SNS alerting on issues
 
 SaaS App: GitHub
-License: LemonSqueezy Commercial
 Compilation: Nuitka native binary
 """
 
@@ -77,12 +75,9 @@ GITHUB_SERVICES = {
     }
 }
 
-# LemonSqueezy license validation
-LEMONSQUEEZY_API_BASE = "https://api.lemonsqueezy.com/v1"
-
 
 class WatchyGitHubMonitor:
-    """Main GitHub monitoring class with license validation and CloudWatch integration."""
+    """Main GitHub monitoring class with CloudWatch integration."""
     
     def __init__(self):
         """Initialize the GitHub monitor with AWS clients and configuration."""
@@ -110,11 +105,6 @@ class WatchyGitHubMonitor:
         # Load configuration from environment and Parameter Store
         self.config = self._load_configuration()
         
-        # Validate license on startup
-        if not self._validate_license():
-            self.logger.error("License validation failed - terminating")
-            sys.exit(1)
-        
         self.logger.info(f"Watchy GitHub Monitor v{self.version} initialized")
     
     def _load_configuration(self) -> Dict[str, Any]:
@@ -122,7 +112,6 @@ class WatchyGitHubMonitor:
         config = {}
         
         # Load from environment variables
-        config['license_key'] = os.environ.get('WATCHY_LICENSE_KEY')
         config['sns_topic_arn'] = os.environ.get('WATCHY_SNS_TOPIC_ARN')
         config['customer_id'] = os.environ.get('WATCHY_CUSTOMER_ID')
         
@@ -140,51 +129,8 @@ class WatchyGitHubMonitor:
         
         return config
     
-    def _validate_license(self) -> bool:
-        """Validate LemonSqueezy license key."""
-        if not self.config.get('license_key'):
-            self.logger.error("License key not provided")
-            return False
-        
-        try:
-            # Create license validation request
-            url = f"{LEMONSQUEEZY_API_BASE}/licenses/validate"
-            data = {
-                'license_key': self.config['license_key'],
-                'instance_id': self._get_instance_id()
-            }
-            
-            # Prepare request
-            req_data = json.dumps(data).encode('utf-8')
-            req = urllib.request.Request(
-                url,
-                data=req_data,
-                headers={
-                    'Content-Type': 'application/json',
-                    'User-Agent': f'Watchy-GitHub-Monitor/{self.version}'
-                }
-            )
-            
-            # Make request with timeout
-            with urllib.request.urlopen(req, timeout=10) as response:
-                if response.status == 200:
-                    result = json.loads(response.read().decode('utf-8'))
-                    if result.get('valid', False):
-                        self.logger.info("License validation successful")
-                        return True
-                    else:
-                        self.logger.error(f"License validation failed: {result.get('error', 'Invalid license')}")
-                        return False
-                else:
-                    self.logger.error(f"License validation failed with status: {response.status}")
-                    return False
-        
-        except Exception as e:
-            self.logger.error(f"License validation error: {e}")
-            return False
-    
     def _get_instance_id(self) -> str:
-        """Generate a unique instance ID for license validation."""
+        """Generate a unique instance ID for identification."""
         # Use customer ID and function name for instance identification
         instance_data = f"{self.config.get('customer_id', 'unknown')}-github-monitor"
         return hashlib.sha256(instance_data.encode()).hexdigest()[:16]

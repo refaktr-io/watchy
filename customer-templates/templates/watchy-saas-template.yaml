@@ -302,13 +302,6 @@ Resources:
               try:
                   ssm = boto3.client('ssm')
                   
-                  # Load license key
-                  license_response = ssm.get_parameter(
-                      Name=os.environ.get('WATCHY_LICENSE_PARAMETER'),
-                      WithDecryption=True
-                  )
-                  license_key = license_response['Parameter']['Value']
-                  
                   # Load API keys (JSON format)
                   api_keys_response = ssm.get_parameter(
                       Name=os.environ.get('API_KEYS_PARAMETER'),
@@ -316,7 +309,7 @@ Resources:
                   )
                   api_keys = json.loads(api_keys_response['Parameter']['Value'])
                   
-                  return license_key, api_keys
+                  return api_keys
                   
               except Exception as e:
                   logger.error(f"Failed to load credentials: {e}")
@@ -344,11 +337,10 @@ Resources:
                       raise Exception(f"Binary not executable: {binary_path}")
                   
                   # Load credentials from Parameter Store
-                  license_key, api_keys = load_credentials()
+                  api_keys = load_credentials()
                   
                   # Prepare environment variables for Nuitka binary
                   env = os.environ.copy()
-                  env['WATCHY_LICENSE_KEY'] = license_key
                   
                   # Add SaaS-specific API credentials
                   saas_lower = saas_app.lower()

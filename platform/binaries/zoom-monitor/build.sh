@@ -106,8 +106,8 @@ fi
 # Test binary execution
 echo ""
 echo "🧪 Testing binary execution..."
-export WATCHY_LICENSE_KEY="lemon_test_key_12345678"
-export ZOOM_TOKEN="test_token_123"  # Test token
+export PYTHONPATH="$(pwd)"
+export DEBUG="true"
 
 if timeout 30 $BINARY_PATH; then
     echo "✅ Binary execution test passed!"
@@ -184,7 +184,7 @@ echo ""
 echo "🔒 Security Features:"
 echo "- ✅ Native Nuitka compilation (maximum IP protection)"
 echo "- ✅ License validation embedded in binary"
-echo "- ✅ LemonSqueezy integration protected"
+echo "- ✅ Native binary compilation protected"
 echo "- ✅ Zoom monitoring algorithms hidden"
 echo "- ✅ Binary integrity verification with SHA256"
 

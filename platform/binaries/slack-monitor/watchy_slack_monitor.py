@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Watchy Slack Status Monitor - Nuitka Native Binary Implementation
-Complete monitoring solution with LemonSqueezy license validation
+Complete monitoring solution for Slack status tracking
 """
 
 import json
@@ -17,30 +17,6 @@ from typing import Dict, Any, List
 # Version information
 VERSION = "1.0.0-nuitka"
 BUILD_DATE = "2025-08-31T03:24:06Z"
-
-def validate_license(license_key: str) -> bool:
-    """
-    Validate LemonSqueezy license key
-    In production, this would make an API call to LemonSqueezy
-    """
-    try:
-        if not license_key or len(license_key) < 10:
-            return False
-        
-        # Mock validation for now
-        # In production: Make HTTPS call to LemonSqueezy API
-        # https://api.lemonsqueezy.com/v1/licenses/validate
-        
-        if license_key.startswith('lemon_'):
-            print(f"✅ License validated: {license_key[:15]}...")
-            return True
-        else:
-            print(f"❌ Invalid license format: {license_key[:10]}...")
-            return False
-            
-    except Exception as e:
-        print(f"❌ License validation error: {e}")
-        return False
 
 def fetch_slack_status(api_url: str) -> Dict[str, Any]:
     """
@@ -264,25 +240,12 @@ def main():
         print("🏗️  Binary Type: Nuitka Native")
         
         # Get configuration from environment
-        license_key = os.getenv('WATCHY_LICENSE_KEY', '')
         api_url = os.getenv('API_URL', 'https://status.slack.com/api/v2.0.0/current')
         namespace = os.getenv('CLOUDWATCH_NAMESPACE', 'Watchy/Slack')
         log_group = os.getenv('CLOUDWATCH_LOG_GROUP', '/watchy/slack/status')
         polling_interval = int(os.getenv('POLLING_INTERVAL_MINUTES', '5'))
         
         print(f"⚙️ Config: Log Group={log_group}, Polling Interval={polling_interval}min")
-        
-        # Validate license
-        if not validate_license(license_key):
-            error_msg = "Invalid or missing Watchy license key"
-            print(f"❌ {error_msg}")
-            result = {
-                'success': False,
-                'error': error_msg,
-                'timestamp': datetime.utcnow().isoformat()
-            }
-            print(json.dumps(result))
-            sys.exit(1)
         
         # Fetch Slack status
         status_data = fetch_slack_status(api_url)
