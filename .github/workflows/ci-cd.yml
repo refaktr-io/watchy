@@ -250,7 +250,7 @@ jobs:
     needs: [detect-changes, validate]
     if: |
       (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
-      (needs.detect-changes.outputs.binaries == 'true' || needs.detect-changes.outputs.force_infrastructure == 'true')
+      (needs.detect-changes.outputs.binaries == 'true' || needs.detect-changes.outputs.infrastructure == 'true' || needs.detect-changes.outputs.force_infrastructure == 'true')
     strategy:
       matrix:
         monitor: [slack-monitor, github-monitor, zoom-monitor]
@@ -434,7 +434,7 @@ jobs:
       (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
       (needs.build-binaries.result == 'success') &&
       (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped') &&
-      (needs.detect-changes.outputs.binaries == 'true' || needs.detect-changes.outputs.force_infrastructure == 'true')
+      (needs.detect-changes.outputs.binaries == 'true' || needs.detect-changes.outputs.infrastructure == 'true' || needs.detect-changes.outputs.force_infrastructure == 'true')
     
     steps:
     - name: Binary deployment status
