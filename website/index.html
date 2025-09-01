@@ -14,7 +14,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Watchy Slack Monitoring - Enterprise-grade Slack status monitoring with intelligent caching and CloudWatch integration">
     <meta name="keywords" content="Slack monitoring, CloudWatch, AWS, status monitoring, SaaS monitoring">
-    <title>Watchy - Enterprise Slack Status Monitoring</title>
+    <title>Watchy - SaaS Status Monitoring</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -287,7 +287,7 @@
     <header class="header">
         <div class="container">
             <div class="logo">⏱️</div>
-            <div class="launch-badge">🚀 First SaaS Monitoring Launch</div>
+            <div class="launch-badge">🚀 First SaaS Monitoring Launch: Slack</div>
             <h1>Watchy</h1>
             <p class="tagline">Enterprise SaaS monitoring with Amazon CloudWatch</p>
         </div>
@@ -300,12 +300,12 @@
                 <h2>Deploy in 60 Seconds</h2>
                 <p class="deploy-description">
                     Launch the complete Watchy platform with centralized Slack monitoring in your AWS account. 
-                    Includes shared resources, SNS notifications, and CloudWatch integration.
+                    Monitors Slack's service status, incidents, and performance metrics, using the <a href="https://docs.slack.dev/reference/slack-status-api/">Slack Status API</a>.
                 </p>
                 <a href="https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?templateURL=https://s3.amazonaws.com/watchy-resources-prod/platform/watchy-platform.yaml&stackName=watchy-platform" 
                    class="deploy-button" 
                    target="_blank">
-                    🚀 Deploy to AWS
+                    🚀 Deploy Slack Monitoring to AWS
                 </a>
             </div>
         </div>
@@ -317,8 +317,7 @@
             <div class="deploy-info">
                 <h2>First SaaS Launch: Slack</h2>
                 <p class="deploy-description">
-                    Starting with comprehensive Slack monitoring, with GitHub and Zoom support coming soon. 
-                    Built for enterprise reliability and seamless CloudWatch integration.
+                    Built for enterprise reliability and seamless Amazon CloudWatch integration.
                 </p>
             </div>
             
@@ -327,8 +326,7 @@
                     <span class="feature-icon">⚡</span>
                     <h3 class="feature-title">Enterprise Performance</h3>
                     <p class="feature-description">
-                        Optimized Lambda architecture with intelligent caching provides reliable 
-                        monitoring at enterprise scale.
+                        Build customized AWS actions, notifications, and workflows for Slack Status events.
                     </p>
                 </div>
 
@@ -336,8 +334,7 @@
                     <span class="feature-icon">🔄</span>
                     <h3 class="feature-title">Real-Time Status Monitoring</h3>
                     <p class="feature-description">
-                        Monitor Slack's service status, incidents, and performance metrics with 
-                        configurable polling intervals from 1-60 minutes.
+                        Monitor Slack's service status, incidents, and performance metrics with configurable polling intervals from 1-60 minutes.
                     </p>
                 </div>
 
@@ -345,8 +342,7 @@
                     <span class="feature-icon">📊</span>
                     <h3 class="feature-title">CloudWatch Integration</h3>
                     <p class="feature-description">
-                        Native CloudWatch metrics, logs, and dashboards with custom alerting 
-                        for Slack service degradation and incidents.
+                        Native CloudWatch metrics, logs, and dashboards with custom alerting for Slack service degradation and incidents.
                     </p>
                 </div>
 
@@ -354,8 +350,7 @@
                     <span class="feature-icon">🔔</span>
                     <h3 class="feature-title">Intelligent Alerts</h3>
                     <p class="feature-description">
-                        Automated SNS notifications for Slack incidents with HTML stripping, 
-                        time-based filtering, and customizable alert thresholds.
+                        Automated Simple Notification Service (SNS) notifications for Slack incidents with HTML stripping, time-based filtering, and customizable alert thresholds.
                     </p>
                 </div>
 
@@ -363,8 +358,7 @@
                     <span class="feature-icon">🏗️</span>
                     <h3 class="feature-title">Infrastructure as Code</h3>
                     <p class="feature-description">
-                        Complete CloudFormation deployment with Lambda functions, IAM roles, 
-                        EventBridge schedules, and CloudWatch resources.
+                        Complete CloudFormation deployment with pre-configured Lambda functions, IAM roles, EventBridge schedules, and CloudWatch resources.
                     </p>
                 </div>
             </div>
@@ -380,20 +374,16 @@
             
             <div class="specs-grid">
                 <div class="spec-item">
-                    <div class="spec-number">Python 3.12</div>
-                    <div class="spec-label">Latest Runtime</div>
+                    <div class="spec-number">Automated</div>
+                    <div class="spec-label">Pre-built monitoring integration</div>
                 </div>
                 <div class="spec-item">
-                    <div class="spec-number">30MB</div>
-                    <div class="spec-label">Lambda Package Size</div>
+                    <div class="spec-number">Self-hosted</div>
+                    <div class="spec-label">Complete control of monitoring in your AWS account</div>
                 </div>
                 <div class="spec-item">
-                    <div class="spec-number">1.8s</div>
-                    <div class="spec-label">Average Execution Time</div>
-                </div>
-                <div class="spec-item">
-                    <div class="spec-number">75%</div>
-                    <div class="spec-label">Cost Reduction</div>
+                    <div class="spec-number">Extended CloudWatch</div>
+                    <div class="spec-label">Leverage familiarity and existing CloudWatch resources</div>
                 </div>
             </div>
         </div>
@@ -406,7 +396,7 @@
                 <h2>Need Custom Monitoring?</h2>
                 <p class="contact-description">
                     Looking to monitor additional SaaS platforms, need custom integration, 
-                    or want to discuss enterprise licensing? We're here to help.
+                    or want to discuss enterprise licensing?
                 </p>
                 <a href="mailto:contact@watchy.cloud?subject=Custom%20Monitoring%20Inquiry" 
                    class="contact-button">
@@ -419,8 +409,7 @@
     <!-- Footer -->
     <footer class="footer">
         <div class="container">
-            <p>&copy; 2025 Watchy Cloud Platform. Built for enterprise Slack monitoring.</p>
-            <p style="opacity: 0.6; font-size: 0.8em; margin-top: 5px;">Version 1.1 - Enhanced Deployment</p>
+            <p>&copy; 2025 Watchy Cloud Platform. SaaS Status Monitoring.</p>
         </div>
     </footer>
 </body>
