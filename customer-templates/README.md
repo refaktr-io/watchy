@@ -23,16 +23,9 @@ aws cloudformation create-stack \
 
 For advanced users who want granular control:
 
-#### Slack Monitoring Only
-
 ```bash
-aws cloudformation create-stack \
-  --template-url https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml \
-  --stack-name watchy-slack-monitoring \
-  --capabilities CAPABILITY_IAM \
-  --parameters \
-    ParameterKey=MonitoringSchedule,ParameterValue="rate(5 minutes)"
-```
+
+> **Note**: The Watchy platform currently focuses on **Slack monitoring**. Additional SaaS integrations (GitHub, Zoom) are planned for future releases.
 
 #### GitHub Monitoring Only
 
@@ -68,12 +61,11 @@ aws cloudformation create-stack \
 
 ## Template URLs
 
-Direct S3 URLs for CloudFormation deployment:
+Direct S3 URL for CloudFormation deployment:
 
-- **Platform Template (Recommended)**: `https://s3.amazonaws.com/watchy-resources-prod/platform/watchy-platform.yaml`
-- **Slack Component**: `https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml`
-- **GitHub Component**: `https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-github-monitoring.yaml`
-- **Zoom Component**: `https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-zoom-monitoring.yaml`
+- **Platform Template**: `https://s3.amazonaws.com/watchy-resources-prod/platform/watchy-platform.yaml`
+
+> **Note**: Individual service templates will be available in future releases.
 
 ## Configuration
 

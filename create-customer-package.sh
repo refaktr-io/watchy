@@ -37,15 +37,13 @@ cat > "${CUSTOMER_PACKAGE_DIR}/index.html" << 'EOF'
     <h2>Quick Start</h2>
     <p>Deploy monitoring templates directly from our hosted S3 URLs - no downloads required!</p>
     
-    <h2>Template URLs</h2>
+    <h2>Template URL</h2>
     <ul>
-        <li><strong>Slack Monitoring:</strong><br>
-            <code class="template-url">https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml</code></li>
-        <li><strong>GitHub Monitoring:</strong><br>
-            <code class="template-url">https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-github-monitoring.yaml</code></li>
-        <li><strong>Zoom Monitoring:</strong><br>
-            <code class="template-url">https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-zoom-monitoring.yaml</code></li>
+        <li><strong>Watchy Platform (includes Slack monitoring):</strong><br>
+            <code class="template-url">https://s3.amazonaws.com/watchy-resources-prod/platform/watchy-platform.yaml</code></li>
     </ul>
+    
+    <p><em>Additional SaaS integrations (GitHub, Zoom) will be available in future releases.</em></p>
     
     <h2>Example Deployment</h2>
     <pre><code>aws cloudformation deploy \

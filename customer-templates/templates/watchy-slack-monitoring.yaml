@@ -16,10 +16,6 @@ Parameters:
     Type: String
     Description: 'Schedule expression for monitoring frequency'
 
-  ApiKeysParameter:
-    Type: String
-    Description: 'ARN of the API keys parameter from parent stack'
-
   SharedLambdaRoleArn:
     Type: String
     Description: 'ARN of the shared Lambda execution role from parent stack'
@@ -78,7 +74,6 @@ Resources:
           CLOUDWATCH_NAMESPACE: !Sub 'Watchy/${SaasAppName}'
           
           # Platform configuration
-          API_KEYS_PARAMETER: !Ref ApiKeysParameter
           NOTIFICATION_TOPIC_ARN: !Ref NotificationTopicArn
           
           # Binary configuration
@@ -226,18 +221,8 @@ Resources:
                   # Ensure we have the latest Slack binary (with intelligent caching)
                   binary_path, version, latest_info = ensure_nuitka_binary()
                   
-                  # Load credentials
-                  ssm = boto3.client('ssm')
-                  
-                  api_keys_response = ssm.get_parameter(
-                      Name=os.environ.get('API_KEYS_PARAMETER'),
-                      WithDecryption=True
-                  )
-                  api_keys = json.loads(api_keys_response['Parameter']['Value'])
-                  
                   # Prepare environment for Slack binary
                   env = os.environ.copy()
-                  env['SLACK_OAUTH_TOKEN'] = api_keys.get('slack_oauth_token', '')
                   env['WATCHY_AWS_REQUEST_ID'] = context.aws_request_id
                   env['WATCHY_TIMESTAMP'] = str(int(time.time()))
                   

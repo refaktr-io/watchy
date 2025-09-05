@@ -21,11 +21,10 @@ fi
 
 echo "✅ Bucket ${BUCKET_NAME} exists"
 
-# Check if template files exist
+# Check if platform templates exist
 TEMPLATES=(
+    "watchy-platform.yaml"
     "watchy-slack-monitoring.yaml"
-    "watchy-github-monitoring.yaml" 
-    "watchy-zoom-monitoring.yaml"
 )
 
 MISSING_TEMPLATES=()

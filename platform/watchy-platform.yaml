@@ -1,14 +1,14 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Watchy Slack Monitoring Platform - Simplified Slack-Only Architecture with Nuitka Binaries'
+Description: 'Watchy Slack Monitoring Platform - Modular architecture with nested CloudFormation stacks for SaaS monitoring'
 
 Metadata:
-  Version: '5.0.0'
-  LastUpdated: '2025-08-31'
+  Version: '5.1.0'
+  LastUpdated: '2025-09-04'
   Changelog:
-    - Simplified to Slack-only monitoring platform
-    - Centralized shared resources (IAM, SNS, Parameter Store)
-    - Nuitka native binary compilation approach
-    - Focused single-SaaS design for Slack monitoring
+    - Restored nested CloudFormation stack architecture for modular SaaS monitoring
+    - Slack monitoring implemented as separate template for easier management
+    - Prepared for future GitHub and Zoom integrations
+    - Centralized shared resources with clean separation of concerns
 
 Parameters:
   # ===== GLOBAL CONFIGURATION =====
@@ -46,31 +46,6 @@ Parameters:
 Resources:
   # ===== SHARED PLATFORM RESOURCES =====
   
-  # API Keys Parameter Store (JSON format for multiple SaaS APIs)
-  # Note: Using String type for CloudFormation compatibility.
-  # For production, consider using AWS Secrets Manager for API keys.
-  ApiKeysParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub '/${AWS::StackName}/watchy/api-keys'
-      Type: String
-      Value: |
-        {
-          "github_token": "PLACEHOLDER_GITHUB_TOKEN",
-          "zoom_api_key": "PLACEHOLDER_ZOOM_API_KEY",
-          "zoom_api_secret": "PLACEHOLDER_ZOOM_API_SECRET",
-          "slack_oauth_token": "PLACEHOLDER_SLACK_TOKEN",
-          "custom_webhooks": {
-            "slack": "PLACEHOLDER_SLACK_WEBHOOK",
-            "teams": "PLACEHOLDER_TEAMS_WEBHOOK"
-          }
-        }
-      Description: 'API keys and secrets for SaaS integrations (JSON format)'
-      Tags:
-        Project: Watchy
-        Component: ApiKeys
-        StackName: !Ref AWS::StackName
-
   # Shared SNS Topic for All SaaS Monitoring Alerts
   WatchyNotificationTopic:
     Type: AWS::SNS::Topic
@@ -127,13 +102,6 @@ Resources:
                 Resource: 
                   - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*Watchy*'
                   - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/watchy/slack/*'
-              # Parameter Store Access for API keys
-              - Effect: Allow
-                Action:
-                  - ssm:GetParameter
-                  - ssm:GetParameters
-                Resource: 
-                  - !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${AWS::StackName}/watchy/api-keys'
               # SNS Publish for custom notifications
               - Effect: Allow
                 Action:
@@ -154,7 +122,6 @@ Resources:
         LogLevel: !Ref LogLevel
         TimeoutSeconds: !Ref TimeoutSeconds
         RetryAttempts: !Ref RetryAttempts
-        ApiKeysParameter: !Ref ApiKeysParameter
         SharedLambdaRoleArn: !GetAtt WatchySharedLambdaRole.Arn
         NotificationTopicArn: !Ref WatchyNotificationTopic
         ParentStackName: !Ref AWS::StackName
@@ -172,12 +139,6 @@ Resources:
 
 Outputs:
   # ===== SHARED PLATFORM OUTPUTS =====
-  ApiKeysParameter:
-    Description: 'Parameter Store name for Slack API keys'
-    Value: !Ref ApiKeysParameter
-    Export:
-      Name: !Sub '${AWS::StackName}-ApiKeysParameter'
-
   NotificationTopicArn:
     Description: 'ARN of the shared SNS topic for Slack monitoring alerts'
     Value: !Ref WatchyNotificationTopic
@@ -202,7 +163,7 @@ Outputs:
   # ===== PLATFORM SUMMARY =====
   PlatformVersion:
     Description: 'Watchy platform version'
-    Value: '5.0.0-slack-only'
+    Value: '5.1.0-modular'
 
   BinaryDistributionUrl:
     Description: 'Base URL for binary distribution'

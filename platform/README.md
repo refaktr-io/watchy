@@ -10,10 +10,13 @@ watchy-platform.yaml (Parent Stack)
 │   ├── SNS Topics & Subscriptions
 │   ├── IAM Roles & Policies
 │   └── Parameter Store (License Keys)
-└── SaaS App Stacks (Nested)
-    ├── watchy-slack-monitoring.yaml
-    ├── watchy-github-monitoring.yaml
-    └── watchy-zoom-monitoring.yaml
+└── Platform Infrastructure
+    ├── CloudFormation Templates
+    ├── Lambda Functions (Nuitka)
+    ├── CloudWatch Resources
+    ├── SNS Topics & Subscriptions
+    ├── IAM Roles & Policies
+    └── Parameter Store (License Keys)
 ```
 
 ## 🔒 Security Features

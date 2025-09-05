@@ -80,9 +80,7 @@ mkdir -p dist/platform/{templates,binaries,docs,api}
 # Process CloudFormation templates
 echo "📋 Processing CloudFormation templates..."
 cp platform/watchy-platform.yaml dist/platform/templates/
-cp platform/saas-apps/watchy-slack-monitoring.yaml dist/platform/templates/
-cp platform/saas-apps/watchy-github-monitoring.yaml dist/platform/templates/
-cp platform/saas-apps/watchy-zoom-monitoring.yaml dist/platform/templates/
+cp customer-templates/templates/watchy-slack-monitoring.yaml dist/platform/templates/
 
 # Update template URLs to use subfolder structure
 echo "🔗 Updating template URLs for platform subfolder..."
@@ -312,15 +310,11 @@ cat > dist/platform/api/version.json << EOF
         "templates": {
             "parent": "https://$DOMAIN_NAME/platform/templates/watchy-platform.yaml",
             "saas_apps": {
-                "slack": "https://$DOMAIN_NAME/platform/templates/watchy-slack-monitoring.yaml",
-                "github": "https://$DOMAIN_NAME/platform/templates/watchy-github-monitoring.yaml",
-                "zoom": "https://$DOMAIN_NAME/platform/templates/watchy-zoom-monitoring.yaml"
+                "slack": "https://$DOMAIN_NAME/platform/templates/watchy-slack-monitoring.yaml"
             }
         },
         "binaries": {
-            "slack": "https://$DOMAIN_NAME/platform/binaries/watchy-slack-monitor",
-            "github": "https://$DOMAIN_NAME/platform/binaries/watchy-github-monitor",
-            "zoom": "https://$DOMAIN_NAME/platform/binaries/watchy-zoom-monitor"
+            "slack": "https://$DOMAIN_NAME/platform/binaries/watchy-slack-monitor"
         },
         "api": {
             "slack_latest": "https://$DOMAIN_NAME/platform/api/slack-monitor-latest.json",
@@ -546,7 +540,7 @@ cat > dist/platform/index.html << 'EOF'
         
         <div class="deploy-section">
             <h2>🚀 Quick Deploy Complete Platform</h2>
-            <p>Deploy the entire Watchy Cloud monitoring platform with Slack, GitHub, and Zoom monitoring:</p>
+            <p>Deploy the Watchy Cloud monitoring platform with Slack status monitoring:</p>
             
             <a href="https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=watchy-platform&templateURL=https://watchy-resources.s3.amazonaws.com/watchy-platform.yaml" 
                class="deploy-button" target="_blank">
@@ -562,44 +556,38 @@ aws cloudformation create-stack \
     ParameterKey=WatchyLicenseKey,ParameterValue="your-license-key" \
     ParameterKey=NotificationEmail,ParameterValue="alerts@yourcompany.com" \
     ParameterKey=EnableSlackMonitoring,ParameterValue=true \
-    ParameterKey=EnableGitHubMonitoring,ParameterValue=true \
-    ParameterKey=EnableZoomMonitoring,ParameterValue=true \
   --capabilities CAPABILITY_NAMED_IAM
             </div>
         </div>
         
         <div class="deploy-section">
-            <h2>📋 Individual SaaS Monitoring Templates</h2>
-            <p>Deploy specific SaaS monitoring independently:</p>
+            <h2>📋 SaaS Monitoring</h2>
+            <p>The Watchy platform currently provides comprehensive Slack monitoring, with additional SaaS integrations planned for future releases.</p>
             
             <div class="templates-grid">
                 <div class="template-card">
                     <h3>💬 Slack Monitoring</h3>
-                    <p>Monitor Slack API, messaging, file sharing, calls, and all service components.</p>
+                    <p>Monitor Slack API, messaging, file sharing, calls, and all service components via the main platform template.</p>
                     <div class="template-links">
-                        <a href="https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=watchy-slack&templateURL=https://watchy-resources.s3.amazonaws.com/watchy-slack-monitoring.yaml" 
-                           class="deploy-button">Deploy</a>
-                        <a href="/platform/templates/watchy-slack-monitoring.yaml" class="template-link">View Template</a>
+                        <a href="https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?templateURL=https://s3.amazonaws.com/watchy-resources-prod/platform/watchy-platform.yaml&stackName=watchy-platform" 
+                           class="deploy-button">Deploy Platform</a>
+                        <a href="/platform/templates/watchy-platform.yaml" class="template-link">View Template</a>
                     </div>
                 </div>
                 
                 <div class="template-card">
                     <h3>🐙 GitHub Monitoring</h3>
-                    <p>Monitor GitHub API, Git operations, Actions, Pages, and repository services.</p>
+                    <p><em>Coming Soon</em> - GitHub API and service monitoring will be available in a future release.</p>
                     <div class="template-links">
-                        <a href="https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=watchy-github&templateURL=https://watchy-resources.s3.amazonaws.com/watchy-github-monitoring.yaml" 
-                           class="deploy-button">Deploy</a>
-                        <a href="/platform/templates/watchy-github-monitoring.yaml" class="template-link">View Template</a>
+                        <span class="coming-soon">In Development</span>
                     </div>
                 </div>
                 
                 <div class="template-card">
                     <h3>🎥 Zoom Monitoring</h3>
-                    <p>Monitor Zoom meetings, webinars, recordings, chat, phone, and dashboard services.</p>
+                    <p><em>Coming Soon</em> - Zoom platform monitoring will be available in a future release.</p>
                     <div class="template-links">
-                        <a href="https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=watchy-zoom&templateURL=https://watchy-resources.s3.amazonaws.com/watchy-zoom-monitoring.yaml" 
-                           class="deploy-button">Deploy</a>
-                        <a href="/platform/templates/watchy-zoom-monitoring.yaml" class="template-link">View Template</a>
+                        <span class="coming-soon">In Development</span>
                     </div>
                 </div>
             </div>
@@ -714,26 +702,10 @@ cat > dist/platform/templates/index.html << 'EOF'
         
         <div class="template">
             <h2>💬 Slack Monitoring</h2>
-            <p>Dedicated Slack service monitoring with API status, messaging, file sharing, calls, and all Slack service components.</p>
-            <a href="https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=watchy-slack&templateURL=https://$TEMPLATES_BUCKET.s3.amazonaws.com/platform/templates/watchy-slack-monitoring.yaml" 
-               class="deploy-btn">Deploy Slack Monitor</a>
-            <a href="watchy-slack-monitoring.yaml" class="view-btn">View Template</a>
-        </div>
-        
-        <div class="template">
-            <h2>🐙 GitHub Monitoring</h2>
-            <p>GitHub API and service monitoring including Git operations, Actions, Pages, and repository services.</p>
-            <a href="https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=watchy-github&templateURL=https://$TEMPLATES_BUCKET.s3.amazonaws.com/platform/templates/watchy-github-monitoring.yaml" 
-               class="deploy-btn">Deploy GitHub Monitor</a>
-            <a href="watchy-github-monitoring.yaml" class="view-btn">View Template</a>
-        </div>
-        
-        <div class="template">
-            <h2>🎥 Zoom Monitoring</h2>
-            <p>Zoom platform monitoring including meetings, webinars, recordings, chat, phone, and dashboard services.</p>
-            <a href="https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=watchy-zoom&templateURL=https://$TEMPLATES_BUCKET.s3.amazonaws.com/platform/templates/watchy-zoom-monitoring.yaml" 
-               class="deploy-btn">Deploy Zoom Monitor</a>
-            <a href="watchy-zoom-monitoring.yaml" class="view-btn">View Template</a>
+            <p>Comprehensive Slack service monitoring available through the main platform template.</p>
+            <a href="https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?templateURL=https://s3.amazonaws.com/watchy-resources-prod/platform/watchy-platform.yaml&stackName=watchy-platform" 
+               class="deploy-btn">Deploy Platform</a>
+            <a href="watchy-platform.yaml" class="view-btn">View Template</a>
         </div>
         
         <div class="template">
@@ -904,8 +876,6 @@ echo "🚀 Customer Quick Deploy URL:"
 echo "https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=watchy-platform&templateURL=https://watchy-resources.s3.amazonaws.com/watchy-platform.yaml"
 echo ""
 echo "📋 Individual SaaS Deployments:"
-echo "  Slack: https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=watchy-slack&templateURL=https://watchy-resources.s3.amazonaws.com/watchy-slack-monitoring.yaml"
-echo "  GitHub: https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=watchy-github&templateURL=https://watchy-resources.s3.amazonaws.com/watchy-github-monitoring.yaml"
-echo "  Zoom: https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=watchy-zoom&templateURL=https://watchy-resources.s3.amazonaws.com/watchy-zoom-monitoring.yaml"
+echo "  Platform: https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?templateURL=https://s3.amazonaws.com/watchy-resources-prod/platform/watchy-platform.yaml&stackName=watchy-platform"
 echo ""
 echo "💡 Note: If some resources are not immediately accessible, wait 10-15 minutes for CloudFront cache invalidation to complete."
