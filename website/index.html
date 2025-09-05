@@ -9,6 +9,32 @@
   gtag('js', new Date());
 
   gtag('config', 'G-2Z1Y1XTR7S');
+
+  // Track template downloads and other user interactions
+  function trackTemplateDownload(templateName, serviceType) {
+    gtag('event', 'template_download', {
+      'event_category': 'CloudFormation',
+      'event_label': templateName,
+      'service_type': serviceType,
+      'template_url': 'https://s3.amazonaws.com/watchy-resources-prod/platform/' + templateName,
+      'deployment_type': 'aws_console'
+    });
+    
+    // Log to console for debugging (remove in production)
+    console.log('Analytics: Template download tracked', {
+      template: templateName,
+      service: serviceType
+    });
+  }
+
+  // Track external link clicks
+  function trackExternalLink(linkType, destination) {
+    gtag('event', 'external_link_click', {
+      'event_category': 'Navigation',
+      'event_label': linkType,
+      'destination': destination
+    });
+  }
 </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -300,11 +326,12 @@
                 <h2>Deploy in 60 Seconds</h2>
                 <p class="deploy-description">
                     Launch the complete Watchy platform with centralized Slack monitoring in your AWS account. 
-                    Monitors Slack's service status, incidents, and performance metrics, using the <a href="https://docs.slack.dev/reference/slack-status-api/">Slack Status API</a>.
+                    Monitors Slack's service status, incidents, and performance metrics, using the <a href="https://docs.slack.dev/reference/slack-status-api/" target="_blank" onclick="trackExternalLink('slack-api-docs', 'https://docs.slack.dev/reference/slack-status-api/')">Slack Status API</a>.
                 </p>
                 <a href="https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?templateURL=https://s3.amazonaws.com/watchy-resources-prod/platform/watchy-platform.yaml&stackName=watchy-platform" 
                    class="deploy-button" 
-                   target="_blank">
+                   target="_blank"
+                   onclick="trackTemplateDownload('watchy-platform.yaml', 'slack-monitoring')">
                     🚀 Deploy Slack Monitoring to AWS
                 </a>
             </div>
