@@ -4,7 +4,7 @@ A comprehensive SaaS monitoring platform built on AWS with native Nuitka binarie
 
 ## 🏗️ Architecture Overview
 
-```
+```text
 watchy-platform.yaml (Parent Stack)
 ├── Shared Resources
 │   ├── SNS Topics & Subscriptions
@@ -27,6 +27,7 @@ watchy-platform.yaml (Parent Stack)
 ## 📦 Platform Components
 
 ### Parent Stack (`platform/watchy-platform.yaml`)
+
 - **Purpose**: Manages shared resources and deploys SaaS-specific monitoring
 - **Resources**: SNS topics, IAM roles, Parameter Store, nested stack deployment
 - **Parameters**: License key, customer ID, SaaS app selection
@@ -34,18 +35,21 @@ watchy-platform.yaml (Parent Stack)
 ### Binary Monitors
 
 #### Slack Monitor (`platform/binaries/slack-monitor/`)
+
 - **Source**: `watchy_slack_monitor.py`
 - **Build**: `build.sh` (Nuitka compilation)
 - **Services**: Slack API, messaging, file sharing, calls
 - **Binary**: `watchy-slack-monitor`
 
 #### GitHub Monitor (`platform/binaries/github-monitor/`)
+
 - **Source**: `watchy_github_monitor.py`
 - **Build**: `build.sh` (Nuitka compilation)
 - **Services**: GitHub API, Git operations, Actions, Pages
 - **Binary**: `watchy-github-monitor`
 
 #### Zoom Monitor (`platform/binaries/zoom-monitor/`)
+
 - **Source**: `watchy_zoom_monitor.py`
 - **Build**: `build.sh` (Nuitka compilation)
 - **Services**: Meetings, webinars, recordings, chat, phone
@@ -67,7 +71,7 @@ watchy-platform.yaml (Parent Stack)
 cd platform/binaries/slack-monitor
 ./build.sh
 
-# Build GitHub monitor  
+# Build GitHub monitor
 cd ../github-monitor
 ./build.sh
 
@@ -79,6 +83,7 @@ cd ../zoom-monitor
 ### Step 2: Upload Binaries to Distribution Server
 
 Upload the compressed binaries to your distribution server:
+
 - `watchy-slack-monitor-1.0.0.gz`
 - `watchy-github-monitor-1.0.0.gz`
 - `watchy-zoom-monitor-1.0.0.gz`
@@ -136,6 +141,7 @@ All monitors publish metrics to CloudWatch under namespace `Watchy/{SaaSApp}`:
 ### SNS Notifications
 
 Critical service outages trigger SNS alerts containing:
+
 - Affected SaaS application
 - Failed services list
 - Response times and error details
@@ -144,6 +150,7 @@ Critical service outages trigger SNS alerts containing:
 ### CloudWatch Alarms
 
 Automatic alarms are created for:
+
 - **Critical Service Outages**: Availability < 100% for critical services
 - **High Response Times**: Response time > 5 seconds
 - **License Validation Failures**: Monitor execution errors
@@ -156,7 +163,7 @@ Each Lambda function uses these environment variables:
 
 ```bash
 WATCHY_LICENSE_KEY="lemon_sq_..."      # LemonSqueezy license key
-WATCHY_CUSTOMER_ID="customer-123"      # Customer identifier  
+WATCHY_CUSTOMER_ID="customer-123"      # Customer identifier
 WATCHY_SNS_TOPIC_ARN="arn:aws:sns:..." # SNS topic for alerts
 WATCHY_BINARY_URL="https://..."        # Binary download URL
 ```
@@ -168,7 +175,7 @@ API keys are stored in Parameter Store with encryption:
 ```json
 {
   "slack_token": "xoxb-your-slack-token",
-  "github_token": "ghp_your-github-token", 
+  "github_token": "ghp_your-github-token",
   "zoom_token": "your-zoom-jwt-token"
 }
 ```
@@ -253,6 +260,7 @@ aws ssm get-parameter --name "/watchy/api-keys/customer-123" --with-decryption
 ### Custom Monitoring Logic
 
 Each monitor can be customized by:
+
 - Modifying service endpoints in the source
 - Adding new service checks
 - Adjusting alert thresholds
@@ -266,7 +274,7 @@ Deploy the platform across multiple regions:
 # Deploy to us-east-1
 aws cloudformation deploy --region us-east-1 ...
 
-# Deploy to eu-west-1  
+# Deploy to eu-west-1
 aws cloudformation deploy --region eu-west-1 ...
 ```
 
@@ -279,14 +287,19 @@ This is a commercial monitoring platform requiring a valid LemonSqueezy license.
 - **Commercial Support**: Priority support for licensed users
 - **Updates**: Automatic binary updates through distribution server
 
-For licensing questions, contact: support@watchy.cloud
+For licensing questions, contact: <support@watchy.cloud>
 
 ## 🤝 Support
 
 - **Documentation**: [docs.watchy.cloud](https://docs.watchy.cloud)
-- **Support Portal**: [support.watchy.cloud](https://support.watchy.cloud)  
+- **Support Portal**: [support.watchy.cloud](https://support.watchy.cloud)
 - **Status Page**: [status.watchy.cloud](https://status.watchy.cloud)
 - **Community**: [community.watchy.cloud](https://community.watchy.cloud)
+
+## 📚 Additional Documentation
+
+- **Intelligent Binary Caching**: [intelligent-binary-caching.md](intelligent-binary-caching.md)
+- **CloudFront Cache Invalidation**: [cloudfront-cache-invalidation.md](cloudfront-cache-invalidation.md)
 
 ---
 
