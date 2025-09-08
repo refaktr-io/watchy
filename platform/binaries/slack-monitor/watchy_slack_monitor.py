@@ -436,14 +436,6 @@ def main():
         
         # Determine if any services are down
         service_incidents = sum(1 for value in metrics.values() if value >= 2)  # partial_outage or worse
-        
-        # Send notification if needed
-        if service_incidents > 0 or len(active_incidents) > 0:
-            if len(active_incidents) > 0:
-                incident_titles = [inc.get('title', 'Unknown') for inc in active_incidents]
-                message = f"Slack Status Alert: {len(active_incidents)} active incident(s): {', '.join(incident_titles)}"
-            else:
-                message = f"Slack Status Alert: {service_incidents} service(s) experiencing issues"
 
         # Execution summary
         execution_time = time.time() - start_time
