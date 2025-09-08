@@ -342,7 +342,7 @@ Resources:
       AlarmName: !Sub '${ParentStackName}-Slack-APIResponse'
       AlarmDescription: 'Slack Status API response monitoring'
       MetricName: APIResponse
-      Namespace: Watchy/${SaasAppName}
+      Namespace: Watchy/Slack
       Statistic: Average
       Period: 300
       EvaluationPeriods: 1
@@ -358,7 +358,7 @@ Resources:
       AlarmName: !Sub '${ParentStackName}-Slack-Messaging'
       AlarmDescription: 'Slack Messaging service status'
       MetricName: Messaging
-      Namespace: Watchy/${SaasAppName}
+      Namespace: Watchy/Slack
       Statistic: Average
       Period: 300
       EvaluationPeriods: 1
@@ -390,7 +390,7 @@ Resources:
       AlarmName: !Sub '${ParentStackName}-Slack-Notifications'
       AlarmDescription: 'Slack Notifications service status'
       MetricName: Notifications
-      Namespace: Watchy/${SaasAppName}
+      Namespace: Watchy/Slack
       Statistic: Average
       Period: 300
       EvaluationPeriods: 1
@@ -406,7 +406,7 @@ Resources:
       AlarmName: !Sub '${ParentStackName}-Slack-Files'
       AlarmDescription: 'Slack Files service status'
       MetricName: Files
-      Namespace: Watchy/${SaasAppName}
+      Namespace: Watchy/Slack
       Statistic: Average
       Period: 300
       EvaluationPeriods: 1
@@ -422,7 +422,7 @@ Resources:
       AlarmName: !Sub '${ParentStackName}-Slack-Search'
       AlarmDescription: 'Slack Search service status'
       MetricName: Search
-      Namespace: Watchy/${SaasAppName}
+      Namespace: Watchy/Slack
       Statistic: Average
       Period: 300
       EvaluationPeriods: 1
@@ -438,7 +438,7 @@ Resources:
       AlarmName: !Sub '${ParentStackName}-Slack-Workflows'
       AlarmDescription: 'Slack Workflows service status'
       MetricName: Workflows
-      Namespace: Watchy/${SaasAppName}
+      Namespace: Watchy/Slack
       Statistic: Average
       Period: 300
       EvaluationPeriods: 1
