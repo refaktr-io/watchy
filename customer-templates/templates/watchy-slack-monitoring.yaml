@@ -99,8 +99,32 @@ Resources:
           import gzip
           from datetime import datetime
 
+          # Configure structured JSON logging to reduce visual clutter
+          class JSONFormatter(logging.Formatter):
+              def format(self, record):
+                  log_entry = {
+                      'timestamp': self.formatTime(record, '%Y-%m-%d %H:%M:%S'),
+                      'level': record.levelname,
+                      'message': record.getMessage(),
+                      'function': os.environ.get('AWS_LAMBDA_FUNCTION_NAME', 'watchy-slack-monitor'),
+                      'version': os.environ.get('AWS_LAMBDA_FUNCTION_VERSION', '$LATEST'),
+                      'saas_app': 'Slack'
+                  }
+                  if record.exc_info:
+                      log_entry['exception'] = self.formatException(record.exc_info)
+                  return json.dumps(log_entry)
+
+          # Setup logger with JSON formatter
           logger = logging.getLogger()
           logger.setLevel(getattr(logging, os.environ.get('WATCHY_LOG_LEVEL', 'INFO')))
+          
+          # Remove default handlers and add JSON formatter
+          for handler in logger.handlers[:]:
+              logger.removeHandler(handler)
+          
+          json_handler = logging.StreamHandler()
+          json_handler.setFormatter(JSONFormatter())
+          logger.addHandler(json_handler)
 
           _binary_cache = {}
 

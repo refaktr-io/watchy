@@ -23,12 +23,6 @@ Parameters:
     Default: 'rate(5 minutes)'
     Description: 'Monitoring frequency for Slack status checks'
 
-  LogLevel:
-    Type: String
-    Default: 'INFO'
-    AllowedValues: ['DEBUG', 'INFO', 'WARN', 'ERROR']
-    Description: 'Log level for Slack monitoring binary'
-
   TimeoutSeconds:
     Type: Number
     Default: 240
@@ -119,7 +113,6 @@ Resources:
         SaasAppName: 'Slack'
         ApiUrl: 'https://status.slack.com/api/v2.0.0/current'
         MonitoringSchedule: !Ref MonitoringSchedule
-        LogLevel: !Ref LogLevel
         TimeoutSeconds: !Ref TimeoutSeconds
         RetryAttempts: !Ref RetryAttempts
         SharedLambdaRoleArn: !GetAtt WatchySharedLambdaRole.Arn

@@ -18,6 +18,20 @@ from typing import Dict, Any, List
 VERSION = "1.0.1-nuitka"
 BUILD_DATE = "2025-08-31T10:30:00Z"
 
+def log_json(level: str, message: str, **kwargs):
+    """Log structured JSON messages to reduce visual clutter"""
+    log_entry = {
+        'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+        'level': level,
+        'message': message,
+        'binary': 'watchy-slack-monitor',
+        'version': VERSION,
+        'saas_app': 'Slack'
+    }
+    # Add any additional metadata
+    log_entry.update(kwargs)
+    print(json.dumps(log_entry))
+
 # Binary cache for intelligent caching
 _binary_cache = {}
 
@@ -35,7 +49,7 @@ def get_nuitka_binary_info():
                 return json.loads(response.read().decode('utf-8'))
         return None
     except Exception as e:
-        print(f"Failed to get Slack binary info: {e}")
+        log_json("ERROR", "Failed to get Slack binary info", error=str(e))
         return None
 
 def ensure_nuitka_binary():
@@ -64,12 +78,14 @@ def ensure_nuitka_binary():
             cached_info.get('version') == latest_info['version'] and
             cached_info.get('sha256') == latest_info['sha256']):
             
-            print(f"✅ Using cached Slack binary v{latest_info['version']} (size: {cached_info.get('binarySize', 'unknown')} bytes)")
+            log_json("INFO", "Using cached Slack binary", 
+                    version=latest_info['version'], 
+                    size_bytes=cached_info.get('binarySize', 'unknown'))
             return binary_path, latest_info['version']
         
         # For standalone binary, we ARE the binary, so no download needed
         # This is just for consistency with Lambda implementation
-        print(f"🔄 Running Slack binary v{latest_info.get('version', VERSION)}")
+        log_json("INFO", "Running Slack binary", version=latest_info.get('version', VERSION))
         
         # Cache the binary info for consistency
         try:
@@ -81,14 +97,14 @@ def ensure_nuitka_binary():
                     'cached_at': time.time(),
                     'cache_date': datetime.utcnow().isoformat()
                 }, f)
-            print("💾 Cached binary info for future use")
+            log_json("INFO", "Cached binary info for future use")
         except Exception as e:
-            print(f"Failed to cache binary info: {e}")
+            log_json("ERROR", "Failed to cache binary info", error=str(e))
         
         return "/usr/local/bin/watchy-slack-monitor", latest_info.get('version', VERSION)
         
     except Exception as e:
-        print(f"Failed to ensure binary: {e}")
+        log_json("ERROR", "Failed to ensure binary", error=str(e))
         # For standalone binary, continue execution anyway
         return "/usr/local/bin/watchy-slack-monitor", VERSION
 
@@ -97,7 +113,7 @@ def fetch_slack_status(api_url: str) -> Dict[str, Any]:
     Fetch Slack status from status API
     """
     try:
-        print(f"🔍 Fetching Slack status from: {api_url}")
+        log_json("INFO", "Fetching Slack status", api_url=api_url)
         
         req = urllib.request.Request(api_url)
         req.add_header('User-Agent', f'Watchy-SlackMonitor/{VERSION}')
@@ -105,13 +121,13 @@ def fetch_slack_status(api_url: str) -> Dict[str, Any]:
         with urllib.request.urlopen(req, timeout=30) as response:
             if response.status == 200:
                 data = json.loads(response.read().decode('utf-8'))
-                print("✅ Successfully fetched Slack status")
+                log_json("INFO", "Successfully fetched Slack status")
                 return data
             else:
                 raise Exception(f"API returned status {response.status}")
                 
     except Exception as e:
-        print(f"❌ Failed to fetch Slack status: {e}")
+        log_json("ERROR", "Failed to fetch Slack status", error=str(e))
         raise
 
 def strip_html_tags(html_string: str) -> str:
@@ -154,7 +170,7 @@ def parse_datetime(date_string: str) -> datetime:
             # Assume UTC if no timezone
             return datetime.fromisoformat(date_string + '+00:00')
     except Exception as e:
-        print(f"⚠️ Failed to parse datetime '{date_string}': {e}")
+        log_json("WARN", "Failed to parse datetime", date_string=date_string, error=str(e))
         return datetime.utcnow()
 
 def is_within_polling_interval(note_time: datetime, polling_interval_minutes: int = 5) -> bool:
@@ -172,7 +188,7 @@ def publish_incident_logs(incidents: List[Dict], log_group: str = '/watchy/slack
     """
     try:
         if not incidents:
-            print("📝 No active incidents to log")
+            log_json("INFO", "No active incidents to log")
             return 0
         
         logs_published = 0
@@ -183,7 +199,9 @@ def publish_incident_logs(incidents: List[Dict], log_group: str = '/watchy/slack
             incident_url = incident.get('url', '')
             incident_services = incident.get('services', [])
             
-            print(f"🔍 Processing incident {incident_id}: {incident_title}")
+            log_json("INFO", "Processing incident", 
+                    incident_id=incident_id, 
+                    incident_title=incident_title)
             
             notes = incident.get('notes', [])
             
@@ -199,7 +217,9 @@ def publish_incident_logs(incidents: List[Dict], log_group: str = '/watchy/slack
                 
                 # Check if note is within polling interval
                 if not is_within_polling_interval(note_time, polling_interval):
-                    print(f"⏭️ Skipping old note from {note_time} (outside {polling_interval}min interval)")
+                    log_json("DEBUG", "Skipping old note", 
+                            note_time=note_time.isoformat(), 
+                            polling_interval_min=polling_interval)
                     continue
                 
                 # Clean HTML from note body
@@ -218,22 +238,25 @@ def publish_incident_logs(incidents: List[Dict], log_group: str = '/watchy/slack
                 
                 # Mock CloudWatch Logs publishing
                 # In production, this would use boto3.client('logs').put_log_events()
-                print(f"📋 Publishing log to {log_group}:")
-                print(f"   🆔 Incident: {incident_id} - {incident_title}")
-                print(f"   🕒 Note Time: {note_time}")
-                print(f"   🔧 Services: {', '.join(incident_services)}")
-                print(f"   📝 Note: {clean_note[:100]}{'...' if len(clean_note) > 100 else ''}")
+                log_json("INFO", "Publishing incident log", 
+                        log_group=log_group,
+                        incident_id=incident_id,
+                        incident_title=incident_title,
+                        note_time=note_time.isoformat(),
+                        services=incident_services,
+                        note_preview=clean_note[:100] + ('...' if len(clean_note) > 100 else ''))
                 
                 # Log the full JSON (in production this would go to CloudWatch)
-                print(f"📊 LOG_ENTRY: {json.dumps(log_entry)}")
+                log_json("DEBUG", "Full log entry", log_entry=log_entry)
                 
                 logs_published += 1
         
-        print(f"✅ Published {logs_published} incident notes to CloudWatch Logs")
+        log_json("INFO", "Published incident notes to CloudWatch Logs", 
+                logs_published=logs_published)
         return logs_published
         
     except Exception as e:
-        print(f"❌ Failed to publish incident logs: {e}")
+        log_json("ERROR", "Failed to publish incident logs", error=str(e))
         return 0
 
 def parse_slack_services(status_data: Dict[str, Any]) -> Dict[str, int]:
