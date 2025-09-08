@@ -114,7 +114,7 @@ Resources:
               OriginAccessIdentity: ''
             OriginAccessControlId: !GetAtt OriginAccessControl.Id
         
-        # Default Cache Behavior
+        # Default Cache Behavior - more conservative for fallback files
         DefaultCacheBehavior:
           TargetOriginId: S3Origin
           ViewerProtocolPolicy: redirect-to-https
@@ -126,8 +126,8 @@ Resources:
             - GET
             - HEAD
           Compress: true
-          DefaultTTL: 86400  # 24 hours
-          MaxTTL: 31536000   # 1 year
+          DefaultTTL: 3600   # 1 hour (reduced from 24 hours)
+          MaxTTL: 86400      # 24 hours (reduced from 1 year) 
           MinTTL: 0
           ForwardedValues:
             QueryString: false
@@ -159,6 +159,36 @@ Resources:
                 - Access-Control-Request-Method
                 - Access-Control-Request-Headers
             
+          # Latest binary symlinks - short cache for updates (FIXED PATTERN)
+          - PathPattern: 'binaries/*latest*'
+            TargetOriginId: S3Origin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS]
+            CachedMethods: [GET, HEAD]
+            Compress: true
+            DefaultTTL: 300    # 5 minutes (short for latest)
+            MaxTTL: 3600       # 1 hour
+            MinTTL: 0
+            ForwardedValues:
+              QueryString: false
+              Cookies:
+                Forward: none
+          
+          # Versioned binary files - longer cache since they're immutable
+          - PathPattern: 'binaries/*v*'
+            TargetOriginId: S3Origin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD]
+            CachedMethods: [GET, HEAD]
+            Compress: true
+            DefaultTTL: 86400  # 24 hours
+            MaxTTL: 31536000   # 1 year
+            MinTTL: 3600       # 1 hour minimum
+            ForwardedValues:
+              QueryString: false
+              Cookies:
+                Forward: none
+            
           # Binary files (.gz) - longer cache since they're immutable
           - PathPattern: 'binaries/*/*.gz'
             TargetOriginId: S3Origin
@@ -169,21 +199,6 @@ Resources:
             DefaultTTL: 86400  # 24 hours
             MaxTTL: 31536000   # 1 year
             MinTTL: 3600       # 1 hour minimum
-            ForwardedValues:
-              QueryString: false
-              Cookies:
-                Forward: none
-          
-          # Latest symlinks - medium cache
-          - PathPattern: 'binaries/*/latest.*'
-            TargetOriginId: S3Origin
-            ViewerProtocolPolicy: redirect-to-https
-            AllowedMethods: [GET, HEAD, OPTIONS]
-            CachedMethods: [GET, HEAD]
-            Compress: true
-            DefaultTTL: 3600   # 1 hour
-            MaxTTL: 86400      # 24 hours
-            MinTTL: 300        # 5 minutes
             ForwardedValues:
               QueryString: false
               Cookies:
