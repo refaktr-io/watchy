@@ -11,6 +11,7 @@ import time
 import urllib.request
 import urllib.parse
 import re
+import boto3
 from datetime import datetime, timedelta
 from typing import Dict, Any, List
 
@@ -23,10 +24,7 @@ def log_json(level: str, message: str, **kwargs):
     log_entry = {
         'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
         'level': level,
-        'message': message,
-        'binary': 'watchy-slack-monitor',
-        'version': VERSION,
-        'saas_app': 'Slack'
+        'message': message
     }
     # Add any additional metadata
     log_entry.update(kwargs)
@@ -191,7 +189,30 @@ def publish_incident_logs(incidents: List[Dict], log_group: str = '/watchy/slack
             log_json("INFO", "No active incidents to log")
             return 0
         
+        # Initialize CloudWatch Logs client
+        logs_client = boto3.client('logs')
+        
+        # Ensure log group exists
+        try:
+            logs_client.create_log_group(logGroupName=log_group)
+            log_json("DEBUG", "Created CloudWatch log group", log_group=log_group)
+        except logs_client.exceptions.ResourceAlreadyExistsException:
+            pass  # Log group already exists
+        except Exception as e:
+            log_json("WARN", "Failed to create log group", log_group=log_group, error=str(e))
+        
+        # Create log stream with timestamp
+        log_stream = f"slack-incidents-{int(time.time())}"
+        try:
+            logs_client.create_log_stream(
+                logGroupName=log_group,
+                logStreamName=log_stream
+            )
+        except logs_client.exceptions.ResourceAlreadyExistsException:
+            pass  # Log stream already exists
+        
         logs_published = 0
+        log_events = []
         
         for incident in incidents:
             incident_id = incident.get('id', 'unknown')
@@ -236,27 +257,68 @@ def publish_incident_logs(incidents: List[Dict], log_group: str = '/watchy/slack
                     'source': 'watchy-slack-monitor'
                 }
                 
-                # Mock CloudWatch Logs publishing
-                # In production, this would use boto3.client('logs').put_log_events()
-                log_json("INFO", "Publishing incident log", 
-                        log_group=log_group,
+                # Add to CloudWatch log events
+                log_events.append({
+                    'timestamp': int(note_time.timestamp() * 1000),  # CloudWatch expects milliseconds
+                    'message': json.dumps(log_entry)
+                })
+                
+                log_json("DEBUG", "Prepared incident log for CloudWatch", 
                         incident_id=incident_id,
                         incident_title=incident_title,
-                        note_time=note_time.isoformat(),
-                        services=incident_services,
-                        note_preview=clean_note[:100] + ('...' if len(clean_note) > 100 else ''))
-                
-                # Log the full JSON (in production this would go to CloudWatch)
-                log_json("DEBUG", "Full log entry", log_entry=log_entry)
+                        note_time=note_time.isoformat())
                 
                 logs_published += 1
         
-        log_json("INFO", "Published incident notes to CloudWatch Logs", 
-                logs_published=logs_published)
+        # Publish log events to CloudWatch if we have any
+        if log_events:
+            # Sort events by timestamp (CloudWatch requirement)
+            log_events.sort(key=lambda x: x['timestamp'])
+            
+            # Publish in batches (CloudWatch limit is 10,000 events or 1MB per call)
+            batch_size = 100  # Conservative batch size
+            events_published = 0
+            
+            for i in range(0, len(log_events), batch_size):
+                batch = log_events[i:i + batch_size]
+                
+                try:
+                    response = logs_client.put_log_events(
+                        logGroupName=log_group,
+                        logStreamName=log_stream,
+                        logEvents=batch
+                    )
+                    events_published += len(batch)
+                    
+                    log_json("DEBUG", "Published log events batch to CloudWatch", 
+                            log_group=log_group,
+                            log_stream=log_stream,
+                            batch_size=len(batch),
+                            next_sequence_token=response.get('nextSequenceToken'))
+                    
+                except Exception as e:
+                    log_json("ERROR", "Failed to publish log events batch", 
+                            log_group=log_group,
+                            log_stream=log_stream,
+                            batch_size=len(batch),
+                            error=str(e))
+                    # Continue with next batch
+            
+            log_json("INFO", "Successfully published incident logs to CloudWatch", 
+                    log_group=log_group,
+                    log_stream=log_stream,
+                    events_published=events_published,
+                    incidents_processed=len(incidents))
+        else:
+            log_json("INFO", "No incident logs to publish within polling interval")
+        
         return logs_published
         
     except Exception as e:
-        log_json("ERROR", "Failed to publish incident logs", error=str(e))
+        log_json("ERROR", "Failed to publish incident logs", 
+                error=str(e),
+                log_group=log_group,
+                incidents_count=len(incidents))
         return 0
 
 def parse_slack_services(status_data: Dict[str, Any]) -> Dict[str, int]:
@@ -295,35 +357,50 @@ def parse_slack_services(status_data: Dict[str, Any]) -> Dict[str, int]:
 def publish_cloudwatch_metrics(metrics: Dict[str, int], namespace: str = 'Watchy/Slack'):
     """
     Publish metrics to CloudWatch
-    This is a mock implementation - in production this would use boto3
     """
     try:
-        print(f"📈 Publishing {len(metrics)} metrics to CloudWatch namespace: {namespace}")
+        # Initialize CloudWatch client
+        cloudwatch = boto3.client('cloudwatch')
+        
+        # Prepare metric data for batch publishing
+        metric_data = []
         
         for metric_name, value in metrics.items():
-            print(f"   📊 {metric_name}: {value}")
+            metric_data.append({
+                'MetricName': metric_name,
+                'Value': value,
+                'Unit': 'Count',
+                'Timestamp': datetime.utcnow()
+            })
         
-        # Mock CloudWatch publishing
-        # In production, this would use boto3.client('cloudwatch').put_metric_data()
+        # Publish metrics in batches (CloudWatch limit is 20 metrics per call)
+        batch_size = 20
+        metrics_published = 0
+        
+        for i in range(0, len(metric_data), batch_size):
+            batch = metric_data[i:i + batch_size]
+            
+            cloudwatch.put_metric_data(
+                Namespace=namespace,
+                MetricData=batch
+            )
+            
+            metrics_published += len(batch)
+            log_json("DEBUG", f"Published batch of {len(batch)} metrics to CloudWatch", 
+                    namespace=namespace, batch_size=len(batch))
+        
+        log_json("INFO", "Successfully published metrics to CloudWatch", 
+                namespace=namespace, 
+                metrics_count=metrics_published)
         
         return True
         
     except Exception as e:
-        print(f"❌ Failed to publish CloudWatch metrics: {e}")
+        log_json("ERROR", "Failed to publish CloudWatch metrics", 
+                error=str(e), 
+                namespace=namespace, 
+                metrics_count=len(metrics))
         return False
-
-def send_notification(message: str, topic_arn: str = None):
-    """
-    Send notification via SNS
-    Mock implementation for now
-    """
-    try:
-        if topic_arn:
-            print(f"📢 Notification: {message}")
-            # In production: boto3.client('sns').publish(TopicArn=topic_arn, Message=message)
-        
-    except Exception as e:
-        print(f"❌ Failed to send notification: {e}")
 
 def main():
     """
@@ -336,7 +413,7 @@ def main():
         print(f"📅 Build Date: {BUILD_DATE}")
         print("🏗️  Binary Type: Nuitka Native")
         
-        # Get configuration from environment
+        # Get configuration from environment variables with defaults
         api_url = os.getenv('API_URL', 'https://status.slack.com/api/v2.0.0/current')
         namespace = os.getenv('CLOUDWATCH_NAMESPACE', 'Watchy/Slack')
         log_group = os.getenv('CLOUDWATCH_LOG_GROUP', '/watchy/slack/status')
@@ -367,8 +444,7 @@ def main():
                 message = f"Slack Status Alert: {len(active_incidents)} active incident(s): {', '.join(incident_titles)}"
             else:
                 message = f"Slack Status Alert: {service_incidents} service(s) experiencing issues"
-            send_notification(message, os.getenv('NOTIFICATION_TOPIC_ARN'))
-        
+
         # Execution summary
         execution_time = time.time() - start_time
         
