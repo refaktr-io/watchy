@@ -1,6 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Watchy Monitoring Platform v5.2.0
-
+Description: 'Watchy Monitoring Platform v5.2.0'
 Metadata:
   Version: '5.2.0'
   LastUpdated: '2025-10-18'
