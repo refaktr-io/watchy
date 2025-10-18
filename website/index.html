@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
     <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-2Z1Y1XTR7S"></script>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-98EX4LP0LW"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
 
-  gtag('config', 'G-2Z1Y1XTR7S');
+  gtag('config', 'G-98EX4LP0LW');
 
   // Track template downloads and other user interactions
   function trackTemplateDownload(templateName, serviceType) {
@@ -77,12 +77,12 @@
         }
 
         h1 {
-            font-size: 3rem;
+            font-size: 4rem;
             font-weight: 700;
             margin-bottom: 1rem;
             font-family: 'Space Grotesk', sans-serif;
             text-transform: uppercase;
-            letter-spacing: 0.15em;
+            letter-spacing: -0.02em;
         }
 
         .tagline {
@@ -132,6 +132,8 @@
         .deploy-button:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 25px rgba(255, 107, 53, 0.3);
+            color: white;
+            text-decoration: none;
         }
 
         .deploy-info {
@@ -267,6 +269,8 @@
         .contact-button:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 25px rgba(0, 183, 253, 0.3);
+            color: white;
+            text-decoration: none;
         }
 
         .footer {
@@ -275,6 +279,26 @@
             padding: 2rem 0;
             text-align: center;
             font-size: 0.9rem;
+        }
+
+        .footer a {
+            color: #00b7fd;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        a {
+            color: #0092ca;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        a:hover {
+            color: #00b7fd;
+            text-decoration: underline;
         }
 
         @media (max-width: 768px) {
@@ -430,10 +454,9 @@
             <div class="contact-content">
                 <h2>Need Custom Monitoring?</h2>
                 <p class="contact-description">
-                    Looking to monitor additional SaaS platforms, need custom integration, 
-                    or want to discuss enterprise licensing?
+                    Looking to monitor additional SaaS platforms or custom integration with Amazon CloudWatch?
                 </p>
-                <a href="mailto:contact@watchy.cloud?subject=Custom%20Monitoring%20Inquiry" 
+                <a href="mailto:hello@refaktr.io?subject=Custom%20Monitoring%20Inquiry" 
                    class="contact-button">
                     📧 Contact Us
                 </a>
@@ -442,9 +465,10 @@
     </section>
 
     <!-- Footer -->
+        <!-- Footer -->
     <footer class="footer">
         <div class="container">
-            <p>&copy; 2025 Watchy</p>
+            <p>&copy; 2025 Watchy by <a href="https://refaktr.io">Refaktr LLC</a>. All rights reserved.</p>
         </div>
     </footer>
 </body>
