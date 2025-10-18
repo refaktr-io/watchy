@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Watchy Slack Monitoring Platform - Modular architecture with nested CloudFormation stacks for SaaS monitoring'
+Description: 'Watchy Monitoring Platform v5.2.0
 
 Metadata:
   Version: '5.2.0'
