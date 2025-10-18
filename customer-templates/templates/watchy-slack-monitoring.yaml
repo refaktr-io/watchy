@@ -1,6 +1,15 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: 'Watchy Slack Status Monitoring - Nuitka Binary Implementation'
 
+Metadata:
+  Version: '2.0.0'
+  LastUpdated: '2025-10-18'
+  Changelog:
+    - Complete CloudWatch alarm coverage for all 11 Slack services
+    - Standardized alarm naming to Watchy-Slack-<ServiceName> format
+    - Alert thresholds set to severity 2+ (incident and outage levels)
+    - Services monitored - Login/SSO, Messaging, Notifications, Search, Workspace/Org Administration, Canvases, Connectivity, Files, Huddles, Apps/Integrations/APIs, Workflows
+
 Parameters:
   # ===== STANDARDIZED PARAMETERS FROM PARENT =====
   SaasAppName:

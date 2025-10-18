@@ -2,14 +2,14 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: 'Watchy Slack Monitoring Platform - Modular architecture with nested CloudFormation stacks for SaaS monitoring'
 
 Metadata:
-  Version: '5.1.0'
-  LastUpdated: '2025-09-04'
+  Version: '5.2.0'
+  LastUpdated: '2025-10-18'
   RecommendedStackName: 'Watchy'
   Changelog:
-    - Restored nested CloudFormation stack architecture for modular SaaS monitoring
-    - Slack monitoring implemented as separate template for easier management
-    - Prepared for future GitHub and Zoom integrations
-    - Centralized shared resources with clean separation of concerns
+    - Updated Slack monitoring alarms to cover all 11 Slack services
+    - Standardized alarm naming to Watchy-Slack-<ServiceName> format
+    - Set alarm thresholds to alert on incident (2) and outage (3) severity levels
+    - Added comprehensive alarm coverage for Login/SSO, Messaging, Notifications, Search, Workspace/Org Administration, Canvases, Connectivity, Files, Huddles, Apps/Integrations/APIs, and Workflows
 
 Parameters:
   # ===== GLOBAL CONFIGURATION =====
@@ -45,8 +45,8 @@ Resources:
   WatchyNotificationTopic:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: !Sub '${AWS::StackName}-WatchyPlatformAlerts'
-      DisplayName: !Sub 'Watchy Platform Alerts - ${AWS::StackName}'
+      TopicName: 'Watchy-Alerts'
+      DisplayName: 'Watchy Platform Alerts'
       Tags:
         - Key: Project
           Value: Watchy
