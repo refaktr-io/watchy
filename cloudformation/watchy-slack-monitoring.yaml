@@ -362,13 +362,7 @@ Resources:
       Principal: events.amazonaws.com
       SourceArn: !GetAtt SlackScheduleRule.Arn
 
-  # ===== SLACK CLOUDWATCH RESOURCES =====
-  SlackLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub '/aws/lambda/${SlackMonitoringLambda}'
-      RetentionInDays: 30
-
+  # ===== SLACK CLOUDWATCH ALARMS =====
   # Slack Service Alarms
   SlackAPIResponseAlarm:
     Type: AWS::CloudWatch::Alarm
