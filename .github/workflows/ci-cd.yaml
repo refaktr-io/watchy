@@ -54,12 +54,14 @@ jobs:
         filters: |
           infrastructure:
             - 'platform/infrastructure/**'
-            - 'platform/watchy-platform.yaml'
           binaries:
             - 'platform/binaries/**'
           platform:
             - 'customer-templates/**'
             - 'platform/deploy/**'
+            - 'platform/watchy-platform.yaml'
+            - 'platform/README.md'
+            - 'docs/**'
           website:
             - 'website/**'
 
@@ -758,7 +760,7 @@ jobs:
   publish-to-github:
     name: Publish to Public GitHub Repository
     runs-on: ubuntu-latest
-    needs: [detect-changes, deploy-platform]
+    needs: [detect-changes]
     if: github.ref == 'refs/heads/main' && (needs.detect-changes.outputs.platform == 'true' || github.event_name == 'workflow_dispatch')
     
     steps:
@@ -786,6 +788,13 @@ jobs:
         cp platform/README.md public-repo/README.md
         echo "✅ README copied"
 
+    - name: Copy Architecture Documentation
+      run: |
+        echo "📐 Copying architecture documentation to public repository..."
+        mkdir -p public-repo/docs
+        cp docs/ARCHITECTURE.md public-repo/docs/ARCHITECTURE.md
+        echo "✅ Architecture documentation copied"
+
     - name: Commit and push to public repository
       run: |
         cd public-repo
@@ -801,7 +810,7 @@ jobs:
         fi
         
         # Stage changes
-        git add watchy-platform.yaml README.md
+        git add watchy-platform.yaml README.md docs/
         
         # Commit with version information
         VERSION=$(date -u +%Y.%m.%d.%H%M%S)

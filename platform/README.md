@@ -124,6 +124,8 @@ Slack Status API (https://status.slack.com/api/v2.0.0/current)
     └─→ CloudWatch Alarms → SNS → Email
 ```
 
+📋 **[View Complete Architecture Diagram](../docs/ARCHITECTURE.md)** - Detailed AWS resource topology, data flows, security layers, and cost breakdown.
+
 ## 🛡️ Security Features
 
 - **Least Privilege IAM**: Lambda function has minimal required permissions
