@@ -359,7 +359,8 @@ def parse_slack_services(status_data: Dict[str, Any]) -> Dict[str, int]:
         # Initialize all services to 0 (healthy)
         for service in all_services:
             # Convert service name to CloudWatch-friendly metric name
-            metric_name = service.replace('/', '_').replace(' ', '')
+            # Remove slashes, underscores, and spaces to match alarm names
+            metric_name = service.replace('/', '').replace(' ', '').replace('_', '')
             metrics[metric_name] = 0
         
         # Get active incidents
@@ -378,7 +379,7 @@ def parse_slack_services(status_data: Dict[str, Any]) -> Dict[str, int]:
                 # Update metrics for affected services
                 for service in affected_services:
                     if service in all_services:
-                        metric_name = service.replace('/', '_').replace(' ', '')
+                        metric_name = service.replace('/', '').replace(' ', '').replace('_', '')
                         # Use the highest severity if multiple incidents affect same service
                         metrics[metric_name] = max(metrics.get(metric_name, 0), severity)
                         print(f"{service}: {incident_type} (severity: {severity})")
