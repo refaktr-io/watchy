@@ -1,10 +1,14 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Watchy Monitoring Platform - Slack v2.1.0'
+Description: 'Watchy Monitoring Platform - Slack v2.2.0'
 
 Metadata:
-  Version: '2.1.0'
+  Version: '2.2.0'
   LastUpdated: '2025-10-18'
   Changelog:
+    - Added CloudWatch Log Groups as CloudFormation resources
+    - Incident log group (/watchy/slack) with 30-day retention
+    - Lambda log group with 7-day retention
+    - Prevents dashboard errors when no incidents have occurred yet
     - Added CloudWatch Dashboard with 6 comprehensive widgets
     - Time series visualization of all 11 Slack service health metrics
     - Single value displays for Active Incidents and API Response status
@@ -68,9 +72,24 @@ Parameters:
     Description: 'Number of retry attempts'
 
 Resources:
+  # ===== CLOUDWATCH LOG GROUPS =====
+  SlackIncidentLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /watchy/slack
+      RetentionInDays: 30
+
+  SlackLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${ParentStackName}-SlackMonitor'
+      RetentionInDays: 7
+
   # ===== SLACK MONITORING LAMBDA =====
   SlackMonitoringLambda:
     Type: AWS::Lambda::Function
+    DependsOn:
+      - SlackLambdaLogGroup
     Properties:
       Architectures:
         - x86_64
@@ -716,6 +735,14 @@ Outputs:
   LambdaFunctionArn:
     Description: 'Slack monitoring Lambda function ARN'
     Value: !GetAtt SlackMonitoringLambda.Arn
+
+  IncidentLogGroup:
+    Description: 'CloudWatch Log Group for Slack incidents'
+    Value: !Ref SlackIncidentLogGroup
+
+  LambdaLogGroup:
+    Description: 'CloudWatch Log Group for Lambda execution logs'
+    Value: !Ref SlackLambdaLogGroup
 
   APIResponseAlarm:
     Description: 'Slack API Response alarm ARN'

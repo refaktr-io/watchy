@@ -124,13 +124,17 @@ Typical monthly cost: **$2-5 USD**
 
 ## 📋 CloudWatch Logs
 
-Watchy creates detailed logs in `/watchy/slack`:
+Watchy automatically creates two CloudWatch Log Groups:
 
-- **Log Group**: `/aws/lambda/Watchy-SlackMonitor` - Lambda execution logs
-- **Incident Logs**: `/watchy/slack` - Log streams for incident history
-  - Only creates log streams when incidents occur
+- **Lambda Execution Logs**: `/aws/lambda/Watchy-SlackMonitor`
+  - Retention: 7 days
+  - Contains Lambda function execution details
+- **Incident History**: `/watchy/slack`
+  - Retention: 30 days
+  - Log streams created when incidents occur
   - Date-stamped streams: `slack-incidents-YYYY-MM-DD-timestamp`
   - Smart deduplication prevents duplicate entries
+  - Queryable via CloudWatch Logs Insights in the dashboard
 
 ## 🔧 Architecture
 
