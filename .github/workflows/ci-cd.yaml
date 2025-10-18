@@ -801,7 +801,7 @@ jobs:
         
         # Configure git
         git config user.name "refaktr-automation"
-        git config user.email "automation@refaktr.io"
+        git config user.email "refaktr-automation@users.noreply.github.com"
         
         # Check if there are changes
         if git diff --quiet && git diff --cached --quiet; then
