@@ -12,7 +12,7 @@ import urllib.request
 import urllib.parse
 import re
 import boto3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List
 
 # Version information
@@ -21,14 +21,8 @@ BUILD_DATE = "2025-08-31T10:30:00Z"
 
 def log_json(level: str, message: str, **kwargs):
     """Log structured JSON messages to reduce visual clutter"""
-    log_entry = {
-        'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
-        'level': level,
-        'message': message
-    }
-    # Add any additional metadata
-    log_entry.update(kwargs)
-    print(json.dumps(log_entry))
+    # Disabled JSON logging to console - CloudWatch handles structured logging
+    pass
 
 # Binary cache for intelligent caching
 _binary_cache = {}
@@ -93,7 +87,7 @@ def ensure_nuitka_binary():
                     'sha256': latest_info.get('sha256', ''),
                     'binarySize': latest_info.get('binarySize'),
                     'cached_at': time.time(),
-                    'cache_date': datetime.utcnow().isoformat()
+                    'cache_date': datetime.now(timezone.utc).isoformat()
                 }, f)
             log_json("INFO", "Cached binary info for future use")
         except Exception as e:
@@ -169,20 +163,21 @@ def parse_datetime(date_string: str) -> datetime:
             return datetime.fromisoformat(date_string + '+00:00')
     except Exception as e:
         log_json("WARN", "Failed to parse datetime", date_string=date_string, error=str(e))
-        return datetime.utcnow()
+        return datetime.now(timezone.utc)
 
 def is_within_polling_interval(note_time: datetime, polling_interval_minutes: int = 5) -> bool:
     """
     Check if a note timestamp is within the last polling interval
     """
-    now = datetime.utcnow().replace(tzinfo=note_time.tzinfo)
+    now = datetime.now(timezone.utc).replace(tzinfo=note_time.tzinfo)
     cutoff_time = now - timedelta(minutes=polling_interval_minutes)
     return note_time >= cutoff_time
 
-def publish_incident_logs(incidents: List[Dict], log_group: str = '/watchy/slack/status', polling_interval: int = 5):
+def publish_incident_logs(incidents: List[Dict], log_group: str = '/watchy/slack', polling_interval: int = 5):
     """
     Publish incident notes to CloudWatch Logs
-    Only publishes notes that are within the polling interval
+    Only publishes notes that are within the polling interval to avoid duplicates
+    Uses note's date_created as the CloudWatch log timestamp
     """
     try:
         if not incidents:
@@ -201,16 +196,6 @@ def publish_incident_logs(incidents: List[Dict], log_group: str = '/watchy/slack
         except Exception as e:
             log_json("WARN", "Failed to create log group", log_group=log_group, error=str(e))
         
-        # Create log stream with timestamp
-        log_stream = f"slack-incidents-{int(time.time())}"
-        try:
-            logs_client.create_log_stream(
-                logGroupName=log_group,
-                logStreamName=log_stream
-            )
-        except logs_client.exceptions.ResourceAlreadyExistsException:
-            pass  # Log stream already exists
-        
         logs_published = 0
         log_events = []
         
@@ -218,11 +203,14 @@ def publish_incident_logs(incidents: List[Dict], log_group: str = '/watchy/slack
             incident_id = incident.get('id', 'unknown')
             incident_title = incident.get('title', 'Unknown Incident')
             incident_url = incident.get('url', '')
+            incident_type = incident.get('type', 'incident')
+            incident_status = incident.get('status', 'unknown')
             incident_services = incident.get('services', [])
             
             log_json("INFO", "Processing incident", 
                     incident_id=incident_id, 
-                    incident_title=incident_title)
+                    incident_title=incident_title,
+                    incident_type=incident_type)
             
             notes = incident.get('notes', [])
             
@@ -236,9 +224,9 @@ def publish_incident_logs(incidents: List[Dict], log_group: str = '/watchy/slack
                 # Parse note timestamp
                 note_time = parse_datetime(note_date_str)
                 
-                # Check if note is within polling interval
+                # Check if note is within polling interval (smart deduplication)
                 if not is_within_polling_interval(note_time, polling_interval):
-                    log_json("DEBUG", "Skipping old note", 
+                    log_json("DEBUG", "Skipping old note (already logged in previous poll)", 
                             note_time=note_time.isoformat(), 
                             polling_interval_min=polling_interval)
                     continue
@@ -251,10 +239,13 @@ def publish_incident_logs(incidents: List[Dict], log_group: str = '/watchy/slack
                     'timestamp': note_time.isoformat(),
                     'incident_id': incident_id,
                     'incident_title': incident_title,
+                    'incident_type': incident_type,
+                    'incident_status': incident_status,
                     'incident_url': incident_url,
                     'affected_services': incident_services,
                     'note_body': clean_note,
-                    'source': 'watchy-slack-monitor'
+                    'source': 'watchy-slack-monitor',
+                    'version': VERSION
                 }
                 
                 # Add to CloudWatch log events
@@ -270,10 +261,25 @@ def publish_incident_logs(incidents: List[Dict], log_group: str = '/watchy/slack
                 
                 logs_published += 1
         
-        # Publish log events to CloudWatch if we have any
+        # Only create log stream and publish if we have events to publish
         if log_events:
             # Sort events by timestamp (CloudWatch requirement)
             log_events.sort(key=lambda x: x['timestamp'])
+            
+            # Create log stream with date and timestamp in name
+            now = datetime.now(timezone.utc)
+            log_stream = f"slack-incidents-{now.strftime('%Y-%m-%d')}-{int(time.time())}"
+            
+            try:
+                logs_client.create_log_stream(
+                    logGroupName=log_group,
+                    logStreamName=log_stream
+                )
+                log_json("DEBUG", "Created CloudWatch log stream", 
+                        log_group=log_group, 
+                        log_stream=log_stream)
+            except logs_client.exceptions.ResourceAlreadyExistsException:
+                pass  # Log stream already exists
             
             # Publish in batches (CloudWatch limit is 10,000 events or 1MB per call)
             batch_size = 100  # Conservative batch size
@@ -310,7 +316,7 @@ def publish_incident_logs(incidents: List[Dict], log_group: str = '/watchy/slack
                     events_published=events_published,
                     incidents_processed=len(incidents))
         else:
-            log_json("INFO", "No incident logs to publish within polling interval")
+            log_json("INFO", "No new incident notes to publish (all notes older than polling interval)")
         
         return logs_published
         
@@ -326,24 +332,60 @@ def parse_slack_services(status_data: Dict[str, Any]) -> Dict[str, int]:
     Parse Slack service statuses and convert to numeric values for CloudWatch
     """
     try:
-        services = status_data.get('status', {})
+        # Define all 11 Slack services
+        all_services = [
+            "Login/SSO",
+            "Messaging",
+            "Notifications",
+            "Search",
+            "Workspace/Org Administration",
+            "Canvases",
+            "Connectivity",
+            "Files",
+            "Huddles",
+            "Apps/Integrations/APIs",
+            "Workflows"
+        ]
         
-        # Status mapping: operational=0, degraded_performance=1, partial_outage=2, major_outage=3
-        status_map = {
-            'operational': 0,
-            'degraded_performance': 1,
-            'partial_outage': 2,
-            'major_outage': 3
+        # Type mapping: notice=1, incident=2, outage=3
+        type_map = {
+            'notice': 1,
+            'incident': 2,
+            'outage': 3
         }
         
         metrics = {}
         
-        # Extract individual service statuses
-        for service_name, service_data in services.items():
-            if isinstance(service_data, dict) and 'status' in service_data:
-                status = service_data['status']
-                metrics[service_name] = status_map.get(status, 3)  # Default to major_outage
-                print(f"📊 {service_name}: {status} (metric: {metrics[service_name]})")
+        # Initialize all services to 0 (healthy)
+        for service in all_services:
+            # Convert service name to CloudWatch-friendly metric name
+            metric_name = service.replace('/', '_').replace(' ', '')
+            metrics[metric_name] = 0
+        
+        # Get active incidents
+        active_incidents = status_data.get('active_incidents', [])
+        
+        # Process each active incident
+        for incident in active_incidents:
+            incident_type = incident.get('type', 'incident')
+            incident_status = incident.get('status', 'active')
+            affected_services = incident.get('services', [])
+            
+            # Only process active incidents
+            if incident_status == 'active':
+                severity = type_map.get(incident_type, 2)  # Default to incident (2)
+                
+                # Update metrics for affected services
+                for service in affected_services:
+                    if service in all_services:
+                        metric_name = service.replace('/', '_').replace(' ', '')
+                        # Use the highest severity if multiple incidents affect same service
+                        metrics[metric_name] = max(metrics.get(metric_name, 0), severity)
+                        print(f"{service}: {incident_type} (severity: {severity})")
+        
+        # Count active incidents
+        metrics['ActiveIncidents'] = len(active_incidents)
+        print(f"Active Incidents: {len(active_incidents)}")
         
         # Add overall API response metric
         metrics['APIResponse'] = 200 if status_data else 500
@@ -351,7 +393,7 @@ def parse_slack_services(status_data: Dict[str, Any]) -> Dict[str, int]:
         return metrics
         
     except Exception as e:
-        print(f"❌ Failed to parse Slack services: {e}")
+        print(f"Failed to parse Slack services: {e}")
         return {'APIResponse': 500}
 
 def publish_cloudwatch_metrics(metrics: Dict[str, int], namespace: str = 'Watchy/Slack'):
@@ -370,7 +412,7 @@ def publish_cloudwatch_metrics(metrics: Dict[str, int], namespace: str = 'Watchy
                 'MetricName': metric_name,
                 'Value': value,
                 'Unit': 'Count',
-                'Timestamp': datetime.utcnow()
+                'Timestamp': datetime.now(timezone.utc)
             })
         
         # Publish metrics in batches (CloudWatch limit is 20 metrics per call)
@@ -409,17 +451,17 @@ def main():
     start_time = time.time()
     
     try:
-        print(f"🚀 Watchy Slack Monitor v{VERSION} starting...")
-        print(f"📅 Build Date: {BUILD_DATE}")
-        print("🏗️  Binary Type: Nuitka Native")
+        print(f"Watchy Slack Monitor v{VERSION} starting...")
+        print(f"Build Date: {BUILD_DATE}")
+        print("Binary Type: Nuitka Native")
         
         # Get configuration from environment variables with defaults
         api_url = os.getenv('API_URL', 'https://status.slack.com/api/v2.0.0/current')
         namespace = os.getenv('CLOUDWATCH_NAMESPACE', 'Watchy/Slack')
-        log_group = os.getenv('CLOUDWATCH_LOG_GROUP', '/watchy/slack/status')
+        log_group = os.getenv('CLOUDWATCH_LOG_GROUP', '/watchy/slack')
         polling_interval = int(os.getenv('POLLING_INTERVAL_MINUTES', '5'))
         
-        print(f"⚙️ Config: Log Group={log_group}, Polling Interval={polling_interval}min")
+        print(f"Config: Namespace={namespace}, Log Group={log_group}, Polling Interval={polling_interval}min")
         
         # Fetch Slack status
         status_data = fetch_slack_status(api_url)
@@ -434,50 +476,26 @@ def main():
         # Publish to CloudWatch
         publish_cloudwatch_metrics(metrics, namespace)
         
-        # Determine if any services are down
-        service_incidents = sum(1 for value in metrics.values() if value >= 2)  # partial_outage or worse
+        # Determine if any services are down (exclude APIResponse and ActiveIncidents)
+        service_incidents = sum(1 for key, value in metrics.items() 
+                               if key not in ['APIResponse', 'ActiveIncidents'] and value >= 2)
 
         # Execution summary
         execution_time = time.time() - start_time
         
-        result = {
-            'success': True,
-            'message': 'Slack status monitoring completed successfully',
-            'metrics_published': len(metrics),
-            'active_incidents': len(active_incidents),
-            'incident_logs_published': logs_published,
-            'service_incidents': service_incidents,
-            'execution_time': round(execution_time, 2),
-            'timestamp': datetime.utcnow().isoformat(),
-            'binary_type': 'nuitka',
-            'saas_app': 'Slack'
-        }
-        
-        print(f"✅ Monitoring completed in {execution_time:.2f}s")
-        print(f"📊 Published {len(metrics)} metrics")
-        print(f"� Published {logs_published} incident logs")
-        print(f"�🚨 Active incidents: {len(active_incidents)}")
-        print(f"🔧 Service incidents: {service_incidents}")
-        
-        # Output JSON for Lambda to parse
-        print(json.dumps(result))
+        print(f"Monitoring completed in {execution_time:.2f}s")
+        print(f"Published {len(metrics)} metrics")
+        print(f"Published {logs_published} incident logs")
+        print(f"Active incidents: {len(active_incidents)}")
+        print(f"Service incidents: {service_incidents}")
+        print(f"API Response: {metrics.get('APIResponse', 'unknown')}")
         
         return 0
         
     except Exception as e:
         execution_time = time.time() - start_time
         error_msg = f"Slack monitoring failed: {str(e)}"
-        print(f"❌ {error_msg}")
-        
-        result = {
-            'success': False,
-            'error': error_msg,
-            'execution_time': round(execution_time, 2),
-            'timestamp': datetime.utcnow().isoformat(),
-            'saas_app': 'Slack'
-        }
-        
-        print(json.dumps(result))
+        print(f"{error_msg}")
         return 1
 
 if __name__ == '__main__':

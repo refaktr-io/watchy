@@ -61,7 +61,7 @@ Resources:
         - x86_64
       Description: 'Watchy Slack status monitoring with Nuitka native binary'
       FunctionName: !Sub '${ParentStackName}-SlackMonitor'
-      Runtime: python3.12
+      Runtime: python3.13
       Handler: index.lambda_handler
       Role: !Ref SharedLambdaRoleArn
       Timeout: 300
@@ -165,11 +165,11 @@ Resources:
                       cached_info.get('version') == latest_info['version'] and
                       cached_info.get('sha256') == latest_info['sha256']):
                       
-                      logger.info(f"✅ Using cached Slack binary v{latest_info['version']} (size: {cached_info.get('binarySize', 'unknown')} bytes)")
+                      logger.info(f"Using cached Slack binary v{latest_info['version']} (size: {cached_info.get('binarySize', 'unknown')} bytes)")
                       return binary_path, latest_info['version'], latest_info
                   
                   # Download new binary
-                  logger.info(f"🔄 Downloading updated Slack binary v{latest_info['version']}")
+                  logger.info(f"Downloading updated Slack binary v{latest_info['version']}")
                   binary_path = download_slack_binary(latest_info)
                   
                   # Cache the binary info
@@ -182,7 +182,7 @@ Resources:
                               'cached_at': time.time(),
                               'cache_date': datetime.utcnow().isoformat()
                           }, f)
-                      logger.info(f"💾 Cached binary info for future use")
+                      logger.info(f"Cached binary info for future use")
                   except Exception as e:
                       logger.warning(f"Failed to cache binary info: {e}")
                   
@@ -225,7 +225,7 @@ Resources:
                           logger.error(f"Actual SHA256: {actual_hash}")
                           raise Exception("Slack binary checksum mismatch")
                   
-                  logger.info("✅ Slack Nuitka binary ready")
+                  logger.info("Slack Nuitka binary ready")
                   return binary_path
                   
               except Exception as e:
@@ -237,7 +237,7 @@ Resources:
               start_time = time.time()
               
               try:
-                  logger.info("🚀 Starting Slack status monitoring...")
+                  logger.info("Starting Slack status monitoring...")
                   
                   # Ensure we have the latest Slack binary (with intelligent caching)
                   binary_path, version, latest_info = ensure_nuitka_binary()
@@ -248,7 +248,7 @@ Resources:
                   env['WATCHY_TIMESTAMP'] = str(int(time.time()))
                   
                   # Execute Slack Nuitka binary
-                  logger.info("⚡ Executing Slack monitoring binary...")
+                  logger.info("Executing Slack monitoring binary...")
                   result = subprocess.run(
                       [binary_path],
                       env=env,
@@ -288,7 +288,7 @@ Resources:
                       'timestamp': datetime.utcnow().isoformat()
                   })
                   
-                  logger.info("✅ Slack monitoring completed successfully")
+                  logger.info("Slack monitoring completed successfully")
                   
                   return {
                       'statusCode': 200,
@@ -297,7 +297,7 @@ Resources:
                   
               except Exception as e:
                   error_msg = f"Slack monitoring failed: {str(e)}"
-                  logger.error(f"❌ {error_msg}")
+                  logger.error(f"{error_msg}")
                   
                   return {
                       'statusCode': 500,
