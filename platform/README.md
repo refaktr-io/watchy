@@ -27,6 +27,7 @@ That's it! Watchy will begin monitoring Slack's service status and sending alert
 - **Lambda Function**: Monitors Slack Status API every 5 minutes (configurable)
 - **CloudWatch Metrics**: Tracks 11 Slack service health metrics
 - **CloudWatch Alarms**: Alerts on incident and outage severity levels
+- **CloudWatch Dashboard**: Visual monitoring interface with real-time service status
 - **CloudWatch Logs**: Detailed incident history and monitoring data
 - **SNS Topic**: Email notifications for service degradation
 - **EventBridge Schedule**: Automated polling on your configured interval
@@ -85,6 +86,21 @@ Each service has a dedicated alarm that triggers when severity reaches **Inciden
 - `Watchy-Slack-Workflows`
 
 Alarms send notifications to the SNS topic `Watchy-Alerts` when triggered.
+
+## 📊 CloudWatch Dashboard
+
+The deployment includes a comprehensive CloudWatch Dashboard with real-time visualization:
+
+### Dashboard Widgets
+
+1. **Service Health Timeline** - Time series chart showing all 11 Slack services with color-coded severity levels
+2. **Active Incidents Counter** - Single value display of current active incidents
+3. **API Response Status** - Real-time Slack Status API health indicator
+4. **Recent Incident Updates** - CloudWatch Logs Insights widget showing the latest incident notes
+5. **Lambda Performance** - Function invocations, errors, and execution duration
+6. **Current Status Overview** - Single value display for each service (0=OK, 1=Notice, 2=Incident, 3=Outage)
+
+The dashboard is automatically created as `{StackName}-Slack-Monitoring` and can be accessed from the CloudFormation stack outputs.
 
 ## ⚙️ Configuration Parameters
 

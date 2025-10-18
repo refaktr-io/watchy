@@ -1,10 +1,16 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Watchy Monitoring Platform - Slack v2.0.0'
+Description: 'Watchy Monitoring Platform - Slack v2.1.0'
 
 Metadata:
-  Version: '2.0.0'
+  Version: '2.1.0'
   LastUpdated: '2025-10-18'
   Changelog:
+    - Added CloudWatch Dashboard with 6 comprehensive widgets
+    - Time series visualization of all 11 Slack service health metrics
+    - Single value displays for Active Incidents and API Response status
+    - Log Insights widget for recent incident updates
+    - Lambda function performance metrics (invocations, errors, duration)
+    - Current status overview for all services
     - Complete CloudWatch alarm coverage for all 11 Slack services
     - Standardized alarm naming to Watchy-Slack-<ServiceName> format
     - Alert thresholds set to severity 2+ (incident and outage levels)
@@ -537,6 +543,171 @@ Resources:
       AlarmActions:
         - !Ref NotificationTopicArn
 
+  # ===== CLOUDWATCH DASHBOARD =====
+  SlackMonitoringDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub '${ParentStackName}-Slack-Monitoring'
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "properties": {
+                "metrics": [
+                  ["Watchy/Slack", "LoginSSO", {"label": "Login/SSO", "color": "#1f77b4"}],
+                  [".", "Messaging", {"label": "Messaging", "color": "#ff7f0e"}],
+                  [".", "Notifications", {"label": "Notifications", "color": "#2ca02c"}],
+                  [".", "Search", {"label": "Search", "color": "#d62728"}],
+                  [".", "WorkspaceOrgAdministration", {"label": "Workspace/Org Admin", "color": "#9467bd"}],
+                  [".", "Canvases", {"label": "Canvases", "color": "#8c564b"}],
+                  [".", "Connectivity", {"label": "Connectivity", "color": "#e377c2"}],
+                  [".", "Files", {"label": "Files", "color": "#7f7f7f"}],
+                  [".", "Huddles", {"label": "Huddles", "color": "#bcbd22"}],
+                  [".", "AppsIntegrationsAPIs", {"label": "Apps/Integrations/APIs", "color": "#17becf"}],
+                  [".", "Workflows", {"label": "Workflows", "color": "#ff9896"}]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Slack Service Health Status",
+                "period": 300,
+                "stat": "Average",
+                "yAxis": {
+                  "left": {
+                    "min": 0,
+                    "max": 3,
+                    "label": "Status"
+                  }
+                },
+                "annotations": {
+                  "horizontal": [
+                    {
+                      "label": "Outage",
+                      "value": 3,
+                      "fill": "above",
+                      "color": "#d62728"
+                    },
+                    {
+                      "label": "Incident",
+                      "value": 2,
+                      "fill": "above",
+                      "color": "#ff7f0e"
+                    },
+                    {
+                      "label": "Notice",
+                      "value": 1,
+                      "fill": "above",
+                      "color": "#ffbb78"
+                    },
+                    {
+                      "label": "Healthy",
+                      "value": 0,
+                      "color": "#2ca02c"
+                    }
+                  ]
+                },
+                "legend": {
+                  "position": "bottom"
+                }
+              },
+              "width": 24,
+              "height": 6
+            },
+            {
+              "type": "metric",
+              "properties": {
+                "metrics": [
+                  ["Watchy/Slack", "ActiveIncidents", {"label": "Active Incidents", "stat": "Maximum", "color": "#d62728"}]
+                ],
+                "view": "singleValue",
+                "region": "${AWS::Region}",
+                "title": "Active Incidents",
+                "period": 300,
+                "stat": "Maximum"
+              },
+              "width": 6,
+              "height": 6
+            },
+            {
+              "type": "metric",
+              "properties": {
+                "metrics": [
+                  ["Watchy/Slack", "APIResponse", {"label": "API Response Code", "color": "#2ca02c"}]
+                ],
+                "view": "singleValue",
+                "region": "${AWS::Region}",
+                "title": "Slack Status API",
+                "period": 300,
+                "stat": "Average"
+              },
+              "width": 6,
+              "height": 6
+            },
+            {
+              "type": "log",
+              "properties": {
+                "query": "SOURCE '/watchy/slack'\n| fields @timestamp, incident_title, incident_status, note_body\n| filter ispresent(incident_id)\n| sort @timestamp desc\n| limit 20",
+                "region": "${AWS::Region}",
+                "title": "Recent Incident Updates",
+                "stacked": false
+              },
+              "width": 12,
+              "height": 6
+            },
+            {
+              "type": "metric",
+              "properties": {
+                "metrics": [
+                  ["AWS/Lambda", "Invocations", {"stat": "Sum", "label": "Invocations", "id": "m1"}],
+                  [".", "Errors", {"stat": "Sum", "label": "Errors", "color": "#d62728", "id": "m2"}],
+                  [".", "Duration", {"stat": "Average", "label": "Avg Duration (ms)", "yAxis": "right", "id": "m3"}]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Lambda Function Metrics",
+                "period": 300,
+                "yAxis": {
+                  "right": {
+                    "label": "Duration (ms)"
+                  },
+                  "left": {
+                    "label": "Count"
+                  }
+                }
+              },
+              "width": 12,
+              "height": 6
+            },
+            {
+              "type": "metric",
+              "properties": {
+                "metrics": [
+                  ["Watchy/Slack", "LoginSSO", {"stat": "Maximum"}],
+                  [".", "Messaging", {"stat": "Maximum"}],
+                  [".", "Notifications", {"stat": "Maximum"}],
+                  [".", "Search", {"stat": "Maximum"}],
+                  [".", "WorkspaceOrgAdministration", {"stat": "Maximum"}],
+                  [".", "Canvases", {"stat": "Maximum"}],
+                  [".", "Connectivity", {"stat": "Maximum"}],
+                  [".", "Files", {"stat": "Maximum"}],
+                  [".", "Huddles", {"stat": "Maximum"}],
+                  [".", "AppsIntegrationsAPIs", {"stat": "Maximum"}],
+                  [".", "Workflows", {"stat": "Maximum"}]
+                ],
+                "view": "singleValue",
+                "region": "${AWS::Region}",
+                "title": "Current Service Status (0=OK, 1=Notice, 2=Incident, 3=Outage)",
+                "period": 300,
+                "stat": "Maximum"
+              },
+              "width": 12,
+              "height": 6
+            }
+          ]
+        }
+
 Outputs:
   LambdaFunctionName:
     Description: 'Slack monitoring Lambda function name'
@@ -593,3 +764,11 @@ Outputs:
   WorkflowsAlarm:
     Description: 'Slack Workflows alarm ARN'
     Value: !GetAtt SlackWorkflowsAlarm.Arn
+
+  DashboardName:
+    Description: 'CloudWatch Dashboard name for Slack monitoring'
+    Value: !Ref SlackMonitoringDashboard
+
+  DashboardURL:
+    Description: 'CloudWatch Dashboard URL'
+    Value: !Sub 'https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=${SlackMonitoringDashboard}'

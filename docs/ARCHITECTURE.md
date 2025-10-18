@@ -100,6 +100,22 @@
 │  └────────────────────────────────────────────────────────────────────────────┘ │
 │                                                                                  │
 │  ┌────────────────────────────────────────────────────────────────────────────┐ │
+│  │                         CloudWatch Dashboard                                │ │
+│  │  ┌──────────────────────────────────────────────────────────────────────┐  │ │
+│  │  │  Dashboard: Watchy-Slack-Monitoring                                  │  │ │
+│  │  │                                                                       │  │ │
+│  │  │  Widgets (6 total):                                                  │  │ │
+│  │  │    1. Service Health Timeline (time series)                          │  │ │
+│  │  │       - All 11 Slack services with color-coded status               │  │ │
+│  │  │    2. Active Incidents Counter (single value)                        │  │ │
+│  │  │    3. API Response Status (single value)                             │  │ │
+│  │  │    4. Recent Incident Updates (log insights)                         │  │ │
+│  │  │    5. Lambda Performance Metrics (time series)                       │  │ │
+│  │  │    6. Current Service Status (single value grid)                     │  │ │
+│  │  └──────────────────────────────────────────────────────────────────────┘  │ │
+│  └────────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                  │
+│  ┌────────────────────────────────────────────────────────────────────────────┐ │
 │  │                         CloudWatch Logs                                     │ │
 │  │  ┌──────────────────────────────────────────────────────────────────────┐  │ │
 │  │  │  Log Group: /aws/lambda/Watchy-SlackMonitor                         │  │ │
@@ -258,6 +274,7 @@ CloudWatch Alarms (12 alarms)
 | **CloudWatch Metrics** | 13 Custom Metrics | Track service health and API status |
 | **CloudWatch Logs** | 2 Log Groups | Lambda execution and incident history |
 | **CloudWatch Alarms** | 12 Alarms | Alert on service degradation |
+| **CloudWatch Dashboard** | 1 Dashboard | Real-time visual monitoring interface |
 | **SNS** | 1 Topic, 1 Subscription | Email notifications for alerts |
 
 ### Resource Naming Conventions
@@ -321,30 +338,41 @@ CloudWatch Alarms (12 alarms)
 | **CloudWatch Logs** | ~100 MB/month | $0.50 |
 | **CloudWatch Alarms** | 12 alarms (free tier) | $0.00 (first 10 free) |
 |  | 2 alarms beyond free tier | $0.20 |
+| **CloudWatch Dashboard** | 1 dashboard | $3.00/month |
 | **SNS Notifications** | ~10 emails/month | $0.00 (first 1,000 free) |
 | **EventBridge Rules** | 1 rule | $0.00 (free) |
 | **Data Transfer** | Minimal (API calls) | ~$0.00 |
-| **Total** |  | **~$4.78/month** |
+| **Total** |  | **~$7.78/month** |
 
 *Costs may vary based on actual usage and AWS pricing changes.*
 
 ## Monitoring & Observability
 
-### CloudWatch Dashboards (Manual Creation)
+### CloudWatch Dashboard (Automatically Created)
 
-You can create a custom CloudWatch dashboard to visualize all metrics:
+The stack automatically creates a comprehensive CloudWatch Dashboard:
 
 ```
-Dashboard: Watchy-Slack-Status
-  ├─ Service Health Grid (11 widgets)
-  │  └─ Shows real-time status of all 11 Slack services
-  ├─ Active Incidents Timeline
-  │  └─ Graph of ActiveIncidents metric over time
-  ├─ API Response Status
-  │  └─ HTTP status codes from Slack Status API
-  └─ Alarm State Summary
-     └─ Current state of all 12 CloudWatch alarms
+Dashboard: Watchy-Slack-Monitoring
+  ├─ Service Health Timeline (Time Series)
+  │  └─ All 11 Slack services with color-coded severity levels
+  │     • Green: Healthy (0)
+  │     • Yellow: Notice (1)
+  │     • Orange: Incident (2)
+  │     • Red: Outage (3)
+  ├─ Active Incidents Counter (Single Value)
+  │  └─ Real-time count of current active incidents
+  ├─ API Response Status (Single Value)
+  │  └─ Slack Status API health (HTTP status code)
+  ├─ Recent Incident Updates (Log Insights)
+  │  └─ Latest 20 incident notes from CloudWatch Logs
+  ├─ Lambda Performance Metrics (Time Series)
+  │  └─ Invocations, errors, and execution duration
+  └─ Current Service Status (Single Value Grid)
+     └─ Status for all 11 services (0-3 scale)
 ```
+
+**Access**: The dashboard URL is available in the CloudFormation stack outputs.
 
 ### Key Metrics to Monitor
 
