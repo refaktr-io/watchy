@@ -46,7 +46,7 @@ Resources:
     Type: AWS::SNS::Topic
     Properties:
       TopicName: 'Watchy-Alerts'
-      DisplayName: 'Watchy Platform Alerts'
+      DisplayName: 'Watchy Alerts'
       Tags:
         - Key: Project
           Value: Watchy

@@ -75,7 +75,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.12'
+        python-version: '3.13'
 
     - name: Install validation tools
       run: |
@@ -113,7 +113,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.12'
+        python-version: '3.13'
 
     # Secret detection (simple but effective)
     - name: Check for potential secrets
@@ -262,15 +262,15 @@ jobs:
     - name: Install system dependencies
       run: |
         yum update -y
-        yum install -y python3.12 python3.12-pip python3.12-devel gcc gcc-c++ make git tar gzip patchelf
-        python3.12 -m pip install --upgrade pip
+        yum install -y python3.13 python3.13-pip python3.13-devel gcc gcc-c++ make git tar gzip patchelf
+        python3.13 -m pip install --upgrade pip
 
     - name: Checkout code
       uses: actions/checkout@v4
 
     - name: Set up Python environment
       run: |
-        python3.12 -m pip install nuitka wheel setuptools
+        python3.13 -m pip install nuitka wheel setuptools
 
     - name: Check if monitor changed
       id: monitor-changed
@@ -304,7 +304,7 @@ jobs:
 
         # Set environment variables for build
         export WATCHY_VERSION=$(date -u +%Y.%m.%d.%H%M%S)-${GITHUB_SHA:0:7}
-        export PYTHON_VERSION=3.12
+        export PYTHON_VERSION=3.13
 
         # Build the binary
         ./build.sh
@@ -753,6 +753,72 @@ jobs:
         else
           echo "⚠️  Template bucket not found, skipping template deployment"
         fi
+
+  # ===== PUBLISH TO PUBLIC GITHUB =====
+  publish-to-github:
+    name: Publish to Public GitHub Repository
+    runs-on: ubuntu-latest
+    needs: [detect-changes, deploy-platform]
+    if: github.ref == 'refs/heads/main' && (needs.detect-changes.outputs.platform == 'true' || github.event_name == 'workflow_dispatch')
+    
+    steps:
+    - name: Checkout source repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Checkout public repository
+      uses: actions/checkout@v4
+      with:
+        repository: refaktr-io/watchy
+        token: ${{ secrets.PUBLIC_REPO_TOKEN }}
+        path: public-repo
+
+    - name: Copy CloudFormation template
+      run: |
+        echo "📋 Copying CloudFormation template to public repository..."
+        cp platform/watchy-platform.yaml public-repo/watchy-platform.yaml
+        echo "✅ Template copied"
+
+    - name: Copy README
+      run: |
+        echo "📄 Copying README to public repository..."
+        cp platform/README.md public-repo/README.md
+        echo "✅ README copied"
+
+    - name: Commit and push to public repository
+      run: |
+        cd public-repo
+        
+        # Configure git
+        git config user.name "refaktr-automation"
+        git config user.email "automation@refaktr.io"
+        
+        # Check if there are changes
+        if git diff --quiet && git diff --cached --quiet; then
+          echo "ℹ️  No changes to publish"
+          exit 0
+        fi
+        
+        # Stage changes
+        git add watchy-platform.yaml README.md
+        
+        # Commit with version information
+        VERSION=$(date -u +%Y.%m.%d.%H%M%S)
+        COMMIT_SHA="${GITHUB_SHA:0:7}"
+        git commit -m "Update Watchy platform v${VERSION}
+
+        - CloudFormation template updated
+        - README documentation updated
+        - Source commit: ${GITHUB_SHA}
+        
+        Published from: https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
+        
+        # Push to main branch
+        git push origin main
+        
+        echo "✅ Published to public repository"
+        echo "🌐 View at: https://github.com/refaktr-io/watchy"
 
   # ===== TEST STAGE =====
   test-deployment:
