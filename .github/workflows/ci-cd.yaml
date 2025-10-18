@@ -776,11 +776,13 @@ jobs:
         token: ${{ secrets.PUBLIC_REPO_TOKEN }}
         path: public-repo
 
-    - name: Copy CloudFormation template
+    - name: Copy CloudFormation templates
       run: |
-        echo "📋 Copying CloudFormation template to public repository..."
-        cp platform/watchy-platform.yaml public-repo/watchy-platform.yaml
-        echo "✅ Template copied"
+        echo "📋 Copying CloudFormation templates to public repository..."
+        mkdir -p public-repo/cloudformation
+        cp platform/watchy-platform.yaml public-repo/cloudformation/watchy-platform.yaml
+        cp customer-templates/templates/watchy-slack-monitoring.yaml public-repo/cloudformation/watchy-slack-monitoring.yaml
+        echo "✅ Templates copied"
 
     - name: Copy README
       run: |
@@ -810,14 +812,14 @@ jobs:
         fi
         
         # Stage changes
-        git add watchy-platform.yaml README.md docs/
+        git add cloudformation/ README.md docs/
         
         # Commit with version information
         VERSION=$(date -u +%Y.%m.%d.%H%M%S)
         COMMIT_SHA="${GITHUB_SHA:0:7}"
         git commit -m "Update Watchy platform v${VERSION}
 
-        - CloudFormation template updated
+        - CloudFormation templates updated
         - README documentation updated
         - Source commit: ${GITHUB_SHA}
         
