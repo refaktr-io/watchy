@@ -352,11 +352,27 @@ Resources:
       AlarmActions:
         - !Ref NotificationTopicArn
 
+  SlackLoginSSOAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: 'Watchy-Slack-LoginSSO'
+      AlarmDescription: 'Slack Login/SSO service - alerts on incident (2) and outage (3)'
+      MetricName: LoginSSO
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
   SlackMessagingAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: !Sub '${ParentStackName}-Slack-Messaging'
-      AlarmDescription: 'Slack Messaging service status'
+      AlarmName: 'Watchy-Slack-Messaging'
+      AlarmDescription: 'Slack Messaging service - alerts on incident (2) and outage (3)'
       MetricName: Messaging
       Namespace: Watchy/Slack
       Statistic: Average
@@ -364,31 +380,15 @@ Resources:
       EvaluationPeriods: 1
       Threshold: 2
       ComparisonOperator: GreaterThanOrEqualToThreshold
-      TreatMissingData: ignore
-      AlarmActions:
-        - !Ref NotificationTopicArn
-
-  SlackConnectivityAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmName: !Sub '${ParentStackName}-Slack-Connectivity'
-      AlarmDescription: 'Slack Connectivity service status'
-      MetricName: Connectivity
-      Namespace: Watchy/Slack
-      Statistic: Average
-      Period: 300
-      EvaluationPeriods: 1
-      Threshold: 2
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      TreatMissingData: ignore
+      TreatMissingData: notBreaching
       AlarmActions:
         - !Ref NotificationTopicArn
 
   SlackNotificationsAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: !Sub '${ParentStackName}-Slack-Notifications'
-      AlarmDescription: 'Slack Notifications service status'
+      AlarmName: 'Watchy-Slack-Notifications'
+      AlarmDescription: 'Slack Notifications service - alerts on incident (2) and outage (3)'
       MetricName: Notifications
       Namespace: Watchy/Slack
       Statistic: Average
@@ -396,31 +396,15 @@ Resources:
       EvaluationPeriods: 1
       Threshold: 2
       ComparisonOperator: GreaterThanOrEqualToThreshold
-      TreatMissingData: ignore
-      AlarmActions:
-        - !Ref NotificationTopicArn
-
-  SlackFilesAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmName: !Sub '${ParentStackName}-Slack-Files'
-      AlarmDescription: 'Slack Files service status'
-      MetricName: Files
-      Namespace: Watchy/Slack
-      Statistic: Average
-      Period: 300
-      EvaluationPeriods: 1
-      Threshold: 2
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      TreatMissingData: ignore
+      TreatMissingData: notBreaching
       AlarmActions:
         - !Ref NotificationTopicArn
 
   SlackSearchAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: !Sub '${ParentStackName}-Slack-Search'
-      AlarmDescription: 'Slack Search service status'
+      AlarmName: 'Watchy-Slack-Search'
+      AlarmDescription: 'Slack Search service - alerts on incident (2) and outage (3)'
       MetricName: Search
       Namespace: Watchy/Slack
       Statistic: Average
@@ -428,15 +412,111 @@ Resources:
       EvaluationPeriods: 1
       Threshold: 2
       ComparisonOperator: GreaterThanOrEqualToThreshold
-      TreatMissingData: ignore
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackWorkspaceOrgAdministrationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: 'Watchy-Slack-WorkspaceOrgAdministration'
+      AlarmDescription: 'Slack Workspace/Org Administration service - alerts on incident (2) and outage (3)'
+      MetricName: WorkspaceOrgAdministration
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackCanvasesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: 'Watchy-Slack-Canvases'
+      AlarmDescription: 'Slack Canvases service - alerts on incident (2) and outage (3)'
+      MetricName: Canvases
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackConnectivityAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: 'Watchy-Slack-Connectivity'
+      AlarmDescription: 'Slack Connectivity service - alerts on incident (2) and outage (3)'
+      MetricName: Connectivity
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackFilesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: 'Watchy-Slack-Files'
+      AlarmDescription: 'Slack Files service - alerts on incident (2) and outage (3)'
+      MetricName: Files
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackHuddlesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: 'Watchy-Slack-Huddles'
+      AlarmDescription: 'Slack Huddles service - alerts on incident (2) and outage (3)'
+      MetricName: Huddles
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackAppsIntegrationsAPIsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: 'Watchy-Slack-AppsIntegrationsAPIs'
+      AlarmDescription: 'Slack Apps/Integrations/APIs service - alerts on incident (2) and outage (3)'
+      MetricName: AppsIntegrationsAPIs
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
       AlarmActions:
         - !Ref NotificationTopicArn
 
   SlackWorkflowsAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: !Sub '${ParentStackName}-Slack-Workflows'
-      AlarmDescription: 'Slack Workflows service status'
+      AlarmName: 'Watchy-Slack-Workflows'
+      AlarmDescription: 'Slack Workflows service - alerts on incident (2) and outage (3)'
       MetricName: Workflows
       Namespace: Watchy/Slack
       Statistic: Average
@@ -444,7 +524,7 @@ Resources:
       EvaluationPeriods: 1
       Threshold: 2
       ComparisonOperator: GreaterThanOrEqualToThreshold
-      TreatMissingData: ignore
+      TreatMissingData: notBreaching
       AlarmActions:
         - !Ref NotificationTopicArn
 
@@ -461,25 +541,45 @@ Outputs:
     Description: 'Slack API Response alarm ARN'
     Value: !GetAtt SlackAPIResponseAlarm.Arn
 
+  LoginSSOAlarm:
+    Description: 'Slack Login/SSO alarm ARN'
+    Value: !GetAtt SlackLoginSSOAlarm.Arn
+
   MessagingAlarm:
     Description: 'Slack Messaging alarm ARN'
     Value: !GetAtt SlackMessagingAlarm.Arn
-
-  ConnectivityAlarm:
-    Description: 'Slack Connectivity alarm ARN'
-    Value: !GetAtt SlackConnectivityAlarm.Arn
 
   NotificationsAlarm:
     Description: 'Slack Notifications alarm ARN'
     Value: !GetAtt SlackNotificationsAlarm.Arn
 
+  SearchAlarm:
+    Description: 'Slack Search alarm ARN'
+    Value: !GetAtt SlackSearchAlarm.Arn
+
+  WorkspaceOrgAdministrationAlarm:
+    Description: 'Slack Workspace/Org Administration alarm ARN'
+    Value: !GetAtt SlackWorkspaceOrgAdministrationAlarm.Arn
+
+  CanvasesAlarm:
+    Description: 'Slack Canvases alarm ARN'
+    Value: !GetAtt SlackCanvasesAlarm.Arn
+
+  ConnectivityAlarm:
+    Description: 'Slack Connectivity alarm ARN'
+    Value: !GetAtt SlackConnectivityAlarm.Arn
+
   FilesAlarm:
     Description: 'Slack Files alarm ARN'
     Value: !GetAtt SlackFilesAlarm.Arn
 
-  SearchAlarm:
-    Description: 'Slack Search alarm ARN'
-    Value: !GetAtt SlackSearchAlarm.Arn
+  HuddlesAlarm:
+    Description: 'Slack Huddles alarm ARN'
+    Value: !GetAtt SlackHuddlesAlarm.Arn
+
+  AppsIntegrationsAPIsAlarm:
+    Description: 'Slack Apps/Integrations/APIs alarm ARN'
+    Value: !GetAtt SlackAppsIntegrationsAPIsAlarm.Arn
 
   WorkflowsAlarm:
     Description: 'Slack Workflows alarm ARN'
