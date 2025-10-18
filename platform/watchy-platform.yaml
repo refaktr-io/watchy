@@ -4,6 +4,7 @@ Description: 'Watchy Slack Monitoring Platform - Modular architecture with neste
 Metadata:
   Version: '5.1.0'
   LastUpdated: '2025-09-04'
+  RecommendedStackName: 'Watchy'
   Changelog:
     - Restored nested CloudFormation stack architecture for modular SaaS monitoring
     - Slack monitoring implemented as separate template for easier management
