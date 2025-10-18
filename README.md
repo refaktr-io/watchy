@@ -17,6 +17,11 @@ Deploy the complete Watchy platform in 60 seconds:
 
 That's it! Watchy will begin monitoring Slack's service status and sending alerts to your email.
 
+### CloudFormation Templates
+
+- **[watchy-platform.yaml](cloudformation/watchy-platform.yaml)** - Main platform stack with shared resources (SNS topic, IAM roles)
+- **[watchy-slack-monitoring.yaml](cloudformation/watchy-slack-monitoring.yaml)** - Nested stack for Slack monitoring (Lambda, CloudWatch metrics/alarms)
+
 ## 📊 What Gets Deployed
 
 - **Lambda Function**: Monitors Slack Status API every 5 minutes (configurable)

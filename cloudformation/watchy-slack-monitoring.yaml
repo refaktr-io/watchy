@@ -1,0 +1,595 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Watchy Slack Status Monitoring - Nuitka Binary Implementation'
+
+Metadata:
+  Version: '2.0.0'
+  LastUpdated: '2025-10-18'
+  Changelog:
+    - Complete CloudWatch alarm coverage for all 11 Slack services
+    - Standardized alarm naming to Watchy-Slack-<ServiceName> format
+    - Alert thresholds set to severity 2+ (incident and outage levels)
+    - Services monitored - Login/SSO, Messaging, Notifications, Search, Workspace/Org Administration, Canvases, Connectivity, Files, Huddles, Apps/Integrations/APIs, Workflows
+
+Parameters:
+  # ===== STANDARDIZED PARAMETERS FROM PARENT =====
+  SaasAppName:
+    Type: String
+    Default: 'Slack'
+    Description: 'Name of the SaaS application'
+
+  ApiUrl:
+    Type: String
+    Description: 'Slack Status API endpoint URL'
+
+  MonitoringSchedule:
+    Type: String
+    Description: 'Schedule expression for monitoring frequency'
+
+  SharedLambdaRoleArn:
+    Type: String
+    Description: 'ARN of the shared Lambda execution role from parent stack'
+
+  NotificationTopicArn:
+    Type: String
+    Description: 'ARN of the shared SNS topic for notifications'
+
+  ParentStackName:
+    Type: String
+    Description: 'Name of the parent platform stack'
+
+  BinaryDistributionUrl:
+    Type: String
+    Description: 'Base URL for Nuitka binary distribution'
+
+  BinaryName:
+    Type: String
+    Default: 'watchy-slack-monitor'
+    Description: 'Name of the Slack monitoring Nuitka binary'
+
+  LogLevel:
+    Type: String
+    Default: 'INFO'
+    Description: 'Log level for monitoring'
+
+  TimeoutSeconds:
+    Type: Number
+    Default: 240
+    Description: 'Timeout for monitoring operations'
+
+  RetryAttempts:
+    Type: Number
+    Default: 3
+    Description: 'Number of retry attempts'
+
+Resources:
+  # ===== SLACK MONITORING LAMBDA =====
+  SlackMonitoringLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Architectures:
+        - x86_64
+      Description: 'Watchy Slack status monitoring with Nuitka native binary'
+      FunctionName: !Sub '${ParentStackName}-SlackMonitor'
+      Runtime: python3.13
+      Handler: index.lambda_handler
+      Role: !Ref SharedLambdaRoleArn
+      Timeout: 300
+      MemorySize: 512  # Nuitka binaries need more memory
+      Environment:
+        Variables:
+          # Slack-specific configuration
+          SAAS_APP_NAME: !Ref SaasAppName
+          API_URL: !Ref ApiUrl
+          CLOUDWATCH_NAMESPACE: !Sub 'Watchy/${SaasAppName}'
+          
+          # Platform configuration
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopicArn
+          
+          # Binary configuration
+          WATCHY_BINARY_DISTRIBUTION_URL: !Ref BinaryDistributionUrl
+          WATCHY_BINARY_NAME: !Ref BinaryName
+          
+          # Runtime configuration
+          WATCHY_LOG_LEVEL: !Ref LogLevel
+          WATCHY_TIMEOUT_SECONDS: !Ref TimeoutSeconds
+          WATCHY_RETRY_ATTEMPTS: !Ref RetryAttempts
+          WATCHY_STACK_NAME: !Ref ParentStackName
+      Code:
+        ZipFile: |
+          import json
+          import subprocess
+          import os
+          import logging
+          import urllib.request
+          import time
+          import hashlib
+          import stat
+          import boto3
+          import gzip
+          from datetime import datetime
+
+          # Configure structured JSON logging to reduce visual clutter
+          class JSONFormatter(logging.Formatter):
+              def format(self, record):
+                  log_entry = {
+                      'timestamp': self.formatTime(record, '%Y-%m-%d %H:%M:%S'),
+                      'level': record.levelname,
+                      'message': record.getMessage()
+                  }
+                  if record.exc_info:
+                      log_entry['exception'] = self.formatException(record.exc_info)
+                  return json.dumps(log_entry)
+
+          # Setup logger with JSON formatter
+          logger = logging.getLogger()
+          logger.setLevel(getattr(logging, os.environ.get('WATCHY_LOG_LEVEL', 'INFO')))
+          
+          # Remove default handlers and add JSON formatter
+          for handler in logger.handlers[:]:
+              logger.removeHandler(handler)
+          
+          json_handler = logging.StreamHandler()
+          json_handler.setFormatter(JSONFormatter())
+          logger.addHandler(json_handler)
+
+          _binary_cache = {}
+
+          def get_nuitka_binary_info():
+              """Get Slack Nuitka binary information"""
+              try:
+                  base_url = os.environ.get('WATCHY_BINARY_DISTRIBUTION_URL')
+                  info_url = f"{base_url}/binaries/slack-monitor/metadata.json"
+                  
+                  with urllib.request.urlopen(info_url, timeout=10) as response:
+                      if response.status == 200:
+                          return json.loads(response.read().decode('utf-8'))
+                  return None
+              except Exception as e:
+                  logger.error(f"Failed to get Slack binary info: {e}")
+                  return None
+
+          def ensure_nuitka_binary():
+              """Ensure we have the latest Nuitka binary with intelligent caching"""
+              try:
+                  binary_path = "/tmp/watchy-slack-monitor"
+                  cache_info_path = "/tmp/watchy-slack-cache.json"
+                  
+                  # Get latest binary information
+                  latest_info = get_nuitka_binary_info()
+                  if not latest_info:
+                      raise Exception("Failed to get binary information")
+                  
+                  # Check if we have cached binary info
+                  cached_info = None
+                  if os.path.exists(cache_info_path):
+                      try:
+                          with open(cache_info_path, 'r') as f:
+                              cached_info = json.loads(f.read())
+                      except:
+                          cached_info = None
+                  
+                  # Check if binary exists and versions match
+                  if (cached_info and 
+                      os.path.exists(binary_path) and 
+                      cached_info.get('version') == latest_info['version'] and
+                      cached_info.get('sha256') == latest_info['sha256']):
+                      
+                      logger.info(f"Using cached Slack binary v{latest_info['version']} (size: {cached_info.get('binarySize', 'unknown')} bytes)")
+                      return binary_path, latest_info['version'], latest_info
+                  
+                  # Download new binary
+                  logger.info(f"Downloading updated Slack binary v{latest_info['version']}")
+                  binary_path = download_slack_binary(latest_info)
+                  
+                  # Cache the binary info
+                  try:
+                      with open(cache_info_path, 'w') as f:
+                          json.dump({
+                              'version': latest_info['version'],
+                              'sha256': latest_info['sha256'],
+                              'binarySize': latest_info.get('binarySize'),
+                              'cached_at': time.time(),
+                              'cache_date': datetime.utcnow().isoformat()
+                          }, f)
+                      logger.info(f"Cached binary info for future use")
+                  except Exception as e:
+                      logger.warning(f"Failed to cache binary info: {e}")
+                  
+                  return binary_path, latest_info['version'], latest_info
+                  
+              except Exception as e:
+                  logger.error(f"Failed to ensure binary: {e}")
+                  raise
+
+          def download_slack_binary(binary_info):
+              """Download Slack monitoring Nuitka binary"""
+              try:
+                  binary_path = "/tmp/watchy-slack-monitor"
+                  
+                  logger.info(f"Downloading Slack Nuitka binary v{binary_info['version']}")
+                  
+                  with urllib.request.urlopen(binary_info['latestUrl'], timeout=120) as response:
+                      if response.status != 200:
+                          raise Exception(f"Download failed: HTTP {response.status}")
+                      
+                      # Handle compressed binary
+                      if binary_info.get('compression') == 'gzip':
+                          binary_data = gzip.decompress(response.read())
+                      else:
+                          binary_data = response.read()
+                  
+                  with open(binary_path, 'wb') as f:
+                      f.write(binary_data)
+                  
+                  os.chmod(binary_path, stat.S_IRWXU | stat.S_IRGRP | stat.S_IROTH)
+                  
+                  # Verify checksum by reading the file from disk
+                  if binary_info.get('sha256'):
+                      with open(binary_path, 'rb') as f:
+                          file_data = f.read()
+                      actual_hash = hashlib.sha256(file_data).hexdigest()
+                      if actual_hash != binary_info['sha256']:
+                          os.remove(binary_path)
+                          logger.error(f"Expected SHA256: {binary_info['sha256']}")
+                          logger.error(f"Actual SHA256: {actual_hash}")
+                          raise Exception("Slack binary checksum mismatch")
+                  
+                  logger.info("Slack Nuitka binary ready")
+                  return binary_path
+                  
+              except Exception as e:
+                  logger.error(f"Slack binary download failed: {e}")
+                  raise
+
+          def lambda_handler(event, context):
+              """Slack monitoring handler with intelligent binary caching"""
+              start_time = time.time()
+              
+              try:
+                  logger.info("Starting Slack status monitoring...")
+                  
+                  # Ensure we have the latest Slack binary (with intelligent caching)
+                  binary_path, version, latest_info = ensure_nuitka_binary()
+                  
+                  # Prepare environment for Slack binary
+                  env = os.environ.copy()
+                  env['WATCHY_AWS_REQUEST_ID'] = context.aws_request_id
+                  env['WATCHY_TIMESTAMP'] = str(int(time.time()))
+                  
+                  # Execute Slack Nuitka binary
+                  logger.info("Executing Slack monitoring binary...")
+                  result = subprocess.run(
+                      [binary_path],
+                      env=env,
+                      capture_output=True,
+                      text=True,
+                      timeout=240
+                  )
+                  
+                  if result.returncode != 0:
+                      raise Exception(f"Slack binary failed: {result.stderr}")
+                  
+                  # Parse results
+                  try:
+                      lines = [line.strip() for line in result.stdout.split('\n') if line.strip()]
+                      for line in reversed(lines):
+                          if line.startswith('{') and line.endswith('}'):
+                              output_data = json.loads(line)
+                              break
+                      else:
+                          output_data = {"message": "Slack monitoring completed", "stdout": result.stdout}
+                  except:
+                      output_data = {"message": "Slack monitoring completed", "stdout": result.stdout}
+                  
+                  # Add metadata
+                  output_data.update({
+                      'saas_app': 'Slack',
+                      'binary_type': latest_info.get('binary_type', 'nuitka'),
+                      'binary_version': latest_info.get('version'),
+                      'binary_sha256': latest_info.get('sha256'),
+                      'binary_size': latest_info.get('binarySize'),
+                      'build_time': latest_info.get('buildTime'),
+                      'git_commit': latest_info.get('gitCommit'),
+                      'build_number': latest_info.get('buildNumber'),
+                      'target_platform': latest_info.get('target_platform'),
+                      'lambda_compatible': latest_info.get('lambda_compatible'),
+                      'execution_time': time.time() - start_time,
+                      'timestamp': datetime.utcnow().isoformat()
+                  })
+                  
+                  logger.info("Slack monitoring completed successfully")
+                  
+                  return {
+                      'statusCode': 200,
+                      'body': json.dumps(output_data)
+                  }
+                  
+              except Exception as e:
+                  error_msg = f"Slack monitoring failed: {str(e)}"
+                  logger.error(f"{error_msg}")
+                  
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({
+                          'error': error_msg,
+                          'saas_app': 'Slack',
+                          'execution_time': time.time() - start_time
+                      })
+                  }
+
+  # ===== SLACK MONITORING SCHEDULE =====
+  SlackScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub '${ParentStackName}-SlackSchedule'
+      Description: 'Schedule for Slack status monitoring'
+      ScheduleExpression: !Ref MonitoringSchedule
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt SlackMonitoringLambda.Arn
+          Id: SlackMonitoringTarget
+
+  SlackLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt SlackMonitoringLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt SlackScheduleRule.Arn
+
+  # ===== SLACK CLOUDWATCH RESOURCES =====
+  SlackLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${SlackMonitoringLambda}'
+      RetentionInDays: 30
+
+  # Slack Service Alarms
+  SlackAPIResponseAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ParentStackName}-Slack-APIResponse'
+      AlarmDescription: 'Slack Status API response monitoring'
+      MetricName: APIResponse
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 200
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: breaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackLoginSSOAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: 'Watchy-Slack-LoginSSO'
+      AlarmDescription: 'Slack Login/SSO service - alerts on incident (2) and outage (3)'
+      MetricName: LoginSSO
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackMessagingAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: 'Watchy-Slack-Messaging'
+      AlarmDescription: 'Slack Messaging service - alerts on incident (2) and outage (3)'
+      MetricName: Messaging
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackNotificationsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: 'Watchy-Slack-Notifications'
+      AlarmDescription: 'Slack Notifications service - alerts on incident (2) and outage (3)'
+      MetricName: Notifications
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackSearchAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: 'Watchy-Slack-Search'
+      AlarmDescription: 'Slack Search service - alerts on incident (2) and outage (3)'
+      MetricName: Search
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackWorkspaceOrgAdministrationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: 'Watchy-Slack-WorkspaceOrgAdministration'
+      AlarmDescription: 'Slack Workspace/Org Administration service - alerts on incident (2) and outage (3)'
+      MetricName: WorkspaceOrgAdministration
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackCanvasesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: 'Watchy-Slack-Canvases'
+      AlarmDescription: 'Slack Canvases service - alerts on incident (2) and outage (3)'
+      MetricName: Canvases
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackConnectivityAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: 'Watchy-Slack-Connectivity'
+      AlarmDescription: 'Slack Connectivity service - alerts on incident (2) and outage (3)'
+      MetricName: Connectivity
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackFilesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: 'Watchy-Slack-Files'
+      AlarmDescription: 'Slack Files service - alerts on incident (2) and outage (3)'
+      MetricName: Files
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackHuddlesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: 'Watchy-Slack-Huddles'
+      AlarmDescription: 'Slack Huddles service - alerts on incident (2) and outage (3)'
+      MetricName: Huddles
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackAppsIntegrationsAPIsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: 'Watchy-Slack-AppsIntegrationsAPIs'
+      AlarmDescription: 'Slack Apps/Integrations/APIs service - alerts on incident (2) and outage (3)'
+      MetricName: AppsIntegrationsAPIs
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackWorkflowsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: 'Watchy-Slack-Workflows'
+      AlarmDescription: 'Slack Workflows service - alerts on incident (2) and outage (3)'
+      MetricName: Workflows
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+Outputs:
+  LambdaFunctionName:
+    Description: 'Slack monitoring Lambda function name'
+    Value: !Ref SlackMonitoringLambda
+
+  LambdaFunctionArn:
+    Description: 'Slack monitoring Lambda function ARN'
+    Value: !GetAtt SlackMonitoringLambda.Arn
+
+  APIResponseAlarm:
+    Description: 'Slack API Response alarm ARN'
+    Value: !GetAtt SlackAPIResponseAlarm.Arn
+
+  LoginSSOAlarm:
+    Description: 'Slack Login/SSO alarm ARN'
+    Value: !GetAtt SlackLoginSSOAlarm.Arn
+
+  MessagingAlarm:
+    Description: 'Slack Messaging alarm ARN'
+    Value: !GetAtt SlackMessagingAlarm.Arn
+
+  NotificationsAlarm:
+    Description: 'Slack Notifications alarm ARN'
+    Value: !GetAtt SlackNotificationsAlarm.Arn
+
+  SearchAlarm:
+    Description: 'Slack Search alarm ARN'
+    Value: !GetAtt SlackSearchAlarm.Arn
+
+  WorkspaceOrgAdministrationAlarm:
+    Description: 'Slack Workspace/Org Administration alarm ARN'
+    Value: !GetAtt SlackWorkspaceOrgAdministrationAlarm.Arn
+
+  CanvasesAlarm:
+    Description: 'Slack Canvases alarm ARN'
+    Value: !GetAtt SlackCanvasesAlarm.Arn
+
+  ConnectivityAlarm:
+    Description: 'Slack Connectivity alarm ARN'
+    Value: !GetAtt SlackConnectivityAlarm.Arn
+
+  FilesAlarm:
+    Description: 'Slack Files alarm ARN'
+    Value: !GetAtt SlackFilesAlarm.Arn
+
+  HuddlesAlarm:
+    Description: 'Slack Huddles alarm ARN'
+    Value: !GetAtt SlackHuddlesAlarm.Arn
+
+  AppsIntegrationsAPIsAlarm:
+    Description: 'Slack Apps/Integrations/APIs alarm ARN'
+    Value: !GetAtt SlackAppsIntegrationsAPIsAlarm.Arn
+
+  WorkflowsAlarm:
+    Description: 'Slack Workflows alarm ARN'
+    Value: !GetAtt SlackWorkflowsAlarm.Arn
