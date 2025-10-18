@@ -2,6 +2,7 @@
 
 [![Deploy to AWS](https://img.shields.io/badge/Deploy%20to-AWS-FF9900?style=for-the-badge&logo=amazon-aws)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?templateURL=https://s3.amazonaws.com/watchy-resources-prod/platform/watchy-platform.yaml&stackName=Watchy)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![GitHub](https://img.shields.io/badge/GitHub-refaktr--io%2Fwatchy-blue?logo=github)](https://github.com/refaktr-io/watchy)
 
 Monitor SaaS application status with Amazon CloudWatch. Get real-time alerts for service degradation and incidents - all running in your own AWS account.
 
