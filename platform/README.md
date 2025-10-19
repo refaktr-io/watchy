@@ -138,7 +138,7 @@ Watchy automatically creates two CloudWatch Log Groups:
 
 ## 🔧 Architecture
 
-![Watchy AWS Architecture](../website/watchy-architecture.png)
+![Watchy AWS Architecture](watchy-architecture.png)
 
 Watchy uses AWS serverless architecture to monitor SaaS applications. Lambda functions poll status APIs on a schedule, storing data in CloudWatch for metrics and alerting.
 
@@ -169,14 +169,7 @@ The Lambda function uses a **two-tier architecture** to protect intellectual pro
 1. **Runtime Binary Download**: On cold start, the Lambda function downloads a pre-compiled native binary from `https://releases.watchy.cloud/binaries/slack-monitor/`
 2. **Integrity Verification**: SHA256 checksum validation ensures binary authenticity
 3. **Execution**: The binary handles SaaS-specific monitoring logic and returns structured data to the Python handler
-4. **Metrics Publishing**: The open-source Python layer publishes results to CloudWatch
-
-**Why Use Binaries?**
-
-- **IP Protection**: Proprietary SaaS monitoring algorithms remain private
-- **Performance**: Nuitka-compiled Python runs 60-70% faster than interpreted code
-- **Security**: No reverse engineering possible from deployed Lambda functions
-- **Transparency**: CloudFormation templates and orchestration logic remain fully open source
+4. **Metrics & Logs Publishing**: The open-source Python layer publishes results to CloudWatch
 
 **Binary Metadata**: Each binary includes version info, build timestamp, and git commit hash for full traceability. Metadata is available at: `https://releases.watchy.cloud/binaries/slack-monitor/metadata.json`
 
@@ -225,7 +218,7 @@ The complete CloudFormation template is available in this repository:
 ## 🤝 Support
 
 - **Issues**: [GitHub Issues](https://github.com/refaktr-io/watchy/issues)
-- **Custom Monitoring**: Contact us at [hello@refaktr.io](mailto:hello@refaktr.io?subject=Custom%20Monitoring%20Inquiry)
+- **Custom Monitoring**: Contact us at [watchy@refaktr.io](mailto:watchy@refaktr.io?subject=Custom%20Monitoring%20Inquiry)
 - **Documentation**: Visit [watchy.cloud](https://watchy.cloud)
 
 ## 📄 License
