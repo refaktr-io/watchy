@@ -25,21 +25,21 @@ Parameters:
   MonitoringSchedule:
     Type: String
     Default: 'rate(5 minutes)'
-    Description: 'Monitoring frequency for Slack status checks'
+    Description: 'Watchy monitoring poll interval'
 
   TimeoutSeconds:
     Type: Number
     Default: 240
     MinValue: 30
     MaxValue: 900
-    Description: 'Timeout in seconds for Slack monitoring operations'
+    Description: 'Timeout in seconds for Watchy monitoring operations'
 
   RetryAttempts:
     Type: Number
     Default: 3
     MinValue: 1
     MaxValue: 10
-    Description: 'Number of retry attempts for failed Slack operations'
+    Description: 'Number of retry attempts for failed Watchy operations'
 
 Resources:
   # ===== SHARED PLATFORM RESOURCES =====
@@ -137,13 +137,13 @@ Resources:
 Outputs:
   # ===== SHARED PLATFORM OUTPUTS =====
   NotificationTopicArn:
-    Description: 'ARN of the shared SNS topic for Slack monitoring alerts'
+    Description: 'ARN of the shared SNS topic for Watchy monitoring alerts'
     Value: !Ref WatchyNotificationTopic
     Export:
       Name: !Sub '${AWS::StackName}-NotificationTopic'
 
   SharedLambdaRoleArn:
-    Description: 'ARN of the shared Lambda execution role for Slack monitoring'
+    Description: 'ARN of the shared Lambda execution role for Watchy monitoring'
     Value: !GetAtt WatchySharedLambdaRole.Arn
     Export:
       Name: !Sub '${AWS::StackName}-SharedLambdaRole'

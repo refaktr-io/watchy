@@ -560,7 +560,7 @@ Resources:
   SlackMonitoringDashboard:
     Type: AWS::CloudWatch::Dashboard
     Properties:
-      DashboardName: !Sub '${ParentStackName}-Slack-Monitoring'
+      DashboardName: !Sub '${ParentStackName}-Slack'
       DashboardBody: !Sub |
         {
           "widgets": [
