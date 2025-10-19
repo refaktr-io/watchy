@@ -142,6 +142,44 @@ Watchy automatically creates two CloudWatch Log Groups:
 
 Watchy uses AWS serverless architecture to monitor SaaS applications. Lambda functions poll status APIs on a schedule, storing data in CloudWatch for metrics and alerting.
 
+### Lambda Runtime Environment
+
+Watchy runs on **AWS Lambda Python 3.13** runtime with a hybrid architecture that combines open-source orchestration with proprietary monitoring logic:
+
+**Open Source Layer** (Python Lambda Handler):
+
+- CloudFormation deployment and configuration
+- CloudWatch metrics publishing
+- SNS alarm integration
+- EventBridge scheduling
+- Error handling and retry logic
+
+**Proprietary Binary Layer** (Nuitka-compiled):
+
+- Downloaded at runtime from secure CloudFront CDN
+- Contains specialized SaaS API monitoring algorithms
+- Intelligent response parsing and incident detection
+- Smart caching and deduplication logic
+- Advanced error recovery patterns
+
+### Binary Architecture
+
+The Lambda function uses a **two-tier architecture** to protect intellectual property while maintaining transparency:
+
+1. **Runtime Binary Download**: On cold start, the Lambda function downloads a pre-compiled native binary from `https://releases.watchy.cloud/binaries/slack-monitor/`
+2. **Integrity Verification**: SHA256 checksum validation ensures binary authenticity
+3. **Execution**: The binary handles SaaS-specific monitoring logic and returns structured data to the Python handler
+4. **Metrics Publishing**: The open-source Python layer publishes results to CloudWatch
+
+**Why Use Binaries?**
+
+- **IP Protection**: Proprietary SaaS monitoring algorithms remain private
+- **Performance**: Nuitka-compiled Python runs 60-70% faster than interpreted code
+- **Security**: No reverse engineering possible from deployed Lambda functions
+- **Transparency**: CloudFormation templates and orchestration logic remain fully open source
+
+**Binary Metadata**: Each binary includes version info, build timestamp, and git commit hash for full traceability. Metadata is available at: `https://releases.watchy.cloud/binaries/slack-monitor/metadata.json`
+
 ## 🛡️ Security Features
 
 - **Least Privilege IAM**: Lambda function has minimal required permissions
