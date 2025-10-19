@@ -4,7 +4,13 @@
 
 Advanced Slack monitoring solution with secure native binaries, intelligent caching, and automated infrastructure deployment.
 
-## 🏗️ **Repository Structure**
+## 🏗️ Architecture
+
+![Watchy AWS Architecture](website/watchy-architecture.png)
+
+Watchy uses AWS serverless architecture to monitor SaaS applications. Lambda functions poll status APIs on a schedule, storing data in CloudWatch for metrics and alerting.
+
+## 📁 **Repository Structure**
 
 ```text
 watchy.cloud/

@@ -138,20 +138,9 @@ Watchy automatically creates two CloudWatch Log Groups:
 
 ## 🔧 Architecture
 
-```
-EventBridge Schedule (5 min)
-    ↓
-Lambda Function (Python 3.13 + Nuitka Binary)
-    ↓
-Slack Status API (https://status.slack.com/api/v2.0.0/current)
-    ↓
-    ├─→ CloudWatch Metrics (13 metrics)
-    ├─→ CloudWatch Dashboard (6 widgets)
-    ├─→ CloudWatch Logs (incident history)
-    └─→ CloudWatch Alarms → SNS → Email
-```
+![Watchy AWS Architecture](../website/watchy-architecture.png)
 
-📋 **[View Complete Architecture Diagram](docs/ARCHITECTURE.md)** - Detailed AWS resource topology, data flows, security layers, and cost breakdown.
+Watchy uses AWS serverless architecture to monitor SaaS applications. Lambda functions poll status APIs on a schedule, storing data in CloudWatch for metrics and alerting.
 
 ## 🛡️ Security Features
 

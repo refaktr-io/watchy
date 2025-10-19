@@ -790,12 +790,12 @@ jobs:
         cp platform/README.md public-repo/README.md
         echo "✅ README copied"
 
-    - name: Copy Architecture Documentation
+    - name: Copy Architecture Diagram
       run: |
-        echo "📐 Copying architecture documentation to public repository..."
+        echo "📐 Copying architecture diagram to public repository..."
         mkdir -p public-repo/docs
-        cp docs/ARCHITECTURE.md public-repo/docs/ARCHITECTURE.md
-        echo "✅ Architecture documentation copied"
+        cp website/watchy-architecture.png public-repo/docs/watchy-architecture.png
+        echo "✅ Architecture diagram copied"
 
     - name: Commit and push to public repository
       run: |

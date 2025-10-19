@@ -61,17 +61,17 @@ needs: [detect-changes]
 
 Now the job only depends on `detect-changes`, allowing it to run independently even if deployment isn't needed.
 
-### Fix 3: Added Architecture Documentation
+### Fix 3: Added Architecture Diagram
 
-Added a new step to copy the architecture documentation:
+Added a new step to copy the architecture diagram:
 
 ```yaml
-- name: Copy Architecture Documentation
+- name: Copy Architecture Diagram
   run: |
-    echo "📐 Copying architecture documentation to public repository..."
+    echo "📐 Copying architecture diagram to public repository..."
     mkdir -p public-repo/docs
-    cp docs/ARCHITECTURE.md public-repo/docs/ARCHITECTURE.md
-    echo "✅ Architecture documentation copied"
+    cp website/watchy-architecture.png public-repo/docs/watchy-architecture.png
+    echo "✅ Architecture diagram copied"
 ```
 
 Updated the git add command to include the docs directory:
@@ -85,7 +85,7 @@ When changes are pushed to `main` branch, these files are automatically publishe
 
 1. **`watchy-platform.yaml`** - CloudFormation template
 2. **`README.md`** - Public documentation (from platform/README.md)
-3. **`docs/ARCHITECTURE.md`** - Architecture diagram and detailed documentation
+3. **`docs/watchy-architecture.png`** - Architecture diagram
 
 ## Job Trigger Conditions
 
@@ -170,12 +170,12 @@ publish-to-github:
         cp platform/README.md public-repo/README.md
         echo "✅ README copied"
     
-+   - name: Copy Architecture Documentation
++   - name: Copy Architecture Diagram
 +     run: |
-+       echo "📐 Copying architecture documentation to public repository..."
++       echo "📐 Copying architecture diagram to public repository..."
 +       mkdir -p public-repo/docs
-+       cp docs/ARCHITECTURE.md public-repo/docs/ARCHITECTURE.md
-+       echo "✅ Architecture documentation copied"
++       cp website/watchy-architecture.png public-repo/docs/watchy-architecture.png
++       echo "✅ Architecture diagram copied"
     
     - name: Commit and push to public repository
       run: |
@@ -198,7 +198,7 @@ The `publish-to-github` job will now:
 ✅ Run independently without waiting for deployment  
 ✅ Publish CloudFormation template to public repo  
 ✅ Publish README to public repo  
-✅ Publish architecture documentation to public repo  
+✅ Publish architecture diagram to public repo  
 ✅ Create automated commits with version info  
 ✅ Push to refaktr-io/watchy main branch  
 
