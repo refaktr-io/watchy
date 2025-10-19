@@ -113,14 +113,15 @@ The dashboard is automatically created as `{StackName}-Slack-Monitoring` and can
 
 ## 💰 Cost Estimate
 
-Typical monthly cost: **$2-5 USD**
+Typical monthly cost: **$1-3 USD**
 
 - Lambda: ~8,640 invocations/month (5-min interval) = $0.18
-- CloudWatch Logs: ~100 MB/month = $0.50
-- CloudWatch Metrics: 13 custom metrics = $3.90
-- SNS: Email notifications (minimal cost)
+- CloudWatch Logs: ~500 MB/month = $0.25
+- CloudWatch Metrics: ~10 custom metrics = $0.30
+- CloudWatch Alarms: 2 alarms = $0.20
+- SNS: Email notifications (minimal cost) = $0.01
 
-**Total**: Approximately $4.58/month (varies based on actual usage)
+**Total**: Approximately $0.95-$1.50/month for standard usage (varies based on polling frequency and alert volume)
 
 ## 📋 CloudWatch Logs
 
