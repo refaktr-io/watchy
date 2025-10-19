@@ -138,7 +138,7 @@ Watchy automatically creates two CloudWatch Log Groups:
 
 ## 🔧 Architecture
 
-![Watchy AWS Architecture](../website/watchy-architecture.png)
+![Watchy AWS Architecture](watchy-architecture.png)
 
 Watchy uses AWS serverless architecture to monitor SaaS applications. Lambda functions poll status APIs on a schedule, storing data in CloudWatch for metrics and alerting.
 
