@@ -187,7 +187,7 @@ The complete CloudFormation template is available in this repository:
 ## 🤝 Support
 
 - **Issues**: [GitHub Issues](https://github.com/refaktr-io/watchy/issues)
-- **Custom Monitoring**: Contact us at [hello@refaktr.io](mailto:hello@refaktr.io?subject=Custom%20Monitoring%20Inquiry)
+- **Custom Monitoring**: Contact us at [watchy@refaktr.io](mailto:watchy@refaktr.io?subject=Custom%20Monitoring%20Inquiry)
 - **Documentation**: Visit [watchy.cloud](https://watchy.cloud)
 
 ## 📄 License
