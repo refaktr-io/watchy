@@ -21,8 +21,15 @@ BUILD_DATE = "2025-08-31T10:30:00Z"
 
 def log_json(level: str, message: str, **kwargs):
     """Log structured JSON messages to reduce visual clutter"""
-    # Disabled JSON logging to console - CloudWatch handles structured logging
-    pass
+    # Enable debug logging for troubleshooting
+    if level in ['ERROR', 'WARN', 'INFO']:
+        log_data = {
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'level': level,
+            'message': message,
+            **kwargs
+        }
+        print(json.dumps(log_data))
 
 # Binary cache for intelligent caching
 _binary_cache = {}
@@ -169,9 +176,25 @@ def is_within_polling_interval(note_time: datetime, polling_interval_minutes: in
     """
     Check if a note timestamp is within the last polling interval
     """
-    now = datetime.now(timezone.utc).replace(tzinfo=note_time.tzinfo)
-    cutoff_time = now - timedelta(minutes=polling_interval_minutes)
-    return note_time >= cutoff_time
+    # Convert both times to UTC for proper comparison
+    now_utc = datetime.now(timezone.utc)
+    note_time_utc = note_time.astimezone(timezone.utc)
+    
+    cutoff_time = now_utc - timedelta(minutes=polling_interval_minutes)
+    
+    # Debug logging to help diagnose time filtering issues
+    time_diff_minutes = (now_utc - note_time_utc).total_seconds() / 60
+    within_interval = note_time_utc >= cutoff_time
+    
+    log_json("DEBUG", "Time interval check", 
+            note_time_utc=note_time_utc.isoformat(),
+            now_utc=now_utc.isoformat(),
+            cutoff_time=cutoff_time.isoformat(),
+            time_diff_minutes=round(time_diff_minutes, 2),
+            polling_interval_minutes=polling_interval_minutes,
+            within_interval=within_interval)
+    
+    return within_interval
 
 def publish_incident_logs(incidents: List[Dict], log_group: str = '/watchy/slack', polling_interval: int = 5):
     """
@@ -210,15 +233,31 @@ def publish_incident_logs(incidents: List[Dict], log_group: str = '/watchy/slack
             log_json("INFO", "Processing incident", 
                     incident_id=incident_id, 
                     incident_title=incident_title,
-                    incident_type=incident_type)
+                    incident_type=incident_type,
+                    incident_status=incident_status,
+                    services=incident_services)
             
             notes = incident.get('notes', [])
+            log_json("DEBUG", "Found incident notes", 
+                    incident_id=incident_id, 
+                    notes_count=len(notes))
             
-            for note in notes:
+            for note_idx, note in enumerate(notes):
                 note_body = note.get('body', '')
                 note_date_str = note.get('date_created', '')
                 
+                log_json("DEBUG", "Processing note", 
+                        incident_id=incident_id,
+                        note_index=note_idx,
+                        note_date_str=note_date_str,
+                        note_body_length=len(note_body) if note_body else 0)
+                
                 if not note_body or not note_date_str:
+                    log_json("WARN", "Skipping note with missing data",
+                            incident_id=incident_id,
+                            note_index=note_idx,
+                            has_body=bool(note_body),
+                            has_date=bool(note_date_str))
                     continue
                 
                 # Parse note timestamp
