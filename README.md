@@ -8,7 +8,7 @@ Monitor SaaS application status with Amazon CloudWatch. Get real-time alerts for
 
 ## 🚀 Quick Start
 
-Deploy the complete Watchy platform in 60 seconds:
+Deploy the complete Watchy platform in 2 minutes:
 
 1. Click the **Deploy to AWS** button above
 2. Enter your notification email address
