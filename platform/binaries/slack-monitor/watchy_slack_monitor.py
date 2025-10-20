@@ -202,22 +202,32 @@ def publish_incident_logs(incidents: List[Dict], log_group: str = '/watchy/slack
     Only publishes notes that are within the polling interval to avoid duplicates
     Uses note's date_created as the CloudWatch log timestamp
     """
+    print(f"DEBUG: Starting publish_incident_logs with {len(incidents)} incidents")
+    
     try:
         if not incidents:
+            print("DEBUG: No active incidents to log")
             log_json("INFO", "No active incidents to log")
             return 0
+        
+        print("DEBUG: Initializing CloudWatch Logs client")
         
         # Initialize CloudWatch Logs client
         logs_client = boto3.client('logs')
         
         # Ensure log group exists
+        print(f"DEBUG: Ensuring log group exists: {log_group}")
         try:
             logs_client.create_log_group(logGroupName=log_group)
+            print(f"DEBUG: Successfully created log group: {log_group}")
             log_json("DEBUG", "Created CloudWatch log group", log_group=log_group)
         except logs_client.exceptions.ResourceAlreadyExistsException:
+            print(f"DEBUG: Log group already exists: {log_group}")
             pass  # Log group already exists
         except Exception as e:
-            log_json("WARN", "Failed to create log group", log_group=log_group, error=str(e))
+            print(f"ERROR: Failed to create log group {log_group}: {str(e)}")
+            log_json("ERROR", "Failed to create log group", log_group=log_group, error=str(e))
+            # Don't return here - continue and try to log anyway
         
         logs_published = 0
         log_events = []
@@ -264,11 +274,17 @@ def publish_incident_logs(incidents: List[Dict], log_group: str = '/watchy/slack
                 note_time = parse_datetime(note_date_str)
                 
                 # Check if note is within polling interval (smart deduplication)
-                if not is_within_polling_interval(note_time, polling_interval):
+                within_interval = is_within_polling_interval(note_time, polling_interval)
+                print(f"DEBUG: Note time check - Note: {note_time.isoformat()}, Within interval: {within_interval}")
+                
+                if not within_interval:
+                    print(f"DEBUG: Skipping old note from {note_time.isoformat()}")
                     log_json("DEBUG", "Skipping old note (already logged in previous poll)", 
                             note_time=note_time.isoformat(), 
                             polling_interval_min=polling_interval)
                     continue
+                
+                print(f"DEBUG: Note within interval - will be logged: {note_time.isoformat()}")
                 
                 # Clean HTML from note body
                 clean_note = strip_html_tags(note_body)
@@ -300,8 +316,11 @@ def publish_incident_logs(incidents: List[Dict], log_group: str = '/watchy/slack
                 
                 logs_published += 1
         
+        print(f"DEBUG: Prepared {len(log_events)} log events for CloudWatch")
+        
         # Only create log stream and publish if we have events to publish
         if log_events:
+            print(f"DEBUG: Publishing {len(log_events)} events to CloudWatch")
             # Sort events by timestamp (CloudWatch requirement)
             log_events.sort(key=lambda x: x['timestamp'])
             
@@ -310,15 +329,22 @@ def publish_incident_logs(incidents: List[Dict], log_group: str = '/watchy/slack
             log_stream = f"slack-incidents-{now.strftime('%Y-%m-%d')}-{int(time.time())}"
             
             try:
+                print(f"DEBUG: Creating log stream: {log_stream}")
                 logs_client.create_log_stream(
                     logGroupName=log_group,
                     logStreamName=log_stream
                 )
+                print(f"DEBUG: Successfully created log stream: {log_stream}")
                 log_json("DEBUG", "Created CloudWatch log stream", 
                         log_group=log_group, 
                         log_stream=log_stream)
             except logs_client.exceptions.ResourceAlreadyExistsException:
+                print(f"DEBUG: Log stream already exists: {log_stream}")
                 pass  # Log stream already exists
+            except Exception as e:
+                print(f"ERROR: Failed to create log stream {log_stream}: {str(e)}")
+                print("ERROR: This might be an IAM permissions issue")
+                # Continue anyway and try to publish
             
             # Publish in batches (CloudWatch limit is 10,000 events or 1MB per call)
             batch_size = 100  # Conservative batch size
@@ -501,6 +527,12 @@ def main():
         log_group = os.getenv('CLOUDWATCH_LOG_GROUP', '/watchy/slack')
         polling_interval = int(os.getenv('POLLING_INTERVAL_MINUTES', '5'))
         
+        # Debug mode: disable time filtering if DEBUG_DISABLE_TIME_FILTER is set
+        disable_time_filter = os.getenv('DEBUG_DISABLE_TIME_FILTER', 'false').lower() == 'true'
+        if disable_time_filter:
+            print("DEBUG: Time filtering disabled - will log ALL incident notes")
+            polling_interval = 60 * 24 * 7  # 1 week - effectively disable filtering
+        
         print(f"Config: Namespace={namespace}, Log Group={log_group}, Polling Interval={polling_interval}min")
         
         # Fetch Slack status
@@ -508,6 +540,19 @@ def main():
         
         # Parse active incidents and publish logs
         active_incidents = status_data.get('active_incidents', [])
+        
+        print(f"DEBUG: Found {len(active_incidents)} active incidents")
+        for i, incident in enumerate(active_incidents):
+            incident_id = incident.get('id', 'unknown')
+            incident_title = incident.get('title', 'Unknown')
+            notes_count = len(incident.get('notes', []))
+            print(f"  Incident {i+1}: ID={incident_id}, Title='{incident_title}', Notes={notes_count}")
+            
+            # Show note timestamps for debugging
+            for j, note in enumerate(incident.get('notes', [])):
+                note_date = note.get('date_created', 'unknown')
+                print(f"    Note {j+1}: {note_date}")
+        
         logs_published = publish_incident_logs(active_incidents, log_group, polling_interval)
         
         # Parse service statuses
@@ -538,6 +583,44 @@ def main():
         print(f"{error_msg}")
         return 1
 
+def test_log_creation():
+    """Test function to create a simple log entry for debugging"""
+    try:
+        print("TEST: Creating test log entry...")
+        
+        # Create a fake incident note with current timestamp
+        now = datetime.now(timezone.utc)
+        test_incidents = [{
+            'id': 9999,
+            'title': 'Test Incident for Debugging',
+            'type': 'incident',
+            'status': 'active',
+            'url': 'https://test.example.com',
+            'services': ['Connectivity'],
+            'notes': [{
+                'body': '<p>This is a test incident note created for debugging log stream creation.</p>',
+                'date_created': now.isoformat()
+            }]
+        }]
+        
+        log_group = '/watchy/slack'
+        polling_interval = 60  # 1 hour to ensure it passes time filter
+        
+        logs_published = publish_incident_logs(test_incidents, log_group, polling_interval)
+        
+        print(f"TEST: Published {logs_published} test log entries")
+        return logs_published > 0
+        
+    except Exception as e:
+        print(f"TEST ERROR: {str(e)}")
+        return False
+
 if __name__ == '__main__':
-    exit_code = main()
-    sys.exit(exit_code)
+    # Check if we should run in test mode
+    if len(sys.argv) > 1 and sys.argv[1] == '--test-logs':
+        print("Running in test mode...")
+        success = test_log_creation()
+        sys.exit(0 if success else 1)
+    else:
+        exit_code = main()
+        sys.exit(exit_code)
