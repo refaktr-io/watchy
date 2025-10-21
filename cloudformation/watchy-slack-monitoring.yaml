@@ -383,7 +383,7 @@ Resources:
   SlackLoginSSOAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: 'Watchy-Slack-LoginSSO'
+      AlarmName: !Sub 'Watchy-Slack-LoginSSO-${AWS::Region}'
       AlarmDescription: 'Slack Login/SSO service - alerts on incident (2) and outage (3)'
       MetricName: LoginSSO
       Namespace: Watchy/Slack
@@ -399,7 +399,7 @@ Resources:
   SlackMessagingAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: 'Watchy-Slack-Messaging'
+      AlarmName: !Sub 'Watchy-Slack-Messaging-${AWS::Region}'
       AlarmDescription: 'Slack Messaging service - alerts on incident (2) and outage (3)'
       MetricName: Messaging
       Namespace: Watchy/Slack
@@ -415,7 +415,7 @@ Resources:
   SlackNotificationsAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: 'Watchy-Slack-Notifications'
+      AlarmName: !Sub 'Watchy-Slack-Notifications-${AWS::Region}'
       AlarmDescription: 'Slack Notifications service - alerts on incident (2) and outage (3)'
       MetricName: Notifications
       Namespace: Watchy/Slack
@@ -431,7 +431,7 @@ Resources:
   SlackSearchAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: 'Watchy-Slack-Search'
+      AlarmName: !Sub 'Watchy-Slack-Search-${AWS::Region}'
       AlarmDescription: 'Slack Search service - alerts on incident (2) and outage (3)'
       MetricName: Search
       Namespace: Watchy/Slack
@@ -447,7 +447,7 @@ Resources:
   SlackWorkspaceOrgAdministrationAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: 'Watchy-Slack-WorkspaceOrgAdministration'
+      AlarmName: !Sub 'Watchy-Slack-WorkspaceOrgAdministration-${AWS::Region}'
       AlarmDescription: 'Slack Workspace/Org Administration service - alerts on incident (2) and outage (3)'
       MetricName: WorkspaceOrgAdministration
       Namespace: Watchy/Slack
@@ -463,7 +463,7 @@ Resources:
   SlackCanvasesAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: 'Watchy-Slack-Canvases'
+      AlarmName: !Sub 'Watchy-Slack-Canvases-${AWS::Region}'
       AlarmDescription: 'Slack Canvases service - alerts on incident (2) and outage (3)'
       MetricName: Canvases
       Namespace: Watchy/Slack
@@ -479,7 +479,7 @@ Resources:
   SlackConnectivityAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: 'Watchy-Slack-Connectivity'
+      AlarmName: !Sub 'Watchy-Slack-Connectivity-${AWS::Region}'
       AlarmDescription: 'Slack Connectivity service - alerts on incident (2) and outage (3)'
       MetricName: Connectivity
       Namespace: Watchy/Slack
@@ -495,7 +495,7 @@ Resources:
   SlackFilesAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: 'Watchy-Slack-Files'
+      AlarmName: !Sub 'Watchy-Slack-Files-${AWS::Region}'
       AlarmDescription: 'Slack Files service - alerts on incident (2) and outage (3)'
       MetricName: Files
       Namespace: Watchy/Slack
@@ -511,7 +511,7 @@ Resources:
   SlackHuddlesAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: 'Watchy-Slack-Huddles'
+      AlarmName: !Sub 'Watchy-Slack-Huddles-${AWS::Region}'
       AlarmDescription: 'Slack Huddles service - alerts on incident (2) and outage (3)'
       MetricName: Huddles
       Namespace: Watchy/Slack
@@ -527,7 +527,7 @@ Resources:
   SlackAppsIntegrationsAPIsAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: 'Watchy-Slack-AppsIntegrationsAPIs'
+      AlarmName: !Sub 'Watchy-Slack-AppsIntegrationsAPIs-${AWS::Region}'
       AlarmDescription: 'Slack Apps/Integrations/APIs service - alerts on incident (2) and outage (3)'
       MetricName: AppsIntegrationsAPIs
       Namespace: Watchy/Slack
@@ -543,7 +543,7 @@ Resources:
   SlackWorkflowsAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: 'Watchy-Slack-Workflows'
+      AlarmName: !Sub 'Watchy-Slack-Workflows-${AWS::Region}'
       AlarmDescription: 'Slack Workflows service - alerts on incident (2) and outage (3)'
       MetricName: Workflows
       Namespace: Watchy/Slack
