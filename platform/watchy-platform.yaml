@@ -48,8 +48,8 @@ Resources:
   WatchyNotificationTopic:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: 'Watchy-Alerts'
-      DisplayName: 'Watchy Alerts'
+      TopicName: !Sub 'Watchy-Alerts-${AWS::Region}'
+      DisplayName: !Sub 'Watchy Alerts (${AWS::Region})'
       Tags:
         - Key: Project
           Value: Watchy
@@ -70,7 +70,7 @@ Resources:
   WatchySharedLambdaRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub '${AWS::StackName}-WatchyPlatformRole'
+      RoleName: !Sub '${AWS::StackName}-WatchyPlatformRole-${AWS::Region}'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -81,7 +81,7 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
-        - PolicyName: WatchyPlatformPolicy
+        - PolicyName: !Sub 'WatchyPlatformPolicy-${AWS::Region}'
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
