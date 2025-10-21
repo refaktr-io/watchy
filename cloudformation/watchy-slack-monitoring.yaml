@@ -1,10 +1,13 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Watchy Monitoring Platform - Slack v2.2.0'
+Description: 'Watchy Monitoring Platform - Slack v2.3.0'
 
 Metadata:
-  Version: '2.2.0'
-  LastUpdated: '2025-10-18'
+  Version: '2.3.0'
+  LastUpdated: '2025-10-20'
   Changelog:
+    - Added multi-region deployment support with region-specific alarm naming
+    - All CloudWatch alarm names now include AWS region suffix to prevent collisions
+    - Enables deploying identical monitoring stacks to multiple AWS regions
     - Added CloudWatch Log Groups as CloudFormation resources
     - Incident log group (/watchy/slack) with 30-day retention
     - Lambda log group with 7-day retention
