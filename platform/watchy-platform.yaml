@@ -1,10 +1,14 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Watchy Monitoring Platform v5.4.0'
+Description: 'Watchy Monitoring Platform v5.5.0'
 Metadata:
-  Version: '5.4.0'
-  LastUpdated: '2025-10-18'
+  Version: '5.5.0'
+  LastUpdated: '2025-10-20'
   RecommendedStackName: 'Watchy'
   Changelog:
+    - Added multi-region deployment support with region-specific resource naming
+    - IAM role and policy names now include AWS region to prevent global resource collisions
+    - SNS topic names include region suffix for unique identification across regions
+    - Enables deploying identical stacks to multiple AWS regions simultaneously
     - Added CloudWatch Log Groups as CloudFormation resources (prevents dashboard errors)
     - Incident log group with 30-day retention, Lambda log group with 7-day retention
     - Added CloudWatch Dashboard for comprehensive Slack service visualization
