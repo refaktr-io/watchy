@@ -10,8 +10,8 @@ body:
       value: |
         ## Deployment Issue Report
 
-        Thank you for reporting a deployment issue. Please provide as much
-        detail as possible to help us resolve the problem quickly.
+        Thank you for reporting a deployment issue with Watchy Open Source.
+        Please provide as much detail as possible to help us resolve the problem quickly.
 
   - type: textarea
     id: problem-description
@@ -27,7 +27,7 @@ body:
     attributes:
       label: GitHub Actions Workflow
       description: Name of the workflow that failed
-      placeholder: e.g., Optimized Watchy Platform CI/CD
+      placeholder: e.g., Watchy Open Source CI/CD
     validations:
       required: true
 
@@ -36,7 +36,7 @@ body:
     attributes:
       label: GitHub Actions Run URL
       description: Link to the failed GitHub Actions run
-      placeholder: https://github.com/cloudbennett/watchy.cloud/actions/runs/...
+      placeholder: https://github.com/your-org/watchy-core/actions/runs/...
 
   - type: dropdown
     id: environment
@@ -112,13 +112,23 @@ body:
       label: AWS Resources Affected
       description: Which AWS resources are experiencing issues?
       options:
-        - label: CloudFormation stacks
-        - label: S3 buckets
-        - label: Lambda functions
-        - label: CloudFront distributions
-        - label: Binary distribution
-        - label: Website hosting
-        - label: WAF rules
+        - label: CloudFormation templates
+        - label: S3 template hosting
+        - label: Lambda functions (pure Python)
+        - label: CloudWatch metrics/alarms
+        - label: SNS notifications
+        - label: Template validation
+
+  - type: textarea
+    id: cloudformation-details
+    attributes:
+      label: CloudFormation Template Details
+      description: If this is related to CloudFormation deployment
+      placeholder: |
+        Template URL: https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml
+        Stack Name: 
+        Parameters used:
+        Error message:
 
   - type: textarea
     id: additional-context

@@ -1,0 +1,82 @@
+---
+name: Question
+description: Ask a question about Watchy Open Source
+title: "[QUESTION] "
+labels: ["question"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Question
+
+        Have a question about Watchy Open Source? We're here to help!
+        Please check the documentation first, then ask your question here.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: What would you like to know?
+      placeholder: Ask your question here
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Question Category
+      description: What is your question about?
+      options:
+        - Getting Started / Setup
+        - CloudFormation Deployment
+        - AWS Configuration
+        - Monitoring Configuration
+        - Troubleshooting
+        - Best Practices
+        - Contributing
+        - Architecture
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Provide any relevant context for your question
+      placeholder: |
+        What are you trying to accomplish?
+        What have you already tried?
+        Any relevant configuration or setup details?
+
+  - type: textarea
+    id: documentation-checked
+    attributes:
+      label: Documentation Checked
+      description: What documentation have you already reviewed?
+      placeholder: |
+        Please list the documentation you've already checked:
+        - [ ] README.md
+        - [ ] Platform documentation
+        - [ ] Customer templates documentation
+        - [ ] CloudFormation template comments
+        - [ ] Other: ___
+
+  - type: textarea
+    id: current-setup
+    attributes:
+      label: Current Setup
+      description: Describe your current setup if relevant
+      placeholder: |
+        AWS Region:
+        CloudFormation Stack Name:
+        Parameters used:
+        Any customizations:
+
+  - type: textarea
+    id: additional-info
+    attributes:
+      label: Additional Information
+      description: Any other information that might be helpful
+      placeholder: Add any other information that might help us answer your question

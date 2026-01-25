@@ -2,49 +2,59 @@
 
 # Watchy Cloud Template URL Generator
 # This script helps customers get the S3 URLs for CloudFormation templates
+# Open source SaaS monitoring with pure Python implementation
 
 set -e
 
 # Configuration - customers always use production templates
 TEMPLATE_BUCKET="watchy-resources-prod"
-PLATFORM_URL="https://s3.amazonaws.com/watchy-resources-prod/platform/watchy-platform.yaml"
 SLACK_URL="https://s3.amazonaws.com/${TEMPLATE_BUCKET}/customer-templates/templates/watchy-slack-monitoring.yaml"
 
-echo "🚀 Watchy Cloud Template URLs"
+echo "🚀 Watchy Cloud Template URLs - Open Source Edition"
 echo "=============================================="
 echo
 
-echo "📋 Recommended Deployment (Platform):"
+echo "📋 Available Templates:"
 echo
-echo "🔸 Watchy Platform (Includes Slack Monitoring):"
-echo "   ${PLATFORM_URL}"
-echo
-
-echo "📋 Individual Component (Advanced Users):"
-echo
-echo "🔸 Slack Monitoring Only:"
+echo "🔸 Slack Monitoring (Pure Python Implementation):"
 echo "   ${SLACK_URL}"
 echo
 
-echo "💡 Platform Deployment (Recommended):"
+echo "💡 Quick Deployment:"
 echo "aws cloudformation deploy \\"
-echo "  --template-url ${PLATFORM_URL} \\"
-echo "  --stack-name watchy-platform \\"
+echo "  --template-url ${SLACK_URL} \\"
+echo "  --stack-name watchy-slack-monitoring \\"
 echo "  --capabilities CAPABILITY_NAMED_IAM \\"
 echo "  --parameter-overrides \\"
 echo "    NotificationEmail=your-email@domain.com \\"
-echo "    MonitoringSchedule=\"rate(5 minutes)\" \\"
-echo "  --profile your-aws-profile"
+echo "    MonitoringSchedule=\"rate(5 minutes)\""
 echo
 
-echo "💡 Individual Component Deployment:"
+echo "💡 Deploy with Existing SNS Topic:"
 echo "aws cloudformation deploy \\"
 echo "  --template-url ${SLACK_URL} \\"
-echo "  --stack-name my-slack-monitoring \\"
+echo "  --stack-name watchy-slack-monitoring \\"
 echo "  --capabilities CAPABILITY_NAMED_IAM \\"
 echo "  --parameter-overrides \\"
-echo "    MonitoringSchedule=\"rate(5 minutes)\" \\"
-echo "  --profile your-aws-profile"
+echo "    NotificationTopicArn=arn:aws:sns:region:account:your-topic \\"
+echo "    MonitoringSchedule=\"rate(5 minutes)\""
 echo
 
-echo "📚 For more deployment examples, see the customer documentation."
+echo "🌟 Open Source Benefits:"
+echo "  • Pure Python implementation - no binaries"
+echo "  • All monitoring logic visible in CloudFormation"
+echo "  • Easy to modify and contribute to"
+echo "  • Faster cold starts and lower memory usage"
+echo "  • Community-friendly development"
+echo
+
+echo "🚀 Coming Soon:"
+echo "  • GitHub Status Monitoring"
+echo "  • Zoom Status Monitoring"
+echo "  • Additional SaaS integrations"
+echo
+
+echo "📚 For more information:"
+echo "  • Documentation: See README.md files"
+echo "  • Repository: GitHub repository for issues and contributions"
+echo "  • Community: GitHub Discussions for questions"
