@@ -126,7 +126,7 @@ body:
       description: If this is related to CloudFormation deployment
       placeholder: |
         Template URL: https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml
-        Stack Name: 
+        Stack Name:
         Parameters used:
         Error message:
 
@@ -136,3 +136,4 @@ body:
       label: Additional Context
       description: Any additional information about the deployment issue
       placeholder: Add any other context about the problem here
+

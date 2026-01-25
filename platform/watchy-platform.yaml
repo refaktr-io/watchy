@@ -47,7 +47,7 @@ Parameters:
 
 Resources:
   # ===== SHARED PLATFORM RESOURCES =====
-  
+
   # Shared SNS Topic for All SaaS Monitoring Alerts
   WatchyNotificationTopic:
     Type: AWS::SNS::Topic
@@ -101,7 +101,7 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                   - logs:DescribeLogGroups
-                Resource: 
+                Resource:
                   - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*Watchy*'
                   - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/watchy/slack/*'
               # SNS Publish for custom notifications
