@@ -7,5 +7,5 @@ contact_links:
     url: https://github.com/your-org/watchy-core/discussions
     about: Ask questions and discuss ideas with the community
   - name: 🚀 Quick Deploy
-    url: https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?templateURL=https://s3.amazonaws.com/watchy-resources-prod/templates/watchy-platform.yaml&stackName=Watchy-Platform
+    url: https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?templateURL=https://s3.amazonaws.com/watchy-templates/watchy-platform.yaml&stackName=Watchy-Platform
     about: Deploy Watchy Slack monitoring directly to AWS

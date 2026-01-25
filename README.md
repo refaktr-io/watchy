@@ -1,6 +1,6 @@
 # Watchy - Open Source SaaS Monitoring Platform
 
-[![Deploy to AWS](https://img.shields.io/badge/Deploy%20to-AWS-FF9900?style=for-the-badge&logo=amazon-aws)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?templateURL=https://s3.amazonaws.com/watchy-resources-prod/templates/watchy-platform.yaml&stackName=Watchy-Platform)
+[![Deploy to AWS](https://img.shields.io/badge/Deploy%20to-AWS-FF9900?style=for-the-badge&logo=amazon-aws)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?templateURL=https://s3.amazonaws.com/watchy-templates/watchy-platform.yaml&stackName=Watchy-Platform)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![GitHub](https://img.shields.io/badge/GitHub-Open%20Source-green?logo=github)](https://github.com/your-org/watchy-core)
 
@@ -13,12 +13,7 @@ watchy-core/
 ├── templates/
 │   ├── watchy-platform.yaml          # Parent stack (shared resources)
 │   └── watchy-slack-monitoring.yaml  # Slack monitoring nested stack
-├── docs/
-│   ├── configuration.md       # Configuration guide
-│   └── troubleshooting.md     # Troubleshooting guide
-├── scripts/
-│   └── get-template-urls.sh   # Helper script for deployment URLs
-└── README.md                  # This file
+└── README.md                         # This file
 ```
 
 ## 🚀 Quick Start
@@ -35,7 +30,7 @@ Deploy the complete Watchy platform with nested stack architecture:
 
 ```bash
 aws cloudformation deploy \
-  --template-url https://s3.amazonaws.com/watchy-resources-prod/templates/watchy-platform.yaml \
+  --template-url https://s3.amazonaws.com/watchy-templates/watchy-platform.yaml \
   --stack-name Watchy-Platform \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
@@ -84,7 +79,7 @@ Watchy monitors all 11 Slack services:
 - **Easy Scaling**: Simple to add new SaaS monitoring services as additional nested stacks
 - **Simplified Updates**: Update parent stack to propagate changes to all nested stacks
 
-## ⚙️ Configuration Parameters
+## ⚙️ Configuration
 
 ### Parent Stack Parameters
 
@@ -96,6 +91,67 @@ Watchy monitors all 11 Slack services:
 | `RetryAttempts` | `3` | Number of retry attempts for failed API calls |
 | `LogLevel` | `INFO` | Log level for all monitoring functions |
 | `EnableSlackMonitoring` | `true` | Enable/disable Slack monitoring nested stack |
+
+### Slack Status API Configuration
+
+The Slack monitoring uses the public Slack Status API:
+```
+https://status.slack.com/api/v2.0.0/current
+```
+
+### CloudWatch Metrics
+
+Metrics are published to the `Watchy/Slack` namespace:
+
+#### Service Status Metrics
+Each service has its own metric with values:
+- **0**: Operational (healthy)
+- **1**: Notice (minor issues)
+- **2**: Incident (service degraded)
+- **3**: Outage (service unavailable)
+
+#### Additional Metrics
+- **ActiveIncidents**: Total number of active incidents
+- **APIResponse**: HTTP response code from Slack Status API
+
+### Monitoring Schedule Options
+- `rate(1 minute)` - Every minute (high frequency, higher cost)
+- `rate(5 minutes)` - Every 5 minutes (recommended)
+- `rate(15 minutes)` - Every 15 minutes (low frequency)
+- `cron(0 */4 * * ? *)` - Every 4 hours (very low frequency)
+
+### Alternative: Standalone Deployment
+```bash
+aws cloudformation deploy \
+  --template-url https://s3.amazonaws.com/watchy-templates/watchy-slack-monitoring.yaml \
+  --stack-name watchy-slack-monitoring \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    SaasAppName=Slack \
+    ApiUrl=https://status.slack.com/api/v2.0.0/current \
+    MonitoringSchedule="rate(5 minutes)" \
+    SharedLambdaRoleArn=arn:aws:iam::account:role/your-role \
+    NotificationTopicArn=arn:aws:sns:region:account:your-topic \
+    ParentStackName=your-parent-stack
+```
+
+### Log Configuration
+- **Platform Logs**: `/watchy/platform/{StackName}`
+- **Slack Incident Logs**: `/watchy/slack`
+- **Lambda Execution Logs**: `/aws/lambda/{ParentStackName}-SlackMonitor`
+
+### Environment Variables
+
+The Lambda function receives these environment variables:
+- `API_URL`: Slack Status API endpoint
+- `CLOUDWATCH_NAMESPACE`: Metrics namespace (Watchy/Slack)
+- `CLOUDWATCH_LOG_GROUP`: Log group for incident logs
+- `POLLING_INTERVAL_MINUTES`: Polling interval for smart deduplication
+- `NOTIFICATION_TOPIC_ARN`: SNS topic for notifications
+- `WATCHY_LOG_LEVEL`: Logging level
+- `WATCHY_TIMEOUT_SECONDS`: Function timeout
+- `WATCHY_RETRY_ATTEMPTS`: Retry attempts
+- `WATCHY_STACK_NAME`: Parent stack name
 
 ## 💰 Cost Estimate
 
@@ -134,11 +190,157 @@ Watchy uses **AWS Lambda Python 3.13** runtime with a completely open source arc
 - **SNS Encryption**: Email notifications support encryption in transit
 - **Open Source Security**: All code visible for security auditing
 
-## 📚 Documentation
+## 🔧 Troubleshooting
 
-- **[Configuration Guide](docs/configuration.md)** - Detailed setup instructions
-- **[Troubleshooting Guide](docs/troubleshooting.md)** - Common issues and solutions
-- **[Template URLs Script](scripts/get-template-urls.sh)** - Helper for deployment URLs
+### Common Issues
+
+#### Deployment Failures
+
+**Issue**: CloudFormation stack creation fails
+**Solutions**: 
+- Check AWS permissions (need CAPABILITY_NAMED_IAM)
+- Verify parameter values (especially NotificationEmail format)
+- Review CloudFormation events tab for specific error messages
+- Ensure S3 template URLs are accessible
+
+**Issue**: Nested stack deployment fails
+**Solutions**:
+- Check parent stack has successfully created shared resources
+- Verify nested stack template URL is accessible
+- Review nested stack events in CloudFormation console
+- Ensure IAM permissions allow nested stack creation
+
+**Issue**: Lambda function timeouts
+**Solutions**:
+- Increase TimeoutSeconds parameter (default: 240)
+- Check Slack Status API endpoint availability
+- Review CloudWatch logs for specific timeout causes
+- Verify Lambda has internet access (check VPC/NAT configuration if applicable)
+
+#### Monitoring Issues
+
+**Issue**: No alerts being triggered during known Slack incidents
+**Solutions**:
+- Verify SNS email subscription is confirmed (check email for confirmation)
+- Check CloudWatch alarms are in ALARM state (not just INSUFFICIENT_DATA)
+- Test Slack Status API manually: `curl https://status.slack.com/api/v2.0.0/current`
+- Review monitoring schedule frequency
+- Check Lambda execution logs for errors
+
+**Issue**: False positive alerts
+**Solutions**:
+- Review CloudWatch alarm thresholds (currently set to alert on severity >= 2)
+- Check if API response format has changed
+- Verify incident deduplication logic is working (check polling interval)
+- Review Lambda logs for parsing errors
+
+**Issue**: Missing CloudWatch metrics
+**Solutions**:
+- Check Lambda execution logs for metric publishing errors
+- Verify IAM role has cloudwatch:PutMetricData permission
+- Confirm metrics namespace is correct (Watchy/Slack)
+- Test Lambda function manually via AWS console
+
+### Log Analysis
+
+#### CloudWatch Log Groups
+The nested stack architecture creates several log groups:
+
+```bash
+# Platform logs
+/watchy/platform/{StackName}
+
+# Slack incident logs (with smart deduplication)
+/watchy/slack
+
+# Lambda execution logs
+/aws/lambda/{ParentStackName}-SlackMonitor
+```
+
+#### Viewing Logs
+```bash
+# List all Watchy-related log groups
+aws logs describe-log-groups --log-group-name-prefix "/watchy"
+
+# Get recent Lambda execution logs
+aws logs get-log-events \
+  --log-group-name "/aws/lambda/Watchy-Platform-SlackMonitor" \
+  --log-stream-name "$(aws logs describe-log-streams \
+    --log-group-name "/aws/lambda/Watchy-Platform-SlackMonitor" \
+    --order-by LastEventTime --descending \
+    --max-items 1 --query 'logStreams[0].logStreamName' --output text)"
+
+# Get incident logs
+aws logs describe-log-streams \
+  --log-group-name "/watchy/slack" \
+  --order-by LastEventTime --descending
+```
+
+#### Log Analysis Tips
+- **Structured JSON logs**: All logs use JSON format for easy parsing
+- **Smart deduplication**: Incident logs only show new notes within polling interval
+- **Error tracking**: All errors include context and stack traces
+- **Performance metrics**: Execution time and API response times logged
+
+### Stack Management
+
+#### Updating Stacks
+```bash
+# Update parent stack (will update nested stacks automatically)
+aws cloudformation deploy \
+  --template-url https://s3.amazonaws.com/watchy-templates/watchy-platform.yaml \
+  --stack-name Watchy-Platform \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    NotificationEmail=your-email@domain.com \
+    MonitoringSchedule="rate(10 minutes)"
+```
+
+#### Deleting Stacks
+```bash
+# Delete parent stack (will delete nested stacks automatically)
+aws cloudformation delete-stack --stack-name Watchy-Platform
+```
+
+### Testing and Validation
+
+#### Manual Testing
+```bash
+# Test Slack Status API directly
+curl -s https://status.slack.com/api/v2.0.0/current | jq '.'
+
+# Invoke Lambda function manually
+aws lambda invoke \
+  --function-name Watchy-Platform-SlackMonitor \
+  --payload '{}' \
+  response.json && cat response.json
+```
+
+#### Validation Checklist
+- [ ] SNS email subscription confirmed
+- [ ] CloudWatch alarms created for all 11 Slack services
+- [ ] Lambda function executing on schedule
+- [ ] Metrics appearing in CloudWatch (Watchy/Slack namespace)
+- [ ] Incident logs being created during Slack incidents
+- [ ] CloudWatch dashboard showing service status
+
+### Debug Mode
+
+Enable debug mode by setting environment variable:
+```bash
+DEBUG_DISABLE_TIME_FILTER=true
+```
+
+This will log ALL incident notes (not just recent ones) for troubleshooting deduplication issues.
+
+### Getting Help
+
+1. **Check CloudWatch logs** for detailed error messages and execution traces
+2. **Review CloudFormation events** for deployment issues
+3. **Verify API endpoints** are accessible from your AWS region
+4. **Test with minimal configuration** first, then add complexity
+5. **Use CloudWatch Insights** to query logs across multiple log groups
+6. **Monitor CloudWatch metrics** to ensure data is being collected
 
 ## 🤝 Contributing
 

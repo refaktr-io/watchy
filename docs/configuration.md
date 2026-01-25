@@ -62,7 +62,7 @@ Each service has its own metric with values:
 ### Recommended: Nested Stack Deployment
 ```bash
 aws cloudformation deploy \
-  --template-url https://s3.amazonaws.com/watchy-resources-prod/templates/watchy-platform.yaml \
+  --template-url https://s3.amazonaws.com/watchy-templates/watchy-platform.yaml \
   --stack-name Watchy-Platform \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
@@ -74,7 +74,7 @@ aws cloudformation deploy \
 ### Alternative: Standalone Deployment
 ```bash
 aws cloudformation deploy \
-  --template-url https://s3.amazonaws.com/watchy-resources-prod/templates/watchy-slack-monitoring.yaml \
+  --template-url https://s3.amazonaws.com/watchy-templates/watchy-slack-monitoring.yaml \
   --stack-name watchy-slack-monitoring \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \

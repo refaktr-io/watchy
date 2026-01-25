@@ -33,7 +33,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       templates: ${{ steps.changes.outputs.templates }}
-      docs: ${{ steps.changes.outputs.docs }}
       workflows: ${{ steps.changes.outputs.workflows }}
 
     steps:
@@ -47,9 +46,6 @@ jobs:
           filters: |
             templates:
               - 'templates/**'
-            docs:
-              - '*.md'
-              - 'docs/**'
             workflows:
               - '.github/workflows/**'
 
@@ -202,27 +198,13 @@ jobs:
           VERSION=$(date -u +%Y.%m.%d.%H%M%S)-${GITHUB_SHA:0:7}
 
           # Deploy to production bucket
-          TEMPLATE_BUCKET="watchy-resources-prod"
+          TEMPLATE_BUCKET="watchy-templates"
 
           echo "✅ Deploying templates to bucket: $TEMPLATE_BUCKET"
 
           # Deploy templates to S3
           aws s3 sync templates/ \
-            s3://${TEMPLATE_BUCKET}/templates/ \
-            --delete \
-            --cache-control "max-age=3600" \
-            --region ${{ env.AWS_REGION }}
-
-          # Deploy documentation
-          aws s3 sync docs/ \
-            s3://${TEMPLATE_BUCKET}/docs/ \
-            --delete \
-            --cache-control "max-age=3600" \
-            --region ${{ env.AWS_REGION }}
-
-          # Deploy scripts
-          aws s3 sync scripts/ \
-            s3://${TEMPLATE_BUCKET}/scripts/ \
+            s3://${TEMPLATE_BUCKET}/ \
             --delete \
             --cache-control "max-age=3600" \
             --region ${{ env.AWS_REGION }}
@@ -240,7 +222,7 @@ jobs:
             echo "🔄 Invalidating CloudFront cache for templates..."
             aws cloudfront create-invalidation \
               --distribution-id "$DISTRIBUTION_ID" \
-              --paths "/templates/*" "/docs/*" "/scripts/*" \
+              --paths "/*" \
               --region ${{ env.AWS_REGION }} \
               --output text >/dev/null 2>&1 || \
               echo "⚠️  Cache invalidation failed (non-critical)"
@@ -262,7 +244,7 @@ jobs:
           echo "🧪 Testing template accessibility..."
 
           # Test platform template (parent stack)
-          if curl -f -s "https://s3.amazonaws.com/watchy-resources-prod/templates/watchy-platform.yaml" > /dev/null; then
+          if curl -f -s "https://s3.amazonaws.com/watchy-templates/watchy-platform.yaml" > /dev/null; then
             echo "✅ Platform template (parent stack) is accessible"
           else
             echo "❌ Platform template (parent stack) is not accessible"
@@ -270,7 +252,7 @@ jobs:
           fi
 
           # Test Slack monitoring template (nested stack)
-          if curl -f -s "https://s3.amazonaws.com/watchy-resources-prod/templates/watchy-slack-monitoring.yaml" > /dev/null; then
+          if curl -f -s "https://s3.amazonaws.com/watchy-templates/watchy-slack-monitoring.yaml" > /dev/null; then
             echo "✅ Slack monitoring template (nested stack) is accessible"
           else
             echo "❌ Slack monitoring template (nested stack) is not accessible"
@@ -284,10 +266,10 @@ jobs:
           echo "🔍 Validating deployed templates..."
 
           # Download and validate the deployed platform template (parent stack)
-          curl -s "https://s3.amazonaws.com/watchy-resources-prod/templates/watchy-platform.yaml" > deployed-platform-template.yaml
+          curl -s "https://s3.amazonaws.com/watchy-templates/watchy-platform.yaml" > deployed-platform-template.yaml
 
           # Download and validate the deployed Slack template (nested stack)
-          curl -s "https://s3.amazonaws.com/watchy-resources-prod/templates/watchy-slack-monitoring.yaml" > deployed-slack-template.yaml
+          curl -s "https://s3.amazonaws.com/watchy-templates/watchy-slack-monitoring.yaml" > deployed-slack-template.yaml
 
           # Validate platform template
           if grep -q "AWSTemplateFormatVersion" deployed-platform-template.yaml; then
@@ -328,7 +310,7 @@ jobs:
     needs: [detect-changes, validate]
     if: |
       github.ref == 'refs/heads/main' &&
-      (needs.detect-changes.outputs.templates == 'true' || needs.detect-changes.outputs.docs == 'true' || github.event_name == 'workflow_dispatch')
+      (needs.detect-changes.outputs.templates == 'true' || github.event_name == 'workflow_dispatch')
     steps:
       - name: Checkout source repository
         uses: actions/checkout@v4
@@ -355,12 +337,6 @@ jobs:
 
           # Copy documentation
           cp README.md public-repo/
-          mkdir -p public-repo/docs
-          cp docs/* public-repo/docs/
-
-          # Copy utility scripts
-          mkdir -p public-repo/scripts
-          cp scripts/get-template-urls.sh public-repo/scripts/
 
           echo "✅ Files copied to public repository"
 
@@ -411,7 +387,6 @@ jobs:
           echo "## 🚀 Watchy Open Source Deployment Summary"
           echo "### Changes Detected:"
           echo "- Templates: ${{ needs.detect-changes.outputs.templates }}"
-          echo "- Documentation: ${{ needs.detect-changes.outputs.docs }}"
           echo "- Workflows: ${{ needs.detect-changes.outputs.workflows }}"
 
           echo ""
@@ -424,14 +399,14 @@ jobs:
           if [ "${{ needs.test-deployment.result }}" = "success" ]; then
             echo ""
             echo "### ✅ Nested Stack Deployment Successful!"
-            echo "🔗 Platform Template (Parent): https://s3.amazonaws.com/watchy-resources-prod/templates/watchy-platform.yaml"
-            echo "🔗 Slack Template (Nested): https://s3.amazonaws.com/watchy-resources-prod/templates/watchy-slack-monitoring.yaml"
+            echo "🔗 Platform Template (Parent): https://s3.amazonaws.com/watchy-templates/watchy-platform.yaml"
+            echo "🔗 Slack Template (Nested): https://s3.amazonaws.com/watchy-templates/watchy-slack-monitoring.yaml"
             echo "📚 Documentation: Updated in repository"
             echo ""
             echo "### 🚀 Quick Deploy Command (Nested Stack):"
             echo '```bash'
             echo 'aws cloudformation deploy \'
-            echo '  --template-url https://s3.amazonaws.com/watchy-resources-prod/templates/watchy-platform.yaml \'
+            echo '  --template-url https://s3.amazonaws.com/watchy-templates/watchy-platform.yaml \'
             echo '  --stack-name Watchy-Platform \'
             echo '  --capabilities CAPABILITY_NAMED_IAM \'
             echo '  --parameter-overrides \'
