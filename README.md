@@ -1,32 +1,32 @@
-# Watchy Cloud Platform
+# Watchy Core
 
-**Simplified Slack Status Monitoring Platform**
+**Core Platform Infrastructure & Customer Templates**
 
-Advanced Slack monitoring solution with secure native binaries, intelligent caching, and automated infrastructure deployment.
+Core infrastructure components, customer deployment templates, and platform scripts for the Watchy Slack monitoring solution.
 
 ## 🏗️ Architecture
 
-![Watchy AWS Architecture](website/watchy-architecture.png)
-
 Watchy uses AWS serverless architecture to monitor SaaS applications. Lambda functions poll status APIs on a schedule, storing data in CloudWatch for metrics and alerting.
+
+> **Note**: For the complete architecture diagram and public website, see the [watchy-site](../watchy-site) repository.
 
 ## 📁 **Repository Structure**
 
 ```text
-watchy.cloud/
+watchy-core/
 ├── 🌐 platform/                   # Platform infrastructure & binaries
 │   ├── infrastructure/            # CloudFormation templates
 │   ├── binaries/slack-monitor/    # Slack monitor source code & builds
 │   ├── deploy/                    # Platform deployment scripts
 │   └── watchy-platform.yaml      # Main platform template
 │
-├── 📦 customer-templates/         # Customer deployment templates
-│   ├── templates/                 # CloudFormation for customer AWS
-│   ├── docs/                      # Customer documentation
-│   └── get-template-urls.sh      # Template URL helper
-│
-└── 🌐 website/                    # watchy.cloud website
+└── 📦 customer-templates/         # Customer deployment templates
+    ├── templates/                 # CloudFormation for customer AWS
+    ├── docs/                      # Customer documentation
+    └── get-template-urls.sh      # Template URL helper
 ```
+
+> **Website**: The public website and assets are maintained in the separate [watchy-site](../watchy-site) repository.
 
 ## 🚀 **Quick Start**
 
