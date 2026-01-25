@@ -37,23 +37,23 @@ jobs:
       workflows: ${{ steps.changes.outputs.workflows }}
 
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 2
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
-    - uses: dorny/paths-filter@v2
-      id: changes
-      with:
-        filters: |
-          templates:
-            - 'customer-templates/**'
-            - 'platform/watchy-platform.yaml'
-          docs:
-            - '*.md'
-            - 'customer-templates/docs/**'
-            - 'platform/README.md'
-          workflows:
-            - '.github/workflows/**'
+      - uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          filters: |
+            templates:
+              - 'customer-templates/**'
+              - 'platform/watchy-platform.yaml'
+            docs:
+              - '*.md'
+              - 'customer-templates/docs/**'
+              - 'platform/README.md'
+            workflows:
+              - '.github/workflows/**'
 
   # ===== VALIDATION (Always Run) =====
   validate:
@@ -61,40 +61,51 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.13'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
 
-    - name: Install validation tools
-      run: |
-        pip install cfn-lint yamllint
+      - name: Install validation tools
+        run: |
+          pip install cfn-lint yamllint
 
-    - name: Validate CloudFormation templates
-      run: |
-        echo "🔍 Validating CloudFormation templates..."
-        find . -name "*.yaml" -path "*/platform/*" -o -name "*.yaml" -path "*/customer-templates/*" | xargs cfn-lint
+      - name: Validate CloudFormation templates
+        run: |
+          echo "🔍 Validating CloudFormation templates..."
+          find . -name "*.yaml" -path "*/platform/*" \
+            -o -name "*.yaml" -path "*/customer-templates/*" | \
+            xargs cfn-lint
 
-    - name: Validate YAML syntax
-      run: |
-        echo "🔍 Validating YAML syntax..."
-        find . -name "*.yaml" -o -name "*.yml" | xargs yamllint -d relaxed
+      - name: Validate YAML syntax
+        run: |
+          echo "🔍 Validating YAML syntax..."
+          # Only validate CloudFormation templates and issue templates
+          # Skip GitHub Actions workflows as they have different standards
+          find . -name "*.yaml" -path "*/customer-templates/*" \
+            -o -name "*.yaml" -path "*/platform/*" \
+            -o -name "*.yaml" -path "*/.github/ISSUE_TEMPLATE/*" | \
+            xargs yamllint -d relaxed
 
-    - name: Test CloudFormation template syntax
-      run: |
-        echo "🔍 Testing CloudFormation template syntax with AWS CLI..."
-        # Test main templates
-        aws cloudformation validate-template --template-body file://customer-templates/templates/watchy-slack-monitoring.yaml --region ${{ env.AWS_REGION }} --no-cli-pager
-        if [ -f "platform/watchy-platform.yaml" ]; then
-          aws cloudformation validate-template --template-body file://platform/watchy-platform.yaml --region ${{ env.AWS_REGION }} --no-cli-pager
-        fi
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      continue-on-error: true
+      - name: Test CloudFormation template syntax
+        run: |
+          echo "🔍 Testing CloudFormation template syntax with AWS CLI..."
+          # Test main templates
+          aws cloudformation validate-template \
+            --template-body file://customer-templates/templates/watchy-slack-monitoring.yaml \
+            --region ${{ env.AWS_REGION }} --no-cli-pager
+          if [ -f "platform/watchy-platform.yaml" ]; then
+            aws cloudformation validate-template \
+              --template-body file://platform/watchy-platform.yaml \
+              --region ${{ env.AWS_REGION }} --no-cli-pager
+          fi
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        continue-on-error: true
 
   # ===== SECURITY STAGE =====
   security-scan:
@@ -103,63 +114,71 @@ jobs:
     if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Check for potential secrets
-      run: |
-        echo "🔍 Scanning for potential secrets..."
+      - name: Check for potential secrets
+        run: |
+          echo "🔍 Scanning for potential secrets..."
 
-        # Check for common secret patterns
-        SECRET_PATTERNS=(
-          "password.*[:=].*['\"][^'\"]{8,}['\"]"
-          "api[_-]?key.*[:=].*['\"][^'\"]{16,}['\"]"
-          "secret.*[:=].*['\"][^'\"]{12,}['\"]"
-          "token.*[:=].*['\"][^'\"]{16,}['\"]"
-          "aws[_-]?access[_-]?key.*[:=].*['\"][A-Z0-9]{20}['\"]"
-          "aws[_-]?secret.*[:=].*['\"][A-Za-z0-9/+=]{40}['\"]"
-        )
+          # Check for common secret patterns
+          SECRET_PATTERNS=(
+            "password.*[:=].*['\"][^'\"]{8,}['\"]"
+            "api[_-]?key.*[:=].*['\"][^'\"]{16,}['\"]"
+            "secret.*[:=].*['\"][^'\"]{12,}['\"]"
+            "token.*[:=].*['\"][^'\"]{16,}['\"]"
+            "aws[_-]?access[_-]?key.*[:=].*['\"][A-Z0-9]{20}['\"]"
+            "aws[_-]?secret.*[:=].*['\"][A-Za-z0-9/+=]{40}['\"]"
+          )
 
-        FOUND_SECRETS=false
-        for pattern in "${SECRET_PATTERNS[@]}"; do
-          if grep -r -i -E "$pattern" --include="*.py" --include="*.yaml" --include="*.yml" --include="*.json" \
-             --exclude-dir=".git" . | grep -v "# nosec" | grep -v "TEMPLATE" | grep -v "example"; then
-            FOUND_SECRETS=true
-          fi
-        done
+          FOUND_SECRETS=false
+          for pattern in "${SECRET_PATTERNS[@]}"; do
+            if grep -r -i -E "$pattern" \
+               --include="*.py" --include="*.yaml" \
+               --include="*.yml" --include="*.json" \
+               --exclude-dir=".git" . | \
+               grep -v "# nosec" | grep -v "TEMPLATE" | \
+               grep -v "example"; then
+              FOUND_SECRETS=true
+            fi
+          done
 
-        if [ "$FOUND_SECRETS" = true ]; then
-          echo "⚠️  Potential secrets detected - please review and add '# nosec' for false positives"
-          echo "Consider using GitHub secrets or environment variables instead"
-        else
-          echo "✅ No obvious secrets detected"
-        fi
-
-    - name: CloudFormation Security Check
-      run: |
-        echo "🔒 Checking CloudFormation templates for security issues..."
-
-        find customer-templates platform -name "*.yaml" -o -name "*.yml" | while read template; do
-          echo "📋 Checking: $template"
-
-          # Check for hardcoded values
-          if grep -i -E "(password|secret|key).*:" "$template" | grep -v -E "(Ref|GetAtt|Parameter|!)" | head -3; then
-            echo "⚠️  Potential hardcoded sensitive values in $template"
+          if [ "$FOUND_SECRETS" = true ]; then
+            echo "⚠️  Potential secrets detected"
+            echo "Please review and add '# nosec' for false positives"
+            echo "Consider using GitHub secrets or environment variables"
+          else
+            echo "✅ No obvious secrets detected"
           fi
 
-          # Check for overly permissive IAM policies
-          if grep -A 5 -B 5 "Effect.*Allow" "$template" | grep -E '"\*"|\*' | head -3; then
-            echo "⚠️  Potential overly permissive IAM policy in $template"
-          fi
+      - name: CloudFormation Security Check
+        run: |
+          echo "🔒 Checking CloudFormation templates for security issues..."
 
-          # Check for public S3 access
-          if grep -i "PublicRead\|PublicReadWrite" "$template"; then
-            echo "⚠️  Public S3 access found in $template"
-          fi
+          find customer-templates platform -name "*.yaml" -o -name "*.yml" | \
+          while read template; do
+            echo "📋 Checking: $template"
 
-          echo "---"
-        done
-      continue-on-error: true
+            # Check for hardcoded values
+            if grep -i -E "(password|secret|key).*:" "$template" | \
+               grep -v -E "(Ref|GetAtt|Parameter|!)" | head -3; then
+              echo "⚠️  Potential hardcoded sensitive values in $template"
+            fi
+
+            # Check for overly permissive IAM policies
+            if grep -A 5 -B 5 "Effect.*Allow" "$template" | \
+               grep -E '"\*"|\*' | head -3; then
+              echo "⚠️  Potential overly permissive IAM policy in $template"
+            fi
+
+            # Check for public S3 access
+            if grep -i "PublicRead\|PublicReadWrite" "$template"; then
+              echo "⚠️  Public S3 access found in $template"
+            fi
+
+            echo "---"
+          done
+        continue-on-error: true
 
   # ===== DEPLOY TEMPLATES TO S3 =====
   deploy-templates:
@@ -171,60 +190,64 @@ jobs:
       (needs.detect-changes.outputs.templates == 'true' || github.event_name == 'workflow_dispatch')
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-    - name: Deploy CloudFormation templates to S3
-      run: |
-        echo "📤 Deploying CloudFormation templates to S3..."
-        
-        # Set version for this deployment
-        VERSION=$(date -u +%Y.%m.%d.%H%M%S)-${GITHUB_SHA:0:7}
-        
-        # Deploy to production bucket
-        TEMPLATE_BUCKET="watchy-resources-prod"
-        
-        echo "✅ Deploying templates to bucket: $TEMPLATE_BUCKET"
-        
-        # Deploy customer templates
-        aws s3 sync customer-templates/ s3://${TEMPLATE_BUCKET}/customer-templates/ \
-          --delete \
-          --cache-control "max-age=3600" \
-          --region ${{ env.AWS_REGION }}
-        
-        # Deploy platform template if it exists
-        if [ -f "platform/watchy-platform.yaml" ]; then
-          aws s3 cp platform/watchy-platform.yaml s3://${TEMPLATE_BUCKET}/platform/watchy-platform.yaml \
+      - name: Deploy CloudFormation templates to S3
+        run: |
+          echo "📤 Deploying CloudFormation templates to S3..."
+
+          # Set version for this deployment
+          VERSION=$(date -u +%Y.%m.%d.%H%M%S)-${GITHUB_SHA:0:7}
+
+          # Deploy to production bucket
+          TEMPLATE_BUCKET="watchy-resources-prod"
+
+          echo "✅ Deploying templates to bucket: $TEMPLATE_BUCKET"
+
+          # Deploy customer templates
+          aws s3 sync customer-templates/ \
+            s3://${TEMPLATE_BUCKET}/customer-templates/ \
+            --delete \
             --cache-control "max-age=3600" \
             --region ${{ env.AWS_REGION }}
-        fi
-        
-        echo "✅ Templates deployed successfully"
-        
-        # Invalidate CloudFront cache if distribution exists
-        echo "🔍 Looking for CloudFront distribution..."
-        DISTRIBUTION_ID=$(aws cloudfront list-distributions \
-          --query "DistributionList.Items[?Origins.Items[0].DomainName==\`${TEMPLATE_BUCKET}.s3.amazonaws.com\`].Id | [0]" \
-          --output text --region ${{ env.AWS_REGION }} 2>/dev/null || echo "")
-        
-        if [ -n "$DISTRIBUTION_ID" ] && [ "$DISTRIBUTION_ID" != "None" ] && [ "$DISTRIBUTION_ID" != "null" ]; then
-          echo "🔄 Invalidating CloudFront cache for templates..."
-          aws cloudfront create-invalidation \
-            --distribution-id "$DISTRIBUTION_ID" \
-            --paths "/customer-templates/*" "/platform/*" \
-            --region ${{ env.AWS_REGION }} \
-            --output text >/dev/null 2>&1 || echo "⚠️  Cache invalidation failed (non-critical)"
-          echo "✅ CloudFront cache invalidated"
-        else
-          echo "ℹ️  No CloudFront distribution found, skipping cache invalidation"
-        fi
+
+          # Deploy platform template if it exists
+          if [ -f "platform/watchy-platform.yaml" ]; then
+            aws s3 cp platform/watchy-platform.yaml \
+              s3://${TEMPLATE_BUCKET}/platform/watchy-platform.yaml \
+              --cache-control "max-age=3600" \
+              --region ${{ env.AWS_REGION }}
+          fi
+
+          echo "✅ Templates deployed successfully"
+
+          # Invalidate CloudFront cache if distribution exists
+          echo "🔍 Looking for CloudFront distribution..."
+          DISTRIBUTION_ID=$(aws cloudfront list-distributions \
+            --query "DistributionList.Items[?Origins.Items[0].DomainName==\`${TEMPLATE_BUCKET}.s3.amazonaws.com\`].Id | [0]" \
+            --output text --region ${{ env.AWS_REGION }} 2>/dev/null || echo "")
+
+          if [ -n "$DISTRIBUTION_ID" ] && [ "$DISTRIBUTION_ID" != "None" ] && \
+             [ "$DISTRIBUTION_ID" != "null" ]; then
+            echo "🔄 Invalidating CloudFront cache for templates..."
+            aws cloudfront create-invalidation \
+              --distribution-id "$DISTRIBUTION_ID" \
+              --paths "/customer-templates/*" "/platform/*" \
+              --region ${{ env.AWS_REGION }} \
+              --output text >/dev/null 2>&1 || \
+              echo "⚠️  Cache invalidation failed (non-critical)"
+            echo "✅ CloudFront cache invalidated"
+          else
+            echo "ℹ️  No CloudFront distribution found, skipping cache invalidation"
+          fi
 
   # ===== TEST DEPLOYMENT =====
   test-deployment:
@@ -234,50 +257,50 @@ jobs:
     if: needs.deploy-templates.result == 'success'
 
     steps:
-    - name: Test template URLs
-      run: |
-        echo "🧪 Testing template accessibility..."
-        
-        # Test main Slack monitoring template
-        if curl -f -s "https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml" > /dev/null; then
-          echo "✅ Slack monitoring template is accessible"
-        else
-          echo "❌ Slack monitoring template is not accessible"
-          exit 1
-        fi
-        
-        # Test platform template if it should exist
-        if curl -f -s "https://s3.amazonaws.com/watchy-resources-prod/platform/watchy-platform.yaml" > /dev/null; then
-          echo "✅ Platform template is accessible"
-        else
-          echo "ℹ️  Platform template not found (may not exist yet)"
-        fi
-        
-        echo "✅ Template accessibility test completed"
+      - name: Test template URLs
+        run: |
+          echo "🧪 Testing template accessibility..."
 
-    - name: Validate deployed templates
-      run: |
-        echo "🔍 Validating deployed templates..."
-        
-        # Download and validate the deployed template
-        curl -s "https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml" > deployed-template.yaml
-        
-        # Basic validation
-        if grep -q "AWSTemplateFormatVersion" deployed-template.yaml; then
-          echo "✅ Deployed template has valid CloudFormation format"
-        else
-          echo "❌ Deployed template is missing CloudFormation format version"
-          exit 1
-        fi
-        
-        if grep -q "lambda_handler" deployed-template.yaml; then
-          echo "✅ Deployed template contains Lambda function code"
-        else
-          echo "❌ Deployed template is missing Lambda function code"
-          exit 1
-        fi
-        
-        echo "✅ Deployed template validation completed"
+          # Test main Slack monitoring template
+          if curl -f -s "https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml" > /dev/null; then
+            echo "✅ Slack monitoring template is accessible"
+          else
+            echo "❌ Slack monitoring template is not accessible"
+            exit 1
+          fi
+
+          # Test platform template if it should exist
+          if curl -f -s "https://s3.amazonaws.com/watchy-resources-prod/platform/watchy-platform.yaml" > /dev/null; then
+            echo "✅ Platform template is accessible"
+          else
+            echo "ℹ️  Platform template not found (may not exist yet)"
+          fi
+
+          echo "✅ Template accessibility test completed"
+
+      - name: Validate deployed templates
+        run: |
+          echo "🔍 Validating deployed templates..."
+
+          # Download and validate the deployed template
+          curl -s "https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml" > deployed-template.yaml
+
+          # Basic validation
+          if grep -q "AWSTemplateFormatVersion" deployed-template.yaml; then
+            echo "✅ Deployed template has valid CloudFormation format"
+          else
+            echo "❌ Deployed template is missing CloudFormation format version"
+            exit 1
+          fi
+
+          if grep -q "lambda_handler" deployed-template.yaml; then
+            echo "✅ Deployed template contains Lambda function code"
+          else
+            echo "❌ Deployed template is missing Lambda function code"
+            exit 1
+          fi
+
+          echo "✅ Deployed template validation completed"
 
   # ===== PUBLISH TO PUBLIC GITHUB =====
   publish-to-github:
@@ -285,75 +308,76 @@ jobs:
     runs-on: ubuntu-latest
     needs: [detect-changes, validate]
     if: |
-      github.ref == 'refs/heads/main' && 
+      github.ref == 'refs/heads/main' &&
       (needs.detect-changes.outputs.templates == 'true' || needs.detect-changes.outputs.docs == 'true' || github.event_name == 'workflow_dispatch')
-    
     steps:
-    - name: Checkout source repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - name: Checkout source repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: Checkout public repository
-      uses: actions/checkout@v4
-      with:
-        repository: your-org/watchy-core  # Update this to your public repo
-        token: ${{ secrets.PUBLIC_REPO_TOKEN }}
-        path: public-repo
-      continue-on-error: true
+      - name: Checkout public repository
+        uses: actions/checkout@v4
+        with:
+          repository: your-org/watchy-core  # Update this to your public repo
+          token: ${{ secrets.PUBLIC_REPO_TOKEN }}
+          path: public-repo
+        continue-on-error: true
 
-    - name: Copy files to public repository
-      if: steps.checkout-public.outcome == 'success'
-      run: |
-        echo "📋 Copying files to public repository..."
-        
-        # Copy CloudFormation templates
-        mkdir -p public-repo/customer-templates/templates
-        cp customer-templates/templates/watchy-slack-monitoring.yaml public-repo/customer-templates/templates/
-        
-        # Copy documentation
-        cp README.md public-repo/
-        cp platform/README.md public-repo/platform/
-        cp customer-templates/README.md public-repo/customer-templates/
-        
-        # Copy utility scripts
-        cp customer-templates/get-template-urls.sh public-repo/customer-templates/
-        
-        echo "✅ Files copied to public repository"
+      - name: Copy files to public repository
+        if: steps.checkout-public.outcome == 'success'
+        run: |
+          echo "📋 Copying files to public repository..."
 
-    - name: Commit and push to public repository
-      if: steps.checkout-public.outcome == 'success'
-      run: |
-        cd public-repo
-        
-        # Configure git
-        git config user.name "watchy-automation"
-        git config user.email "automation@watchy.cloud"
-        
-        # Check if there are changes
-        if git diff --quiet && git diff --cached --quiet; then
-          echo "ℹ️  No changes to publish"
-          exit 0
-        fi
-        
-        # Stage changes
-        git add .
-        
-        # Commit with version information
-        VERSION=$(date -u +%Y.%m.%d.%H%M%S)
-        COMMIT_SHA="${GITHUB_SHA:0:7}"
-        git commit -m "Update Watchy open source platform v${VERSION}
+          # Copy CloudFormation templates
+          mkdir -p public-repo/customer-templates/templates
+          cp customer-templates/templates/watchy-slack-monitoring.yaml \
+            public-repo/customer-templates/templates/
 
-        - CloudFormation templates updated with pure Python implementation
-        - Documentation updated for open source architecture
-        - Source commit: ${GITHUB_SHA}
-        
-        Published from: https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
-        
-        # Push to main branch
-        git push origin main
-        
-        echo "✅ Published to public repository"
+          # Copy documentation
+          cp README.md public-repo/
+          cp platform/README.md public-repo/platform/
+          cp customer-templates/README.md public-repo/customer-templates/
+
+          # Copy utility scripts
+          cp customer-templates/get-template-urls.sh \
+            public-repo/customer-templates/
+
+          echo "✅ Files copied to public repository"
+
+      - name: Commit and push to public repository
+        if: steps.checkout-public.outcome == 'success'
+        run: |
+          cd public-repo
+
+          # Configure git
+          git config user.name "watchy-automation"
+          git config user.email "automation@watchy.cloud"
+
+          # Check if there are changes
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "ℹ️  No changes to publish"
+            exit 0
+          fi
+
+          # Stage changes
+          git add .
+
+          # Commit with version information
+          VERSION=$(date -u +%Y.%m.%d.%H%M%S)
+          COMMIT_SHA="${GITHUB_SHA:0:7}"
+          git commit -m "Update Watchy open source platform v${VERSION}
+
+          - CloudFormation templates updated with pure Python implementation
+          - Documentation updated for open source architecture
+          - Source commit: ${GITHUB_SHA}
+
+          Published from: https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
+
+          # Push to main branch
+          git push origin main
+
+          echo "✅ Published to public repository"
 
   # ===== NOTIFICATION =====
   notify:
@@ -363,57 +387,57 @@ jobs:
     if: always() && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
 
     steps:
-    - name: Deployment Summary
-      run: |
-        echo "## 🚀 Watchy Open Source Deployment Summary"
-        echo "### Changes Detected:"
-        echo "- Templates: ${{ needs.detect-changes.outputs.templates }}"
-        echo "- Documentation: ${{ needs.detect-changes.outputs.docs }}"
-        echo "- Workflows: ${{ needs.detect-changes.outputs.workflows }}"
+      - name: Deployment Summary
+        run: |
+          echo "## 🚀 Watchy Open Source Deployment Summary"
+          echo "### Changes Detected:"
+          echo "- Templates: ${{ needs.detect-changes.outputs.templates }}"
+          echo "- Documentation: ${{ needs.detect-changes.outputs.docs }}"
+          echo "- Workflows: ${{ needs.detect-changes.outputs.workflows }}"
 
-        echo ""
-        echo "### Job Results:"
-        echo "- Validation: ${{ needs.validate.result }}"
-        echo "- Security Scan: ${{ needs.security-scan.result }}"
-        echo "- Template Deployment: ${{ needs.deploy-templates.result }}"
-        echo "- Testing: ${{ needs.test-deployment.result }}"
-
-        if [ "${{ needs.test-deployment.result }}" = "success" ]; then
           echo ""
-          echo "### ✅ Deployment Successful!"
-          echo "🔗 Slack Monitoring Template: https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml"
-          echo "📚 Documentation: Updated in repository"
-          echo ""
-          echo "### 🚀 Quick Deploy Command:"
-          echo '```bash'
-          echo 'aws cloudformation deploy \'
-          echo '  --template-url https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml \'
-          echo '  --stack-name watchy-slack-monitoring \'
-          echo '  --capabilities CAPABILITY_NAMED_IAM \'
-          echo '  --parameter-overrides \'
-          echo '    NotificationEmail=your-email@domain.com \'
-          echo '    MonitoringSchedule="rate(5 minutes)"'
-          echo '```'
-        else
-          echo ""
-          echo "### ❌ Deployment Issues"
-          echo "Check the workflow logs for details"
-        fi
+          echo "### Job Results:"
+          echo "- Validation: ${{ needs.validate.result }}"
+          echo "- Security Scan: ${{ needs.security-scan.result }}"
+          echo "- Template Deployment: ${{ needs.deploy-templates.result }}"
+          echo "- Testing: ${{ needs.test-deployment.result }}"
 
-        echo ""
-        echo "## 🌟 Open Source Benefits"
-        echo "- ✅ Pure Python implementation - no binaries"
-        echo "- ✅ All monitoring logic visible in CloudFormation"
-        echo "- ✅ Easy to modify and contribute to"
-        echo "- ✅ Faster cold starts and lower memory usage"
-        echo "- ✅ Community-friendly development"
-        echo "- ✅ Transparent security auditing"
+          if [ "${{ needs.test-deployment.result }}" = "success" ]; then
+            echo ""
+            echo "### ✅ Deployment Successful!"
+            echo "🔗 Slack Monitoring Template: https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml"
+            echo "📚 Documentation: Updated in repository"
+            echo ""
+            echo "### 🚀 Quick Deploy Command:"
+            echo '```bash'
+            echo 'aws cloudformation deploy \'
+            echo '  --template-url https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml \'
+            echo '  --stack-name watchy-slack-monitoring \'
+            echo '  --capabilities CAPABILITY_NAMED_IAM \'
+            echo '  --parameter-overrides \'
+            echo '    NotificationEmail=your-email@domain.com \'
+            echo '    MonitoringSchedule="rate(5 minutes)"'
+            echo '```'
+          else
+            echo ""
+            echo "### ❌ Deployment Issues"
+            echo "Check the workflow logs for details"
+          fi
 
-        echo ""
-        echo "## 🔒 Security Summary"
-        echo "### Enabled Features:"
-        echo "- ✅ Secret pattern detection"
-        echo "- ✅ CloudFormation security checks"
-        echo "- ✅ Template validation"
-        echo "- ✅ YAML syntax validation"
-        echo "- ✅ Dependabot dependency updates"
+          echo ""
+          echo "## 🌟 Open Source Benefits"
+          echo "- ✅ Pure Python implementation - no binaries"
+          echo "- ✅ All monitoring logic visible in CloudFormation"
+          echo "- ✅ Easy to modify and contribute to"
+          echo "- ✅ Faster cold starts and lower memory usage"
+          echo "- ✅ Community-friendly development"
+          echo "- ✅ Transparent security auditing"
+
+          echo ""
+          echo "## 🔒 Security Summary"
+          echo "### Enabled Features:"
+          echo "- ✅ Secret pattern detection"
+          echo "- ✅ CloudFormation security checks"
+          echo "- ✅ Template validation"
+          echo "- ✅ YAML syntax validation"
+          echo "- ✅ Dependabot dependency updates"
