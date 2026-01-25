@@ -1,4 +1,0 @@
-# Force rebuild with corrected CloudFront invalidation logic
-# Fixed JMESPath query syntax that was preventing automated cache invalidation
-# Date: 2025-08-31T20:56:00Z  
-# Expected: Proper CloudFront cache invalidation during binary upload

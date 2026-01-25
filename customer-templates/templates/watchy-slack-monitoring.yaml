@@ -1,27 +1,20 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Watchy Monitoring Platform - Slack v2.3.0'
+Description: 'Watchy Monitoring Platform - Slack v3.0.0'
 
 Metadata:
-  Version: '2.3.0'
-  LastUpdated: '2025-10-20'
+  Version: '3.0.0'
+  LastUpdated: '2025-01-25'
   Changelog:
-    - Added multi-region deployment support with region-specific alarm naming
-    - All CloudWatch alarm names now include AWS region suffix to prevent collisions
-    - Enables deploying identical monitoring stacks to multiple AWS regions
-    - Added CloudWatch Log Groups as CloudFormation resources
-    - Incident log group (/watchy/slack) with 30-day retention
-    - Lambda log group with 7-day retention
-    - Prevents dashboard errors when no incidents have occurred yet
-    - Added CloudWatch Dashboard with 6 comprehensive widgets
-    - Time series visualization of all 11 Slack service health metrics
-    - Single value displays for Active Incidents and API Response status
-    - Log Insights widget for recent incident updates
-    - Lambda function performance metrics (invocations, errors, duration)
-    - Current status overview for all services
-    - Complete CloudWatch alarm coverage for all 11 Slack services
-    - Standardized alarm naming to Watchy-Slack-<ServiceName> format
-    - Alert thresholds set to severity 2+ (incident and outage levels)
-    - Services monitored - Login/SSO, Messaging, Notifications, Search, Workspace/Org Administration, Canvases, Connectivity, Files, Huddles, Apps/Integrations/APIs, Workflows
+    - Completely open source architecture - no more Nuitka binaries
+    - Merged Slack monitoring logic directly into Lambda function
+    - Pure Python implementation for better maintainability and transparency
+    - Removed binary distribution dependencies and complexity
+    - Simplified deployment with single Lambda function
+    - Reduced memory requirements from 512MB to 256MB
+    - Eliminated binary download overhead and cold start delays
+    - All monitoring logic now visible in CloudFormation template
+    - Removed one-time infrastructure scripts
+    - Streamlined for open source development and contributions
 
 Parameters:
   # ===== STANDARDIZED PARAMETERS FROM PARENT =====
@@ -49,15 +42,6 @@ Parameters:
   ParentStackName:
     Type: String
     Description: 'Name of the parent platform stack'
-
-  BinaryDistributionUrl:
-    Type: String
-    Description: 'Base URL for Nuitka binary distribution'
-
-  BinaryName:
-    Type: String
-    Default: 'watchy-slack-monitor'
-    Description: 'Name of the Slack monitoring Nuitka binary'
 
   LogLevel:
     Type: String
@@ -96,26 +80,24 @@ Resources:
     Properties:
       Architectures:
         - x86_64
-      Description: 'Watchy Slack status monitoring with Nuitka native binary'
+      Description: 'Watchy Slack status monitoring with pure Python implementation'
       FunctionName: !Sub '${ParentStackName}-SlackMonitor'
       Runtime: python3.13
       Handler: index.lambda_handler
       Role: !Ref SharedLambdaRoleArn
       Timeout: 300
-      MemorySize: 512  # Nuitka binaries need more memory
+      MemorySize: 256  # Reduced memory for pure Python implementation
       Environment:
         Variables:
           # Slack-specific configuration
           SAAS_APP_NAME: !Ref SaasAppName
           API_URL: !Ref ApiUrl
           CLOUDWATCH_NAMESPACE: !Sub 'Watchy/${SaasAppName}'
+          CLOUDWATCH_LOG_GROUP: '/watchy/slack'
+          POLLING_INTERVAL_MINUTES: '5'
           
           # Platform configuration
           NOTIFICATION_TOPIC_ARN: !Ref NotificationTopicArn
-          
-          # Binary configuration
-          WATCHY_BINARY_DISTRIBUTION_URL: !Ref BinaryDistributionUrl
-          WATCHY_BINARY_NAME: !Ref BinaryName
           
           # Runtime configuration
           WATCHY_LOG_LEVEL: !Ref LogLevel
@@ -125,223 +107,487 @@ Resources:
       Code:
         ZipFile: |
           import json
-          import subprocess
           import os
-          import logging
-          import urllib.request
+          import sys
           import time
-          import hashlib
-          import stat
+          import urllib.request
+          import urllib.parse
+          import re
           import boto3
-          import gzip
-          from datetime import datetime
+          from datetime import datetime, timedelta, timezone
+          from typing import Dict, Any, List
 
-          # Configure structured JSON logging to reduce visual clutter
-          class JSONFormatter(logging.Formatter):
-              def format(self, record):
-                  log_entry = {
-                      'timestamp': self.formatTime(record, '%Y-%m-%d %H:%M:%S'),
-                      'level': record.levelname,
-                      'message': record.getMessage()
+          # Version information
+          VERSION = "2.0.0-lambda"
+          BUILD_DATE = "2025-01-25T10:30:00Z"
+
+          def log_json(level: str, message: str, **kwargs):
+              """Log structured JSON messages to reduce visual clutter"""
+              if level in ['ERROR', 'WARN', 'INFO']:
+                  log_data = {
+                      'timestamp': datetime.now(timezone.utc).isoformat(),
+                      'level': level,
+                      'message': message,
+                      **kwargs
                   }
-                  if record.exc_info:
-                      log_entry['exception'] = self.formatException(record.exc_info)
-                  return json.dumps(log_entry)
+                  print(json.dumps(log_data))
 
-          # Setup logger with JSON formatter
-          logger = logging.getLogger()
-          logger.setLevel(getattr(logging, os.environ.get('WATCHY_LOG_LEVEL', 'INFO')))
-          
-          # Remove default handlers and add JSON formatter
-          for handler in logger.handlers[:]:
-              logger.removeHandler(handler)
-          
-          json_handler = logging.StreamHandler()
-          json_handler.setFormatter(JSONFormatter())
-          logger.addHandler(json_handler)
-
-          _binary_cache = {}
-
-          def get_nuitka_binary_info():
-              """Get Slack Nuitka binary information"""
+          def fetch_slack_status(api_url: str) -> Dict[str, Any]:
+              """Fetch Slack status from status API"""
               try:
-                  base_url = os.environ.get('WATCHY_BINARY_DISTRIBUTION_URL')
-                  info_url = f"{base_url}/binaries/slack-monitor/metadata.json"
+                  log_json("INFO", "Fetching Slack status", api_url=api_url)
                   
-                  with urllib.request.urlopen(info_url, timeout=10) as response:
+                  req = urllib.request.Request(api_url)
+                  req.add_header('User-Agent', f'Watchy-SlackMonitor/{VERSION}')
+                  
+                  with urllib.request.urlopen(req, timeout=30) as response:
                       if response.status == 200:
-                          return json.loads(response.read().decode('utf-8'))
-                  return None
-              except Exception as e:
-                  logger.error(f"Failed to get Slack binary info: {e}")
-                  return None
-
-          def ensure_nuitka_binary():
-              """Ensure we have the latest Nuitka binary with intelligent caching"""
-              try:
-                  binary_path = "/tmp/watchy-slack-monitor"
-                  cache_info_path = "/tmp/watchy-slack-cache.json"
-                  
-                  # Get latest binary information
-                  latest_info = get_nuitka_binary_info()
-                  if not latest_info:
-                      raise Exception("Failed to get binary information")
-                  
-                  # Check if we have cached binary info
-                  cached_info = None
-                  if os.path.exists(cache_info_path):
-                      try:
-                          with open(cache_info_path, 'r') as f:
-                              cached_info = json.loads(f.read())
-                      except:
-                          cached_info = None
-                  
-                  # Check if binary exists and versions match
-                  if (cached_info and 
-                      os.path.exists(binary_path) and 
-                      cached_info.get('version') == latest_info['version'] and
-                      cached_info.get('sha256') == latest_info['sha256']):
-                      
-                      logger.info(f"Using cached Slack binary v{latest_info['version']} (size: {cached_info.get('binarySize', 'unknown')} bytes)")
-                      return binary_path, latest_info['version'], latest_info
-                  
-                  # Download new binary
-                  logger.info(f"Downloading updated Slack binary v{latest_info['version']}")
-                  binary_path = download_slack_binary(latest_info)
-                  
-                  # Cache the binary info
-                  try:
-                      with open(cache_info_path, 'w') as f:
-                          json.dump({
-                              'version': latest_info['version'],
-                              'sha256': latest_info['sha256'],
-                              'binarySize': latest_info.get('binarySize'),
-                              'cached_at': time.time(),
-                              'cache_date': datetime.utcnow().isoformat()
-                          }, f)
-                      logger.info(f"Cached binary info for future use")
-                  except Exception as e:
-                      logger.warning(f"Failed to cache binary info: {e}")
-                  
-                  return binary_path, latest_info['version'], latest_info
-                  
-              except Exception as e:
-                  logger.error(f"Failed to ensure binary: {e}")
-                  raise
-
-          def download_slack_binary(binary_info):
-              """Download Slack monitoring Nuitka binary"""
-              try:
-                  binary_path = "/tmp/watchy-slack-monitor"
-                  
-                  logger.info(f"Downloading Slack Nuitka binary v{binary_info['version']}")
-                  
-                  with urllib.request.urlopen(binary_info['latestUrl'], timeout=120) as response:
-                      if response.status != 200:
-                          raise Exception(f"Download failed: HTTP {response.status}")
-                      
-                      # Handle compressed binary
-                      if binary_info.get('compression') == 'gzip':
-                          binary_data = gzip.decompress(response.read())
+                          data = json.loads(response.read().decode('utf-8'))
+                          log_json("INFO", "Successfully fetched Slack status")
+                          return data
                       else:
-                          binary_data = response.read()
+                          raise Exception(f"API returned status {response.status}")
+                          
+              except Exception as e:
+                  log_json("ERROR", "Failed to fetch Slack status", error=str(e))
+                  raise
+
+          def strip_html_tags(html_string: str) -> str:
+              """Remove HTML tags from a string and clean up formatting"""
+              if not html_string:
+                  return ""
+              
+              # Remove HTML tags
+              clean = re.sub(r'<[^>]+>', '', html_string)
+              
+              # Replace common HTML entities
+              clean = clean.replace('&nbsp;', ' ')
+              clean = clean.replace('&amp;', '&')
+              clean = clean.replace('&lt;', '<')
+              clean = clean.replace('&gt;', '>')
+              clean = clean.replace('&quot;', '"')
+              clean = clean.replace('&#39;', "'")
+              
+              # Clean up whitespace
+              clean = re.sub(r'\s+', ' ', clean.strip())
+              
+              return clean
+
+          def parse_datetime(date_string: str) -> datetime:
+              """Parse Slack API datetime string to datetime object"""
+              try:
+                  # Handle timezone offset
+                  if date_string.endswith('Z'):
+                      # UTC timezone
+                      return datetime.fromisoformat(date_string.replace('Z', '+00:00'))
+                  elif '+' in date_string[-6:] or '-' in date_string[-6:]:
+                      # Has timezone offset
+                      return datetime.fromisoformat(date_string)
+                  else:
+                      # Assume UTC if no timezone
+                      return datetime.fromisoformat(date_string + '+00:00')
+              except Exception as e:
+                  log_json("WARN", "Failed to parse datetime", date_string=date_string, error=str(e))
+                  return datetime.now(timezone.utc)
+
+          def is_within_polling_interval(note_time: datetime, polling_interval_minutes: int = 5) -> bool:
+              """Check if a note timestamp is within the last polling interval"""
+              # Convert both times to UTC for proper comparison
+              now_utc = datetime.now(timezone.utc)
+              note_time_utc = note_time.astimezone(timezone.utc)
+              
+              cutoff_time = now_utc - timedelta(minutes=polling_interval_minutes)
+              
+              # Debug logging to help diagnose time filtering issues
+              time_diff_minutes = (now_utc - note_time_utc).total_seconds() / 60
+              within_interval = note_time_utc >= cutoff_time
+              
+              log_json("DEBUG", "Time interval check", 
+                      note_time_utc=note_time_utc.isoformat(),
+                      now_utc=now_utc.isoformat(),
+                      cutoff_time=cutoff_time.isoformat(),
+                      time_diff_minutes=round(time_diff_minutes, 2),
+                      polling_interval_minutes=polling_interval_minutes,
+                      within_interval=within_interval)
+              
+              return within_interval
+
+          def publish_incident_logs(incidents: List[Dict], log_group: str = '/watchy/slack', polling_interval: int = 5):
+              """Publish incident notes to CloudWatch Logs"""
+              try:
+                  if not incidents:
+                      log_json("INFO", "No active incidents to log")
+                      return 0
                   
-                  with open(binary_path, 'wb') as f:
-                      f.write(binary_data)
+                  # Initialize CloudWatch Logs client
+                  logs_client = boto3.client('logs')
                   
-                  os.chmod(binary_path, stat.S_IRWXU | stat.S_IRGRP | stat.S_IROTH)
+                  # Ensure log group exists
+                  try:
+                      logs_client.create_log_group(logGroupName=log_group)
+                      log_json("DEBUG", "Created CloudWatch log group", log_group=log_group)
+                  except logs_client.exceptions.ResourceAlreadyExistsException:
+                      pass  # Log group already exists
+                  except Exception as e:
+                      log_json("ERROR", "Failed to create log group", log_group=log_group, error=str(e))
                   
-                  # Verify checksum by reading the file from disk
-                  if binary_info.get('sha256'):
-                      with open(binary_path, 'rb') as f:
-                          file_data = f.read()
-                      actual_hash = hashlib.sha256(file_data).hexdigest()
-                      if actual_hash != binary_info['sha256']:
-                          os.remove(binary_path)
-                          logger.error(f"Expected SHA256: {binary_info['sha256']}")
-                          logger.error(f"Actual SHA256: {actual_hash}")
-                          raise Exception("Slack binary checksum mismatch")
+                  logs_published = 0
+                  log_events = []
                   
-                  logger.info("Slack Nuitka binary ready")
-                  return binary_path
+                  for incident in incidents:
+                      incident_id = incident.get('id', 'unknown')
+                      incident_title = incident.get('title', 'Unknown Incident')
+                      incident_url = incident.get('url', '')
+                      incident_type = incident.get('type', 'incident')
+                      incident_status = incident.get('status', 'unknown')
+                      incident_services = incident.get('services', [])
+                      
+                      log_json("INFO", "Processing incident", 
+                              incident_id=incident_id, 
+                              incident_title=incident_title,
+                              incident_type=incident_type,
+                              incident_status=incident_status,
+                              services=incident_services)
+                      
+                      notes = incident.get('notes', [])
+                      log_json("DEBUG", "Found incident notes", 
+                              incident_id=incident_id, 
+                              notes_count=len(notes))
+                      
+                      for note_idx, note in enumerate(notes):
+                          note_body = note.get('body', '')
+                          note_date_str = note.get('date_created', '')
+                          
+                          log_json("DEBUG", "Processing note", 
+                                  incident_id=incident_id,
+                                  note_index=note_idx,
+                                  note_date_str=note_date_str,
+                                  note_body_length=len(note_body) if note_body else 0)
+                          
+                          if not note_body or not note_date_str:
+                              log_json("WARN", "Skipping note with missing data",
+                                      incident_id=incident_id,
+                                      note_index=note_idx,
+                                      has_body=bool(note_body),
+                                      has_date=bool(note_date_str))
+                              continue
+                          
+                          # Parse note timestamp
+                          note_time = parse_datetime(note_date_str)
+                          
+                          # Check if note is within polling interval (smart deduplication)
+                          within_interval = is_within_polling_interval(note_time, polling_interval)
+                          
+                          if not within_interval:
+                              log_json("DEBUG", "Skipping old note (already logged in previous poll)", 
+                                      note_time=note_time.isoformat(), 
+                                      polling_interval_min=polling_interval)
+                              continue
+                          
+                          # Clean HTML from note body
+                          clean_note = strip_html_tags(note_body)
+                          
+                          # Create log entry - use note timestamp as the log timestamp
+                          log_entry = {
+                              'timestamp': note_time.isoformat(),
+                              'incident_id': incident_id,
+                              'incident_title': incident_title,
+                              'incident_type': incident_type,
+                              'incident_status': incident_status,
+                              'incident_url': incident_url,
+                              'affected_services': incident_services,
+                              'note_body': clean_note,
+                              'source': 'watchy-slack-monitor',
+                              'version': VERSION
+                          }
+                          
+                          # Add to CloudWatch log events
+                          log_events.append({
+                              'timestamp': int(note_time.timestamp() * 1000),  # CloudWatch expects milliseconds
+                              'message': json.dumps(log_entry)
+                          })
+                          
+                          log_json("DEBUG", "Prepared incident log for CloudWatch", 
+                                  incident_id=incident_id,
+                                  incident_title=incident_title,
+                                  note_time=note_time.isoformat())
+                          
+                          logs_published += 1
+                  
+                  # Only create log stream and publish if we have events to publish
+                  if log_events:
+                      # Sort events by timestamp (CloudWatch requirement)
+                      log_events.sort(key=lambda x: x['timestamp'])
+                      
+                      # Create log stream with date and timestamp in name
+                      now = datetime.now(timezone.utc)
+                      log_stream = f"slack-incidents-{now.strftime('%Y-%m-%d')}-{int(time.time())}"
+                      
+                      try:
+                          logs_client.create_log_stream(
+                              logGroupName=log_group,
+                              logStreamName=log_stream
+                          )
+                          log_json("DEBUG", "Created CloudWatch log stream", 
+                                  log_group=log_group, 
+                                  log_stream=log_stream)
+                      except logs_client.exceptions.ResourceAlreadyExistsException:
+                          pass  # Log stream already exists
+                      except Exception as e:
+                          log_json("ERROR", "Failed to create log stream", error=str(e))
+                      
+                      # Publish in batches (CloudWatch limit is 10,000 events or 1MB per call)
+                      batch_size = 100  # Conservative batch size
+                      events_published = 0
+                      
+                      for i in range(0, len(log_events), batch_size):
+                          batch = log_events[i:i + batch_size]
+                          
+                          try:
+                              response = logs_client.put_log_events(
+                                  logGroupName=log_group,
+                                  logStreamName=log_stream,
+                                  logEvents=batch
+                              )
+                              events_published += len(batch)
+                              
+                              log_json("DEBUG", "Published log events batch to CloudWatch", 
+                                      log_group=log_group,
+                                      log_stream=log_stream,
+                                      batch_size=len(batch),
+                                      next_sequence_token=response.get('nextSequenceToken'))
+                              
+                          except Exception as e:
+                              log_json("ERROR", "Failed to publish log events batch", 
+                                      log_group=log_group,
+                                      log_stream=log_stream,
+                                      batch_size=len(batch),
+                                      error=str(e))
+                              # Continue with next batch
+                      
+                      log_json("INFO", "Successfully published incident logs to CloudWatch", 
+                              log_group=log_group,
+                              log_stream=log_stream,
+                              events_published=events_published,
+                              incidents_processed=len(incidents))
+                  else:
+                      log_json("INFO", "No new incident notes to publish (all notes older than polling interval)")
+                  
+                  return logs_published
                   
               except Exception as e:
-                  logger.error(f"Slack binary download failed: {e}")
-                  raise
+                  log_json("ERROR", "Failed to publish incident logs", 
+                          error=str(e),
+                          log_group=log_group,
+                          incidents_count=len(incidents))
+                  return 0
+
+          def parse_slack_services(status_data: Dict[str, Any]) -> Dict[str, int]:
+              """Parse Slack service statuses and convert to numeric values for CloudWatch"""
+              try:
+                  # Define all 11 Slack services
+                  all_services = [
+                      "Login/SSO",
+                      "Messaging",
+                      "Notifications",
+                      "Search",
+                      "Workspace/Org Administration",
+                      "Canvases",
+                      "Connectivity",
+                      "Files",
+                      "Huddles",
+                      "Apps/Integrations/APIs",
+                      "Workflows"
+                  ]
+                  
+                  # Type mapping: notice=1, incident=2, outage=3
+                  type_map = {
+                      'notice': 1,
+                      'incident': 2,
+                      'outage': 3
+                  }
+                  
+                  metrics = {}
+                  
+                  # Initialize all services to 0 (healthy)
+                  for service in all_services:
+                      # Convert service name to CloudWatch-friendly metric name
+                      # Remove slashes, underscores, and spaces to match alarm names
+                      metric_name = service.replace('/', '').replace(' ', '').replace('_', '')
+                      metrics[metric_name] = 0
+                  
+                  # Get active incidents
+                  active_incidents = status_data.get('active_incidents', [])
+                  
+                  # Process each active incident
+                  for incident in active_incidents:
+                      incident_type = incident.get('type', 'incident')
+                      incident_status = incident.get('status', 'active')
+                      affected_services = incident.get('services', [])
+                      
+                      # Only process active incidents
+                      if incident_status == 'active':
+                          severity = type_map.get(incident_type, 2)  # Default to incident (2)
+                          
+                          # Update metrics for affected services
+                          for service in affected_services:
+                              if service in all_services:
+                                  metric_name = service.replace('/', '').replace(' ', '').replace('_', '')
+                                  # Use the highest severity if multiple incidents affect same service
+                                  metrics[metric_name] = max(metrics.get(metric_name, 0), severity)
+                                  print(f"{service}: {incident_type} (severity: {severity})")
+                  
+                  # Count active incidents
+                  metrics['ActiveIncidents'] = len(active_incidents)
+                  print(f"Active Incidents: {len(active_incidents)}")
+                  
+                  # Add overall API response metric
+                  metrics['APIResponse'] = 200 if status_data else 500
+                  
+                  return metrics
+                  
+              except Exception as e:
+                  print(f"Failed to parse Slack services: {e}")
+                  return {'APIResponse': 500}
+
+          def publish_cloudwatch_metrics(metrics: Dict[str, int], namespace: str = 'Watchy/Slack'):
+              """Publish metrics to CloudWatch"""
+              try:
+                  # Initialize CloudWatch client
+                  cloudwatch = boto3.client('cloudwatch')
+                  
+                  # Prepare metric data for batch publishing
+                  metric_data = []
+                  
+                  for metric_name, value in metrics.items():
+                      metric_data.append({
+                          'MetricName': metric_name,
+                          'Value': value,
+                          'Unit': 'Count',
+                          'Timestamp': datetime.now(timezone.utc)
+                      })
+                  
+                  # Publish metrics in batches (CloudWatch limit is 20 metrics per call)
+                  batch_size = 20
+                  metrics_published = 0
+                  
+                  for i in range(0, len(metric_data), batch_size):
+                      batch = metric_data[i:i + batch_size]
+                      
+                      cloudwatch.put_metric_data(
+                          Namespace=namespace,
+                          MetricData=batch
+                      )
+                      
+                      metrics_published += len(batch)
+                      log_json("DEBUG", f"Published batch of {len(batch)} metrics to CloudWatch", 
+                              namespace=namespace, batch_size=len(batch))
+                  
+                  log_json("INFO", "Successfully published metrics to CloudWatch", 
+                          namespace=namespace, 
+                          metrics_count=metrics_published)
+                  
+                  return True
+                  
+              except Exception as e:
+                  log_json("ERROR", "Failed to publish CloudWatch metrics", 
+                          error=str(e), 
+                          namespace=namespace, 
+                          metrics_count=len(metrics))
+                  return False
 
           def lambda_handler(event, context):
-              """Slack monitoring handler with intelligent binary caching"""
+              """Main Lambda handler for Slack status monitoring"""
               start_time = time.time()
               
               try:
-                  logger.info("Starting Slack status monitoring...")
+                  print(f"Watchy Slack Monitor v{VERSION} starting...")
+                  print(f"Build Date: {BUILD_DATE}")
+                  print("Runtime: Pure Python Lambda")
                   
-                  # Ensure we have the latest Slack binary (with intelligent caching)
-                  binary_path, version, latest_info = ensure_nuitka_binary()
+                  # Get configuration from environment variables with defaults
+                  api_url = os.getenv('API_URL', 'https://status.slack.com/api/v2.0.0/current')
+                  namespace = os.getenv('CLOUDWATCH_NAMESPACE', 'Watchy/Slack')
+                  log_group = os.getenv('CLOUDWATCH_LOG_GROUP', '/watchy/slack')
+                  polling_interval = int(os.getenv('POLLING_INTERVAL_MINUTES', '5'))
                   
-                  # Prepare environment for Slack binary
-                  env = os.environ.copy()
-                  env['WATCHY_AWS_REQUEST_ID'] = context.aws_request_id
-                  env['WATCHY_TIMESTAMP'] = str(int(time.time()))
+                  # Debug mode: disable time filtering if DEBUG_DISABLE_TIME_FILTER is set
+                  disable_time_filter = os.getenv('DEBUG_DISABLE_TIME_FILTER', 'false').lower() == 'true'
+                  if disable_time_filter:
+                      print("DEBUG: Time filtering disabled - will log ALL incident notes")
+                      polling_interval = 60 * 24 * 7  # 1 week - effectively disable filtering
                   
-                  # Execute Slack Nuitka binary
-                  logger.info("Executing Slack monitoring binary...")
-                  result = subprocess.run(
-                      [binary_path],
-                      env=env,
-                      capture_output=True,
-                      text=True,
-                      timeout=240
-                  )
+                  print(f"Config: Namespace={namespace}, Log Group={log_group}, Polling Interval={polling_interval}min")
                   
-                  if result.returncode != 0:
-                      raise Exception(f"Slack binary failed: {result.stderr}")
+                  # Fetch Slack status
+                  status_data = fetch_slack_status(api_url)
                   
-                  # Parse results
-                  try:
-                      lines = [line.strip() for line in result.stdout.split('\n') if line.strip()]
-                      for line in reversed(lines):
-                          if line.startswith('{') and line.endswith('}'):
-                              output_data = json.loads(line)
-                              break
-                      else:
-                          output_data = {"message": "Slack monitoring completed", "stdout": result.stdout}
-                  except:
-                      output_data = {"message": "Slack monitoring completed", "stdout": result.stdout}
+                  # Parse active incidents and publish logs
+                  active_incidents = status_data.get('active_incidents', [])
                   
-                  # Add metadata
-                  output_data.update({
-                      'saas_app': 'Slack',
-                      'binary_type': latest_info.get('binary_type', 'nuitka'),
-                      'binary_version': latest_info.get('version'),
-                      'binary_sha256': latest_info.get('sha256'),
-                      'binary_size': latest_info.get('binarySize'),
-                      'build_time': latest_info.get('buildTime'),
-                      'git_commit': latest_info.get('gitCommit'),
-                      'build_number': latest_info.get('buildNumber'),
-                      'target_platform': latest_info.get('target_platform'),
-                      'lambda_compatible': latest_info.get('lambda_compatible'),
-                      'execution_time': time.time() - start_time,
-                      'timestamp': datetime.utcnow().isoformat()
-                  })
+                  print(f"DEBUG: Found {len(active_incidents)} active incidents")
+                  for i, incident in enumerate(active_incidents):
+                      incident_id = incident.get('id', 'unknown')
+                      incident_title = incident.get('title', 'Unknown')
+                      notes_count = len(incident.get('notes', []))
+                      print(f"  Incident {i+1}: ID={incident_id}, Title='{incident_title}', Notes={notes_count}")
+                      
+                      # Show note timestamps for debugging
+                      for j, note in enumerate(incident.get('notes', [])):
+                          note_date = note.get('date_created', 'unknown')
+                          print(f"    Note {j+1}: {note_date}")
                   
-                  logger.info("Slack monitoring completed successfully")
+                  logs_published = publish_incident_logs(active_incidents, log_group, polling_interval)
+                  
+                  # Parse service statuses
+                  metrics = parse_slack_services(status_data)
+                  
+                  # Publish to CloudWatch
+                  publish_cloudwatch_metrics(metrics, namespace)
+                  
+                  # Determine if any services are down (exclude APIResponse and ActiveIncidents)
+                  service_incidents = sum(1 for key, value in metrics.items() 
+                                         if key not in ['APIResponse', 'ActiveIncidents'] and value >= 2)
+
+                  # Execution summary
+                  execution_time = time.time() - start_time
+                  
+                  print(f"Monitoring completed in {execution_time:.2f}s")
+                  print(f"Published {len(metrics)} metrics")
+                  print(f"Published {logs_published} incident logs")
+                  print(f"Active incidents: {len(active_incidents)}")
+                  print(f"Service incidents: {service_incidents}")
+                  print(f"API Response: {metrics.get('APIResponse', 'unknown')}")
                   
                   return {
                       'statusCode': 200,
-                      'body': json.dumps(output_data)
+                      'body': json.dumps({
+                          'message': 'Slack monitoring completed successfully',
+                          'saas_app': 'Slack',
+                          'version': VERSION,
+                          'execution_time': execution_time,
+                          'metrics_published': len(metrics),
+                          'logs_published': logs_published,
+                          'active_incidents': len(active_incidents),
+                          'service_incidents': service_incidents,
+                          'api_response': metrics.get('APIResponse', 'unknown'),
+                          'timestamp': datetime.now(timezone.utc).isoformat()
+                      })
                   }
                   
               except Exception as e:
+                  execution_time = time.time() - start_time
                   error_msg = f"Slack monitoring failed: {str(e)}"
-                  logger.error(f"{error_msg}")
+                  print(f"{error_msg}")
                   
                   return {
                       'statusCode': 500,
                       'body': json.dumps({
                           'error': error_msg,
                           'saas_app': 'Slack',
-                          'execution_time': time.time() - start_time
+                          'version': VERSION,
+                          'execution_time': execution_time,
+                          'timestamp': datetime.now(timezone.utc).isoformat()
                       })
                   }
 

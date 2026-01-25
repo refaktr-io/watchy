@@ -1,130 +1,173 @@
-# Watchy Core
+# Watchy Cloud - Open Source SaaS Monitoring Platform
 
-**Core Platform Infrastructure & Customer Templates**
+**Enterprise-grade SaaS monitoring for AWS with complete transparency**
 
-Core infrastructure components, customer deployment templates, and platform scripts for the Watchy Slack monitoring solution.
+Watchy Cloud provides comprehensive monitoring for critical SaaS applications using AWS serverless infrastructure. The platform is now completely open source with pure Python implementations for maximum transparency and community contribution.
 
-## 🏗️ Architecture
+## 🚀 Quick Start
 
-Watchy uses AWS serverless architecture to monitor SaaS applications. Lambda functions poll status APIs on a schedule, storing data in CloudWatch for metrics and alerting.
-
-> **Note**: For the complete architecture diagram and public website, see the [watchy-site](../watchy-site) repository.
-
-## 📁 **Repository Structure**
-
-```text
-watchy-core/
-├── 🌐 platform/                   # Platform infrastructure & binaries
-│   ├── infrastructure/            # CloudFormation templates
-│   ├── binaries/slack-monitor/    # Slack monitor source code & builds
-│   ├── deploy/                    # Platform deployment scripts
-│   └── watchy-platform.yaml      # Main platform template
-│
-└── 📦 customer-templates/         # Customer deployment templates
-    ├── templates/                 # CloudFormation for customer AWS
-    ├── docs/                      # Customer documentation
-    └── get-template-urls.sh      # Template URL helper
-```
-
-> **Website**: The public website and assets are maintained in the separate [watchy-site](../watchy-site) repository.
-
-## 🚀 **Quick Start**
-
-### 1. Automated Deployment
-
-Platform deployment is handled by GitHub Actions:
-
-- **Push to `main`** → Automatic deployment to production
-- **Manual trigger** → Deploy specific version/environment
-
-### 2. Required GitHub Secrets
-
-```text
-AWS_ACCESS_KEY_ID       # AWS deployment credentials
-AWS_SECRET_ACCESS_KEY   # AWS deployment credentials  
-SSL_CERTIFICATE_ARN     # For *.watchy.cloud (optional)
-```
-
-**Note**: Platform notifications are sent to `contact@watchy.cloud` by default.
-
-## 🔒 **Security & Binary Integrity**
-
-### Security Features
-
-- **🔍 Automated Security Scanning**: Dependencies, secrets, CloudFormation templates
-- **🤖 Dependabot Updates**: Weekly security patches and dependency updates
-- **🛡️ CI/CD Integration**: Security checks required for all deployments
-
-### Binary Metadata System
-
-Each compiled binary includes integrity verification:
+Deploy the complete monitoring platform in under 2 minutes:
 
 ```bash
-# Download and verify binary integrity
-curl -s https://releases.watchy.cloud/binaries/slack-monitor/metadata.json | \
-  jq -r '.sha256, .latestUrl'
+aws cloudformation deploy \
+  --template-url https://s3.amazonaws.com/watchy-resources-prod/platform/watchy-platform.yaml \
+  --stack-name watchy-platform \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    NotificationEmail="alerts@yourcompany.com"
 ```
 
-**Metadata includes**: SHA256 checksums, build timestamps, git commits, and download URLs for complete audit trail.
+## 📊 Architecture
 
-### Source Code Protection
+**Pure Python Serverless Architecture:**
+- **AWS Lambda**: Pure Python 3.13 runtime (no binaries)
+- **CloudWatch**: Metrics, alarms, and incident logging
+- **SNS**: Email and webhook notifications
+- **EventBridge**: Scheduled monitoring execution
+- **CloudFormation**: Infrastructure as Code deployment
 
-- **Nuitka Compilation**: Python source compiled to native x86_64 binaries
-- **IP Protection**: No reverse engineering possible from compiled binaries
-- **AWS Security**: IAM least privilege, encrypted parameter storage
+## 🎯 Currently Monitored Services
 
-## 📊 **Platform Components**
+### Slack Status Monitoring
+- **11 Service Components**: Login/SSO, Messaging, Notifications, Search, Workspace/Org Administration, Canvases, Connectivity, Files, Huddles, Apps/Integrations/APIs, Workflows
+- **Real-time Incident Tracking**: Automatic detection and logging
+- **Smart Deduplication**: Prevents duplicate incident notifications
+- **Severity Levels**: Notice (1), Incident (2), Outage (3)
 
-### Slack Monitor
+## 🏗️ Repository Structure
 
-- **Slack Monitor**: Real-time Slack API monitoring with team health checks, intelligent binary caching, and 60-70% performance improvement
+```
+watchy-core/
+├── customer-templates/          # Customer deployment templates
+│   ├── templates/
+│   │   └── watchy-slack-monitoring.yaml  # Complete Slack monitoring stack
+│   └── docs/                   # Customer documentation
+├── platform/
+│   ├── README.md              # Platform documentation
+│   └── watchy-platform.yaml   # Main platform template
+└── README.md                  # This file
+```
 
-### Infrastructure
+## 🔧 Development Setup
 
-- **Binary Distribution**: CloudFront CDN serving verified Nuitka binaries
-- **Monitoring**: CloudWatch integration with custom metrics
-- **Customer Templates**: Pre-built CloudFormation for customer deployments
-
-## 🛠️ **Development**
+### Prerequisites
+- AWS CLI v2 configured
+- Python 3.13+
+- CloudFormation permissions
 
 ### Local Development
-
 ```bash
-# Build and test Slack monitor locally
-cd platform/binaries/slack-monitor
-./build.sh
+# Clone repository
+git clone https://github.com/your-org/watchy-core.git
+cd watchy-core
 
-# Test local builds (no deployment)
-python3 watchy_slack_monitor.py
+# Deploy to your AWS account
+aws cloudformation deploy \
+  --template-file customer-templates/templates/watchy-slack-monitoring.yaml \
+  --stack-name my-watchy-test \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    MonitoringSchedule="rate(5 minutes)" \
+    NotificationTopicArn="arn:aws:sns:us-east-1:123456789012:my-alerts"
 ```
 
-### Production Deployment
+## 🌟 Key Features
 
-All production deployment happens via GitHub Actions:
+### Open Source Transparency
+- **Pure Python**: All monitoring logic visible in CloudFormation templates
+- **No Binaries**: Eliminated Nuitka compilation complexity
+- **Community Friendly**: Easy to contribute and modify
+- **Reduced Overhead**: Faster cold starts, lower memory usage
 
+### Enterprise Monitoring
+- **Multi-Service Support**: Extensible architecture for additional SaaS platforms
+- **Intelligent Alerting**: Context-aware notifications with incident details
+- **Cost Effective**: Typical cost $1-3/month per monitored service
+- **Scalable**: Serverless architecture handles any load
+
+### Security & Compliance
+- **IAM Least Privilege**: Minimal required permissions
+- **No API Keys**: Uses public status APIs only
+- **VPC Optional**: Can run in isolated network environments
+- **Audit Trail**: Complete CloudWatch logging
+
+## 📈 Monitoring Capabilities
+
+### CloudWatch Metrics (13 total)
+- 11 Slack service health metrics (0=OK, 1=Notice, 2=Incident, 3=Outage)
+- Active incident count
+- API response status
+
+### CloudWatch Alarms (12 total)
+- Individual service alarms for each Slack component
+- API response monitoring
+- Automatic SNS notifications
+
+### CloudWatch Dashboard
+- Real-time service health visualization
+- Historical incident trends
+- Lambda performance metrics
+- Recent incident log insights
+
+## 🚀 Deployment Options
+
+### Option 1: Complete Platform
+Deploy everything including shared resources:
 ```bash
-git add .
-git commit -m "Deploy platform updates"
-git push origin main
+aws cloudformation deploy \
+  --template-url https://s3.amazonaws.com/watchy-resources-prod/platform/watchy-platform.yaml \
+  --stack-name watchy-platform \
+  --capabilities CAPABILITY_NAMED_IAM
 ```
 
-## 📋 **Requirements**
+### Option 2: Slack Monitoring Only
+Deploy just Slack monitoring (requires existing SNS topic):
+```bash
+aws cloudformation deploy \
+  --template-file customer-templates/templates/watchy-slack-monitoring.yaml \
+  --stack-name watchy-slack \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    NotificationTopicArn="arn:aws:sns:region:account:topic-name"
+```
 
-- **AWS CLI v2.x** (for local development)
-- **Python 3.12+** (for local builds)
-- **Nuitka compiler** (for local binary compilation)
+## 🔄 Migration from Binary Version
 
-## 🆘 **Support & Security**
+If upgrading from a previous Nuitka binary version:
 
-### Reporting Security Issues
+1. **Backup Configuration**: Export your current stack parameters
+2. **Deploy New Version**: Use the same stack name to update in place
+3. **Verify Functionality**: Check CloudWatch metrics and alarms
+4. **Clean Up**: Old binary distribution resources are no longer needed
 
-- **Critical**: Email <security@watchy.cloud> (24hr response)
-- **Non-critical**: GitHub issue with `security` label (1 week response)
+The new pure Python version is fully compatible and will maintain all existing metrics and alarm history.
 
-### Platform Support
+## 🤝 Contributing
 
-For support and licensing: [watchy.cloud](https://watchy.cloud)
+We welcome contributions! The open source architecture makes it easy to:
 
-## 📄 **License**
+- Add new SaaS monitoring integrations
+- Improve alerting logic
+- Enhance dashboard visualizations
+- Fix bugs and add features
 
-Commercial license required. Contact us for licensing information.
+### Development Workflow
+1. Fork the repository
+2. Create a feature branch
+3. Make changes to the CloudFormation templates
+4. Test with your AWS account
+5. Submit a pull request
+
+## 📞 Support
+
+- **Documentation**: See `platform/README.md` for detailed technical docs
+- **Issues**: GitHub Issues for bug reports and feature requests
+- **Community**: Discussions for questions and ideas
+
+## 📄 License
+
+Open source under MIT License. See LICENSE file for details.
+
+---
+
+**Watchy Cloud** - Transparent, reliable SaaS monitoring for the modern enterprise.

@@ -1,10 +1,10 @@
-# Watchy - SaaS Application Monitoring on AWS
+# Watchy - Open Source SaaS Monitoring Platform
 
 [![Deploy to AWS](https://img.shields.io/badge/Deploy%20to-AWS-FF9900?style=for-the-badge&logo=amazon-aws)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?templateURL=https://s3.amazonaws.com/watchy-resources-prod/platform/watchy-platform.yaml&stackName=Watchy)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![GitHub](https://img.shields.io/badge/GitHub-refaktr--io%2Fwatchy-blue?logo=github)](https://github.com/refaktr-io/watchy)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![GitHub](https://img.shields.io/badge/GitHub-Open%20Source-green?logo=github)](https://github.com/your-org/watchy-core)
 
-Monitor SaaS application status with Amazon CloudWatch. Get real-time alerts for service degradation and incidents - all running in your own AWS account.
+Monitor SaaS application status with Amazon CloudWatch using pure Python implementation. Get real-time alerts for service degradation and incidents - all running transparently in your own AWS account.
 
 ## 🚀 Quick Start
 
@@ -19,12 +19,12 @@ That's it! Watchy will begin monitoring Slack's service status and sending alert
 
 ### CloudFormation Templates
 
-- **[watchy-platform.yaml](cloudformation/watchy-platform.yaml)** - Main platform stack with shared resources (SNS topic, IAM roles)
-- **[watchy-slack-monitoring.yaml](cloudformation/watchy-slack-monitoring.yaml)** - Nested stack for Slack monitoring (Lambda, CloudWatch metrics/alarms)
+- **[watchy-platform.yaml](watchy-platform.yaml)** - Main platform stack with shared resources (SNS topic, IAM roles)
+- **[watchy-slack-monitoring.yaml](../customer-templates/templates/watchy-slack-monitoring.yaml)** - Slack monitoring stack (Lambda, CloudWatch metrics/alarms)
 
 ## 📊 What Gets Deployed
 
-- **Lambda Function**: Monitors Slack Status API every 5 minutes (configurable)
+- **Lambda Function**: Pure Python 3.13 monitoring Slack Status API every 5 minutes (configurable)
 - **CloudWatch Metrics**: Tracks 11 Slack service health metrics
 - **CloudWatch Alarms**: Alerts on incident and outage severity levels
 - **CloudWatch Dashboard**: Visual monitoring interface with real-time service status
@@ -139,40 +139,29 @@ Watchy automatically creates two CloudWatch Log Groups:
 
 ## 🔧 Architecture
 
-![Watchy AWS Architecture](watchy-architecture.png)
+Watchy uses AWS serverless architecture to monitor SaaS applications with complete transparency.
 
-Watchy uses AWS serverless architecture to monitor SaaS applications. Lambda functions poll status APIs on a schedule, storing data in CloudWatch for metrics and alerting.
+### Pure Python Lambda Implementation
 
-### Lambda Runtime Environment
+Watchy runs on **AWS Lambda Python 3.13** runtime with a completely open source architecture:
 
-Watchy runs on **AWS Lambda Python 3.13** runtime with a hybrid architecture that combines open-source orchestration with proprietary monitoring logic:
+**Open Source Implementation**:
+- All monitoring logic visible in CloudFormation templates
+- Pure Python implementation for maximum transparency
+- No binary dependencies or compilation required
+- Easy to modify, extend, and contribute to
+- Faster cold starts and reduced memory usage (256MB vs 512MB)
+- Community-friendly development and debugging
 
-**Open Source Layer** (Python Lambda Handler):
+### Simplified Architecture
 
-- CloudFormation deployment and configuration
-- CloudWatch metrics publishing
-- SNS alarm integration
-- EventBridge scheduling
-- Error handling and retry logic
+The Lambda function uses a **single-tier pure Python architecture**:
 
-**Proprietary Binary Layer** (Nuitka-compiled):
-
-- Downloaded at runtime from secure CloudFront CDN
-- Contains specialized SaaS API monitoring algorithms
-- Intelligent response parsing and incident detection
-- Smart caching and deduplication logic
-- Advanced error recovery patterns
-
-### Binary Architecture
-
-The Lambda function uses a **two-tier architecture** to protect intellectual property while maintaining transparency:
-
-1. **Runtime Binary Download**: On cold start, the Lambda function downloads a pre-compiled native binary from `https://releases.watchy.cloud/binaries/slack-monitor/`
-2. **Integrity Verification**: SHA256 checksum validation ensures binary authenticity
-3. **Execution**: The binary handles SaaS-specific monitoring logic and returns structured data to the Python handler
-4. **Metrics & Logs Publishing**: The open-source Python layer publishes results to CloudWatch
-
-**Binary Metadata**: Each binary includes version info, build timestamp, and git commit hash for full traceability. Metadata is available at: `https://releases.watchy.cloud/binaries/slack-monitor/metadata.json`
+1. **Direct Execution**: All monitoring logic runs directly in the Lambda Python runtime
+2. **No Downloads**: No binary downloads or caching complexity
+3. **Transparent Logic**: All SaaS monitoring algorithms visible in the CloudFormation template
+4. **Easy Debugging**: Standard Python debugging and logging
+5. **Community Contributions**: Easy for developers to understand and contribute
 
 ## 🛡️ Security Features
 
@@ -181,6 +170,7 @@ The Lambda function uses a **two-tier architecture** to protect intellectual pro
 - **VPC Optional**: Can be deployed in VPC for additional isolation
 - **Encrypted Logs**: CloudWatch logs encrypted at rest
 - **SNS Encryption**: Email notifications support encryption in transit
+- **Open Source Security**: All code visible for security auditing
 
 ## 🔄 Data Sources
 
@@ -195,7 +185,7 @@ Watchy uses the [Slack Status API v2.0.0](https://docs.slack.dev/reference/slack
 
 The complete CloudFormation template is available in this repository:
 
-- **Production**: [watchy-platform.yaml](./watchy-platform.yaml)
+- **Production**: [watchy-slack-monitoring.yaml](../customer-templates/templates/watchy-slack-monitoring.yaml)
 
 ## 🆘 Troubleshooting
 
@@ -216,30 +206,42 @@ The complete CloudFormation template is available in this repository:
 - Increase `TimeoutSeconds` parameter to 300 (5 minutes)
 - Check CloudWatch Logs for specific error messages
 
-## 🤝 Support
+## 🤝 Contributing
 
-- **Issues**: [GitHub Issues](https://github.com/refaktr-io/watchy/issues)
-- **Custom Monitoring**: Contact us at [watchy@refaktr.io](mailto:watchy@refaktr.io?subject=Custom%20Monitoring%20Inquiry)
-- **Documentation**: Visit [watchy.cloud](https://watchy.cloud)
+We welcome contributions! The open source architecture makes it easy to:
+
+- Add new SaaS monitoring integrations
+- Improve alerting logic
+- Enhance dashboard visualizations
+- Fix bugs and add features
+
+### Development Workflow
+1. Fork the repository
+2. Create a feature branch
+3. Make changes to the CloudFormation templates
+4. Test with your AWS account
+5. Submit a pull request
+
+## 📞 Support
+
+- **Documentation**: This README and inline CloudFormation documentation
+- **Issues**: GitHub Issues for bug reports and feature requests
+- **Community**: GitHub Discussions for questions and ideas
 
 ## 📄 License
 
-Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at:
+Licensed under the MIT License. See LICENSE file for details.
 
-http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
-
-Copyright © 2025 [Refaktr LLC](https://refaktr.io).
-
-## 🚀 Coming Soon
+## 🚀 Roadmap
 
 - GitHub Status Monitoring
 - Zoom Status Monitoring
 - Custom SaaS platform integrations
 - Advanced dashboard templates
 - Multi-region deployment support
+- Webhook notifications
+- Slack integration for alerts
 
 ---
 
-**Built by [Refaktr LLC](https://refaktr.io)** | [Website](https://watchy.cloud) | [GitHub](https://github.com/refaktr-io/watchy)
+**Watchy Cloud** - Open source, transparent SaaS monitoring for the modern enterprise.
