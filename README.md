@@ -1,146 +1,144 @@
-# Watchy Cloud - Open Source SaaS Monitoring Platform
+# Watchy - Open Source SaaS Monitoring Platform
 
-**Enterprise-grade SaaS monitoring for AWS with complete transparency**
+[![Deploy to AWS](https://img.shields.io/badge/Deploy%20to-AWS-FF9900?style=for-the-badge&logo=amazon-aws)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?templateURL=https://s3.amazonaws.com/watchy-resources-prod/templates/watchy-platform.yaml&stackName=Watchy-Platform)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![GitHub](https://img.shields.io/badge/GitHub-Open%20Source-green?logo=github)](https://github.com/your-org/watchy-core)
 
-Watchy Cloud provides comprehensive monitoring for critical SaaS applications using AWS serverless infrastructure. The platform is now completely open source with pure Python implementations for maximum transparency and community contribution.
-
-## 🚀 Quick Start
-
-Deploy the complete monitoring platform in under 2 minutes:
-
-```bash
-aws cloudformation deploy \
-  --template-url https://s3.amazonaws.com/watchy-resources-prod/platform/watchy-platform.yaml \
-  --stack-name watchy-platform \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --parameter-overrides \
-    NotificationEmail="alerts@yourcompany.com"
-```
-
-## 📊 Architecture
-
-**Pure Python Serverless Architecture:**
-- **AWS Lambda**: Pure Python 3.13 runtime (no binaries)
-- **CloudWatch**: Metrics, alarms, and incident logging
-- **SNS**: Email and webhook notifications
-- **EventBridge**: Scheduled monitoring execution
-- **CloudFormation**: Infrastructure as Code deployment
-
-## 🎯 Currently Monitored Services
-
-### Slack Status Monitoring
-- **11 Service Components**: Login/SSO, Messaging, Notifications, Search, Workspace/Org Administration, Canvases, Connectivity, Files, Huddles, Apps/Integrations/APIs, Workflows
-- **Real-time Incident Tracking**: Automatic detection and logging
-- **Smart Deduplication**: Prevents duplicate incident notifications
-- **Severity Levels**: Notice (1), Incident (2), Outage (3)
+Monitor SaaS application status with Amazon CloudWatch using **nested stack architecture** and pure Python implementation. Get real-time alerts for service degradation and incidents - all running transparently in your own AWS account.
 
 ## 🏗️ Repository Structure
 
 ```
 watchy-core/
-├── customer-templates/          # Customer deployment templates
-│   ├── templates/
-│   │   └── watchy-slack-monitoring.yaml  # Complete Slack monitoring stack
-│   └── docs/                   # Customer documentation
-├── platform/
-│   ├── README.md              # Platform documentation
-│   └── watchy-platform.yaml   # Main platform template
+├── templates/
+│   ├── watchy-platform.yaml          # Parent stack (shared resources)
+│   └── watchy-slack-monitoring.yaml  # Slack monitoring nested stack
+├── docs/
+│   ├── configuration.md       # Configuration guide
+│   └── troubleshooting.md     # Troubleshooting guide
+├── scripts/
+│   └── get-template-urls.sh   # Helper script for deployment URLs
 └── README.md                  # This file
 ```
 
-## 🔧 Development Setup
+## 🚀 Quick Start
 
-### Prerequisites
-- AWS CLI v2 configured
-- Python 3.13+
-- CloudFormation permissions
+Deploy the complete Watchy platform with nested stack architecture:
 
-### Local Development
+1. Click the **Deploy to AWS** button above
+2. Enter your notification email address
+3. Configure monitoring settings (schedule, log level, etc.)
+4. Enable desired monitoring services (Slack enabled by default)
+5. Click **Create Stack**
+
+### Manual Deployment
+
 ```bash
-# Clone repository
-git clone https://github.com/your-org/watchy-core.git
-cd watchy-core
-
-# Deploy to your AWS account
 aws cloudformation deploy \
-  --template-file customer-templates/templates/watchy-slack-monitoring.yaml \
-  --stack-name my-watchy-test \
+  --template-url https://s3.amazonaws.com/watchy-resources-prod/templates/watchy-platform.yaml \
+  --stack-name Watchy-Platform \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
+    NotificationEmail=your-email@domain.com \
     MonitoringSchedule="rate(5 minutes)" \
-    NotificationTopicArn="arn:aws:sns:us-east-1:123456789012:my-alerts"
+    EnableSlackMonitoring=true
 ```
 
-## 🌟 Key Features
+## 📊 What Gets Deployed
 
-### Open Source Transparency
-- **Pure Python**: All monitoring logic visible in CloudFormation templates
-- **No Binaries**: Eliminated Nuitka compilation complexity
-- **Community Friendly**: Easy to contribute and modify
-- **Reduced Overhead**: Faster cold starts, lower memory usage
+### Parent Stack (`watchy-platform.yaml`)
+- **SNS Topic**: Shared notification topic for all monitoring alerts
+- **IAM Role**: Shared Lambda execution role with least-privilege permissions
+- **CloudWatch Log Groups**: Platform-level logging infrastructure
+- **Email Subscription**: Automatic SNS email subscription setup
 
-### Enterprise Monitoring
-- **Multi-Service Support**: Extensible architecture for additional SaaS platforms
-- **Intelligent Alerting**: Context-aware notifications with incident details
-- **Cost Effective**: Typical cost $1-3/month per monitored service
-- **Scalable**: Serverless architecture handles any load
+### Slack Monitoring Nested Stack (`watchy-slack-monitoring.yaml`)
+- **Lambda Function**: Pure Python 3.13 monitoring Slack Status API
+- **CloudWatch Metrics**: Tracks 11 Slack service health metrics
+- **CloudWatch Alarms**: Service-specific alerts for incidents and outages
+- **CloudWatch Dashboard**: Visual monitoring interface with real-time status
+- **EventBridge Schedule**: Automated polling on configured interval
 
-### Security & Compliance
-- **IAM Least Privilege**: Minimal required permissions
-- **No API Keys**: Uses public status APIs only
-- **VPC Optional**: Can run in isolated network environments
-- **Audit Trail**: Complete CloudWatch logging
+## 🔍 Monitored Slack Services
 
-## 📈 Monitoring Capabilities
+Watchy monitors all 11 Slack services:
 
-### CloudWatch Metrics (13 total)
-- 11 Slack service health metrics (0=OK, 1=Notice, 2=Incident, 3=Outage)
-- Active incident count
-- API response status
+1. **Login/SSO** - Authentication and single sign-on
+2. **Messaging** - Message sending and receiving
+3. **Notifications** - Push and email notifications
+4. **Search** - Message and file search
+5. **Workspace/Org Administration** - Admin functions
+6. **Canvases** - Canvas creation and editing
+7. **Connectivity** - WebSocket and API connectivity
+8. **Files** - File uploads and downloads
+9. **Huddles** - Audio huddles
+10. **Apps/Integrations/APIs** - Third-party integrations
+11. **Workflows** - Workflow Builder functionality
 
-### CloudWatch Alarms (12 total)
-- Individual service alarms for each Slack component
-- API response monitoring
-- Automatic SNS notifications
+## 🌟 Nested Stack Architecture Benefits
 
-### CloudWatch Dashboard
-- Real-time service health visualization
-- Historical incident trends
-- Lambda performance metrics
-- Recent incident log insights
+- **Resource Sharing**: SNS topics, IAM roles, and CloudWatch resources shared across all monitoring services
+- **Cost Optimization**: Shared resources reduce duplicate infrastructure costs
+- **Centralized Management**: Single parent stack manages all monitoring services
+- **Consistent Configuration**: Global settings applied across all monitoring services
+- **Easy Scaling**: Simple to add new SaaS monitoring services as additional nested stacks
+- **Simplified Updates**: Update parent stack to propagate changes to all nested stacks
 
-## 🚀 Deployment Options
+## ⚙️ Configuration Parameters
 
-### Option 1: Complete Platform
-Deploy everything including shared resources:
-```bash
-aws cloudformation deploy \
-  --template-url https://s3.amazonaws.com/watchy-resources-prod/platform/watchy-platform.yaml \
-  --stack-name watchy-platform \
-  --capabilities CAPABILITY_NAMED_IAM
-```
+### Parent Stack Parameters
 
-### Option 2: Slack Monitoring Only
-Deploy just Slack monitoring (requires existing SNS topic):
-```bash
-aws cloudformation deploy \
-  --template-file customer-templates/templates/watchy-slack-monitoring.yaml \
-  --stack-name watchy-slack \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --parameter-overrides \
-    NotificationTopicArn="arn:aws:sns:region:account:topic-name"
-```
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `NotificationEmail` | Required | Email address for CloudWatch alarm notifications |
+| `MonitoringSchedule` | `rate(5 minutes)` | How often to check SaaS service status |
+| `TimeoutSeconds` | `240` | Lambda function timeout for all monitoring services |
+| `RetryAttempts` | `3` | Number of retry attempts for failed API calls |
+| `LogLevel` | `INFO` | Log level for all monitoring functions |
+| `EnableSlackMonitoring` | `true` | Enable/disable Slack monitoring nested stack |
 
-## 🔄 Migration from Binary Version
+## 💰 Cost Estimate
 
-If upgrading from a previous Nuitka binary version:
+Typical monthly cost for complete platform: **$2-5 USD**
 
-1. **Backup Configuration**: Export your current stack parameters
-2. **Deploy New Version**: Use the same stack name to update in place
-3. **Verify Functionality**: Check CloudWatch metrics and alarms
-4. **Clean Up**: Old binary distribution resources are no longer needed
+### Parent Stack Resources
+- SNS Topic: $0.50/month (email notifications)
+- CloudWatch Log Groups: $0.50/month (platform logs)
 
-The new pure Python version is fully compatible and will maintain all existing metrics and alarm history.
+### Per SaaS Service (e.g., Slack)
+- Lambda: ~8,640 invocations/month (5-min interval) = $0.18
+- CloudWatch Logs: ~500 MB/month = $0.25
+- CloudWatch Metrics: ~12 custom metrics = $0.36
+- CloudWatch Alarms: ~11 alarms = $1.10
+- CloudWatch Dashboard: 1 dashboard = $3.00
+
+**Total for Platform + Slack**: Approximately $5.89/month
+
+## 🔧 Pure Python Implementation
+
+Watchy uses **AWS Lambda Python 3.13** runtime with a completely open source architecture:
+
+- **All monitoring logic visible** in CloudFormation templates
+- **Pure Python implementation** for maximum transparency
+- **No binary dependencies** or compilation required
+- **Easy to modify, extend, and contribute to**
+- **Faster cold starts** and reduced memory usage (256MB vs 512MB)
+- **Community-friendly development** and debugging
+
+## 🛡️ Security Features
+
+- **Least Privilege IAM**: Lambda functions have minimal required permissions
+- **No API Keys**: Uses public SaaS Status APIs (no authentication needed)
+- **VPC Optional**: Can be deployed in VPC for additional isolation
+- **Encrypted Logs**: CloudWatch logs encrypted at rest
+- **SNS Encryption**: Email notifications support encryption in transit
+- **Open Source Security**: All code visible for security auditing
+
+## 📚 Documentation
+
+- **[Configuration Guide](docs/configuration.md)** - Detailed setup instructions
+- **[Troubleshooting Guide](docs/troubleshooting.md)** - Common issues and solutions
+- **[Template URLs Script](scripts/get-template-urls.sh)** - Helper for deployment URLs
 
 ## 🤝 Contributing
 
@@ -154,20 +152,27 @@ We welcome contributions! The open source architecture makes it easy to:
 ### Development Workflow
 1. Fork the repository
 2. Create a feature branch
-3. Make changes to the CloudFormation templates
+3. Make changes to the CloudFormation templates in `templates/`
 4. Test with your AWS account
 5. Submit a pull request
 
-## 📞 Support
+## 🚀 Roadmap
 
-- **Documentation**: See `platform/README.md` for detailed technical docs
-- **Issues**: GitHub Issues for bug reports and feature requests
-- **Community**: Discussions for questions and ideas
+### Planned Nested Stacks
+- **GitHub Status Monitoring**: Monitor GitHub service status and incidents
+- **Zoom Status Monitoring**: Monitor Zoom service availability
+- **Custom SaaS Integrations**: Template for adding new SaaS monitoring services
+
+### Platform Enhancements
+- **Multi-region Deployment**: Deploy monitoring across multiple AWS regions
+- **Advanced Dashboard Templates**: Enhanced CloudWatch dashboard configurations
+- **Webhook Notifications**: Support for Slack, Teams, and custom webhook alerts
+- **Cost Optimization**: Further resource sharing and cost reduction features
 
 ## 📄 License
 
-Open source under MIT License. See LICENSE file for details.
+Licensed under the MIT License. See LICENSE file for details.
 
 ---
 
-**Watchy Cloud** - Transparent, reliable SaaS monitoring for the modern enterprise.
+**Watchy Cloud** - Open source, transparent SaaS monitoring with nested stack architecture for the modern enterprise.

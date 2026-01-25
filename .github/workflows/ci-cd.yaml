@@ -46,12 +46,10 @@ jobs:
         with:
           filters: |
             templates:
-              - 'customer-templates/**'
-              - 'platform/watchy-platform.yaml'
+              - 'templates/**'
             docs:
               - '*.md'
-              - 'customer-templates/docs/**'
-              - 'platform/README.md'
+              - 'docs/**'
             workflows:
               - '.github/workflows/**'
 
@@ -76,8 +74,7 @@ jobs:
       - name: Validate CloudFormation templates
         run: |
           echo "🔍 Validating CloudFormation templates..."
-          find . -name "*.yaml" -path "*/platform/*" \
-            -o -name "*.yaml" -path "*/customer-templates/*" | \
+          find . -name "*.yaml" -path "*/templates/*" | \
             xargs cfn-lint
 
       - name: Validate YAML syntax
@@ -85,8 +82,7 @@ jobs:
           echo "🔍 Validating YAML syntax..."
           # Only validate CloudFormation templates and issue templates
           # Skip GitHub Actions workflows as they have different standards
-          find . -name "*.yaml" -path "*/customer-templates/*" \
-            -o -name "*.yaml" -path "*/platform/*" \
+          find . -name "*.yaml" -path "*/templates/*" \
             -o -name "*.yaml" -path "*/.github/ISSUE_TEMPLATE/*" | \
             xargs yamllint -d relaxed
 
@@ -95,13 +91,11 @@ jobs:
           echo "🔍 Testing CloudFormation template syntax with AWS CLI..."
           # Test main templates
           aws cloudformation validate-template \
-            --template-body file://customer-templates/templates/watchy-slack-monitoring.yaml \
+            --template-body file://templates/watchy-slack-monitoring.yaml \
             --region ${{ env.AWS_REGION }} --no-cli-pager
-          if [ -f "platform/watchy-platform.yaml" ]; then
-            aws cloudformation validate-template \
-              --template-body file://platform/watchy-platform.yaml \
-              --region ${{ env.AWS_REGION }} --no-cli-pager
-          fi
+          aws cloudformation validate-template \
+            --template-body file://templates/watchy-platform.yaml \
+            --region ${{ env.AWS_REGION }} --no-cli-pager
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -155,7 +149,7 @@ jobs:
         run: |
           echo "🔒 Checking CloudFormation templates for security issues..."
 
-          find customer-templates platform -name "*.yaml" -o -name "*.yml" | \
+          find templates -name "*.yaml" -o -name "*.yml" | \
           while read template; do
             echo "📋 Checking: $template"
 
@@ -212,20 +206,26 @@ jobs:
 
           echo "✅ Deploying templates to bucket: $TEMPLATE_BUCKET"
 
-          # Deploy customer templates
-          aws s3 sync customer-templates/ \
-            s3://${TEMPLATE_BUCKET}/customer-templates/ \
+          # Deploy templates to S3
+          aws s3 sync templates/ \
+            s3://${TEMPLATE_BUCKET}/templates/ \
             --delete \
             --cache-control "max-age=3600" \
             --region ${{ env.AWS_REGION }}
 
-          # Deploy platform template if it exists
-          if [ -f "platform/watchy-platform.yaml" ]; then
-            aws s3 cp platform/watchy-platform.yaml \
-              s3://${TEMPLATE_BUCKET}/platform/watchy-platform.yaml \
-              --cache-control "max-age=3600" \
-              --region ${{ env.AWS_REGION }}
-          fi
+          # Deploy documentation
+          aws s3 sync docs/ \
+            s3://${TEMPLATE_BUCKET}/docs/ \
+            --delete \
+            --cache-control "max-age=3600" \
+            --region ${{ env.AWS_REGION }}
+
+          # Deploy scripts
+          aws s3 sync scripts/ \
+            s3://${TEMPLATE_BUCKET}/scripts/ \
+            --delete \
+            --cache-control "max-age=3600" \
+            --region ${{ env.AWS_REGION }}
 
           echo "✅ Templates deployed successfully"
 
@@ -240,7 +240,7 @@ jobs:
             echo "🔄 Invalidating CloudFront cache for templates..."
             aws cloudfront create-invalidation \
               --distribution-id "$DISTRIBUTION_ID" \
-              --paths "/customer-templates/*" "/platform/*" \
+              --paths "/templates/*" "/docs/*" "/scripts/*" \
               --region ${{ env.AWS_REGION }} \
               --output text >/dev/null 2>&1 || \
               echo "⚠️  Cache invalidation failed (non-critical)"
@@ -261,19 +261,20 @@ jobs:
         run: |
           echo "🧪 Testing template accessibility..."
 
-          # Test main Slack monitoring template
-          if curl -f -s "https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml" > /dev/null; then
-            echo "✅ Slack monitoring template is accessible"
+          # Test platform template (parent stack)
+          if curl -f -s "https://s3.amazonaws.com/watchy-resources-prod/templates/watchy-platform.yaml" > /dev/null; then
+            echo "✅ Platform template (parent stack) is accessible"
           else
-            echo "❌ Slack monitoring template is not accessible"
+            echo "❌ Platform template (parent stack) is not accessible"
             exit 1
           fi
 
-          # Test platform template if it should exist
-          if curl -f -s "https://s3.amazonaws.com/watchy-resources-prod/platform/watchy-platform.yaml" > /dev/null; then
-            echo "✅ Platform template is accessible"
+          # Test Slack monitoring template (nested stack)
+          if curl -f -s "https://s3.amazonaws.com/watchy-resources-prod/templates/watchy-slack-monitoring.yaml" > /dev/null; then
+            echo "✅ Slack monitoring template (nested stack) is accessible"
           else
-            echo "ℹ️  Platform template not found (may not exist yet)"
+            echo "❌ Slack monitoring template (nested stack) is not accessible"
+            exit 1
           fi
 
           echo "✅ Template accessibility test completed"
@@ -282,25 +283,43 @@ jobs:
         run: |
           echo "🔍 Validating deployed templates..."
 
-          # Download and validate the deployed template
-          curl -s "https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml" > deployed-template.yaml
+          # Download and validate the deployed platform template (parent stack)
+          curl -s "https://s3.amazonaws.com/watchy-resources-prod/templates/watchy-platform.yaml" > deployed-platform-template.yaml
 
-          # Basic validation
-          if grep -q "AWSTemplateFormatVersion" deployed-template.yaml; then
-            echo "✅ Deployed template has valid CloudFormation format"
+          # Download and validate the deployed Slack template (nested stack)
+          curl -s "https://s3.amazonaws.com/watchy-resources-prod/templates/watchy-slack-monitoring.yaml" > deployed-slack-template.yaml
+
+          # Validate platform template
+          if grep -q "AWSTemplateFormatVersion" deployed-platform-template.yaml; then
+            echo "✅ Platform template has valid CloudFormation format"
           else
-            echo "❌ Deployed template is missing CloudFormation format version"
+            echo "❌ Platform template is missing CloudFormation format version"
             exit 1
           fi
 
-          if grep -q "lambda_handler" deployed-template.yaml; then
-            echo "✅ Deployed template contains Lambda function code"
+          if grep -q "AWS::CloudFormation::Stack" deployed-platform-template.yaml; then
+            echo "✅ Platform template contains nested stack resources"
           else
-            echo "❌ Deployed template is missing Lambda function code"
+            echo "❌ Platform template is missing nested stack configuration"
             exit 1
           fi
 
-          echo "✅ Deployed template validation completed"
+          # Validate Slack template
+          if grep -q "AWSTemplateFormatVersion" deployed-slack-template.yaml; then
+            echo "✅ Slack template has valid CloudFormation format"
+          else
+            echo "❌ Slack template is missing CloudFormation format version"
+            exit 1
+          fi
+
+          if grep -q "lambda_handler" deployed-slack-template.yaml; then
+            echo "✅ Slack template contains Lambda function code"
+          else
+            echo "❌ Slack template is missing Lambda function code"
+            exit 1
+          fi
+
+          echo "✅ Nested stack template validation completed"
 
   # ===== PUBLISH TO PUBLIC GITHUB =====
   publish-to-github:
@@ -330,18 +349,18 @@ jobs:
           echo "📋 Copying files to public repository..."
 
           # Copy CloudFormation templates
-          mkdir -p public-repo/customer-templates/templates
-          cp customer-templates/templates/watchy-slack-monitoring.yaml \
-            public-repo/customer-templates/templates/
+          mkdir -p public-repo/templates
+          cp templates/watchy-platform.yaml public-repo/templates/
+          cp templates/watchy-slack-monitoring.yaml public-repo/templates/
 
           # Copy documentation
           cp README.md public-repo/
-          cp platform/README.md public-repo/platform/
-          cp customer-templates/README.md public-repo/customer-templates/
+          mkdir -p public-repo/docs
+          cp docs/* public-repo/docs/
 
           # Copy utility scripts
-          cp customer-templates/get-template-urls.sh \
-            public-repo/customer-templates/
+          mkdir -p public-repo/scripts
+          cp scripts/get-template-urls.sh public-repo/scripts/
 
           echo "✅ Files copied to public repository"
 
@@ -404,19 +423,21 @@ jobs:
 
           if [ "${{ needs.test-deployment.result }}" = "success" ]; then
             echo ""
-            echo "### ✅ Deployment Successful!"
-            echo "🔗 Slack Monitoring Template: https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml"
+            echo "### ✅ Nested Stack Deployment Successful!"
+            echo "🔗 Platform Template (Parent): https://s3.amazonaws.com/watchy-resources-prod/templates/watchy-platform.yaml"
+            echo "🔗 Slack Template (Nested): https://s3.amazonaws.com/watchy-resources-prod/templates/watchy-slack-monitoring.yaml"
             echo "📚 Documentation: Updated in repository"
             echo ""
-            echo "### 🚀 Quick Deploy Command:"
+            echo "### 🚀 Quick Deploy Command (Nested Stack):"
             echo '```bash'
             echo 'aws cloudformation deploy \'
-            echo '  --template-url https://s3.amazonaws.com/watchy-resources-prod/customer-templates/templates/watchy-slack-monitoring.yaml \'
-            echo '  --stack-name watchy-slack-monitoring \'
+            echo '  --template-url https://s3.amazonaws.com/watchy-resources-prod/templates/watchy-platform.yaml \'
+            echo '  --stack-name Watchy-Platform \'
             echo '  --capabilities CAPABILITY_NAMED_IAM \'
             echo '  --parameter-overrides \'
             echo '    NotificationEmail=your-email@domain.com \'
-            echo '    MonitoringSchedule="rate(5 minutes)"'
+            echo '    MonitoringSchedule="rate(5 minutes)" \'
+            echo '    EnableSlackMonitoring=true'
             echo '```'
           else
             echo ""
@@ -425,10 +446,13 @@ jobs:
           fi
 
           echo ""
-          echo "## 🌟 Open Source Benefits"
+          echo "## 🌟 Nested Stack Architecture Benefits"
           echo "- ✅ Pure Python implementation - no binaries"
           echo "- ✅ All monitoring logic visible in CloudFormation"
-          echo "- ✅ Easy to modify and contribute to"
+          echo "- ✅ Shared resources reduce costs and complexity"
+          echo "- ✅ Easy to add new SaaS monitoring services"
+          echo "- ✅ Centralized management and configuration"
+          echo "- ✅ Community-friendly development"
           echo "- ✅ Faster cold starts and lower memory usage"
           echo "- ✅ Community-friendly development"
           echo "- ✅ Transparent security auditing"

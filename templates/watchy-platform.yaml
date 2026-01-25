@@ -1,0 +1,252 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Watchy Open Source Monitoring Platform - Parent Stack v6.0.0'
+
+Metadata:
+  Version: '6.0.0'
+  LastUpdated: '2025-01-25'
+  RecommendedStackName: 'Watchy-Platform'
+  Architecture: 'Nested Stack'
+  Changelog:
+    - Restored nested stack architecture for better scalability
+    - Parent stack provides shared resources (SNS, IAM, CloudWatch)
+    - Child stacks contain SaaS-specific monitoring implementations
+    - Pure Python open source implementation (no binaries)
+    - Supports multiple SaaS monitoring services as nested stacks
+    - Simplified deployment with transparent monitoring logic
+    - Removed binary dependencies for community contributions
+
+Parameters:
+  # ===== GLOBAL CONFIGURATION =====
+  NotificationEmail:
+    Type: String
+    Description: 'Email address for CloudWatch alarm notifications sent via Simple Notification Service (SNS)'
+    AllowedPattern: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
+    ConstraintDescription: 'Must be a valid email address'
+
+  MonitoringSchedule:
+    Type: String
+    Default: 'rate(5 minutes)'
+    Description: 'Watchy monitoring poll interval (e.g., rate(5 minutes), rate(1 hour))'
+
+  TimeoutSeconds:
+    Type: Number
+    Default: 240
+    MinValue: 30
+    MaxValue: 900
+    Description: 'Timeout in seconds for Lambda monitoring functions'
+
+  RetryAttempts:
+    Type: Number
+    Default: 3
+    MinValue: 1
+    MaxValue: 10
+    Description: 'Number of retry attempts for failed API calls'
+
+  LogLevel:
+    Type: String
+    Default: 'INFO'
+    AllowedValues: ['DEBUG', 'INFO', 'WARNING', 'ERROR']
+    Description: 'Log level for all monitoring functions'
+
+  EnableSlackMonitoring:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: 'Enable Slack monitoring nested stack'
+
+Conditions:
+  DeploySlackMonitoring: !Equals [!Ref EnableSlackMonitoring, 'true']
+
+Resources:
+  # ===== SHARED PLATFORM RESOURCES =====
+
+  # Shared SNS Topic for All SaaS Monitoring Alerts
+  WatchyNotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub 'Watchy-Alerts-${AWS::Region}'
+      DisplayName: !Sub 'Watchy Platform Alerts (${AWS::Region})'
+      Tags:
+        - Key: Project
+          Value: Watchy
+        - Key: Component
+          Value: Notifications
+        - Key: StackName
+          Value: !Ref AWS::StackName
+
+  # Email Subscription to SNS Topic
+  WatchyEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref WatchyNotificationTopic
+      Protocol: email
+      Endpoint: !Ref NotificationEmail
+
+  # Shared IAM Role for All Lambda Functions
+  WatchySharedLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-SharedLambdaRole-${AWS::Region}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: !Sub 'WatchySharedPolicy-${AWS::Region}'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # CloudWatch Metrics for all SaaS apps
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    'cloudwatch:namespace':
+                      - 'Watchy/Slack'
+                      - 'Watchy/GitHub'
+                      - 'Watchy/Zoom'
+              # CloudWatch Logs with Watchy namespace
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogGroups
+                Resource:
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*Watchy*'
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/watchy/*'
+              # SNS Publish for custom notifications
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Ref WatchyNotificationTopic
+
+  # Shared CloudWatch Log Groups
+  WatchyPlatformLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/watchy/platform/${AWS::StackName}'
+      RetentionInDays: 30
+      Tags:
+        - Key: Project
+          Value: Watchy
+        - Key: Component
+          Value: Platform
+
+  # ===== NESTED STACKS FOR SAAS MONITORING =====
+
+  # Slack Monitoring Nested Stack
+  SlackMonitoringStack:
+    Type: AWS::CloudFormation::Stack
+    Condition: DeploySlackMonitoring
+    Properties:
+      TemplateURL: 'https://s3.amazonaws.com/watchy-resources-prod/templates/watchy-slack-monitoring.yaml'
+      Parameters:
+        SaasAppName: 'Slack'
+        ApiUrl: 'https://status.slack.com/api/v2.0.0/current'
+        MonitoringSchedule: !Ref MonitoringSchedule
+        TimeoutSeconds: !Ref TimeoutSeconds
+        RetryAttempts: !Ref RetryAttempts
+        LogLevel: !Ref LogLevel
+        SharedLambdaRoleArn: !GetAtt WatchySharedLambdaRole.Arn
+        NotificationTopicArn: !Ref WatchyNotificationTopic
+        ParentStackName: !Ref AWS::StackName
+      Tags:
+        - Key: Project
+          Value: Watchy
+        - Key: SaasApp
+          Value: Slack
+        - Key: ParentStack
+          Value: !Ref AWS::StackName
+        - Key: Architecture
+          Value: OpenSource
+
+  # Future: GitHub Monitoring Nested Stack
+  # GitHubMonitoringStack:
+  #   Type: AWS::CloudFormation::Stack
+  #   Condition: DeployGitHubMonitoring
+  #   Properties:
+  #     TemplateURL: 'https://s3.amazonaws.com/watchy-resources-prod/templates/watchy-github-monitoring.yaml'
+  #     Parameters:
+  #       SaasAppName: 'GitHub'
+  #       ApiUrl: 'https://www.githubstatus.com/api/v2/status.json'
+  #       MonitoringSchedule: !Ref MonitoringSchedule
+  #       SharedLambdaRoleArn: !GetAtt WatchySharedLambdaRole.Arn
+  #       NotificationTopicArn: !Ref WatchyNotificationTopic
+  #       ParentStackName: !Ref AWS::StackName
+
+Outputs:
+  # ===== SHARED PLATFORM OUTPUTS =====
+  PlatformVersion:
+    Description: 'Watchy platform version'
+    Value: '6.0.0'
+
+  NotificationTopicArn:
+    Description: 'ARN of the shared SNS topic for Watchy monitoring alerts'
+    Value: !Ref WatchyNotificationTopic
+    Export:
+      Name: !Sub '${AWS::StackName}-NotificationTopic'
+
+  SharedLambdaRoleArn:
+    Description: 'ARN of the shared Lambda execution role for Watchy monitoring'
+    Value: !GetAtt WatchySharedLambdaRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-SharedLambdaRole'
+
+  NotificationEmail:
+    Description: 'Email address configured for platform notifications'
+    Value: !Ref NotificationEmail
+
+  PlatformLogGroupName:
+    Description: 'CloudWatch Log Group for platform-level logs'
+    Value: !Ref WatchyPlatformLogGroup
+
+  # ===== NESTED STACK OUTPUTS =====
+  SlackMonitoringStackId:
+    Description: 'Stack ID of the Slack monitoring nested stack'
+    Value: !If [DeploySlackMonitoring, !Ref SlackMonitoringStack, 'Not Deployed']
+
+  SlackMonitoringStackStatus:
+    Description: 'Status of Slack monitoring deployment'
+    Value: !If [DeploySlackMonitoring, 'Deployed', 'Disabled']
+
+  # ===== DEPLOYMENT SUMMARY =====
+  DeploymentSummary:
+    Description: 'Summary of deployed monitoring services'
+    Value: !Sub |
+      Watchy Platform v6.0.0 - Nested Stack Architecture
+
+      Shared Resources:
+      - SNS Topic: ${WatchyNotificationTopic}
+      - IAM Role: ${WatchySharedLambdaRole}
+      - Email: ${NotificationEmail}
+
+      Monitoring Services:
+      - Slack: ${EnableSlackMonitoring}
+
+      Architecture: Open Source Pure Python
+      Region: ${AWS::Region}
+      Stack: ${AWS::StackName}
+
+  QuickStartGuide:
+    Description: 'Quick start guide for using the platform'
+    Value: !Sub |
+      🚀 Watchy Platform Deployed Successfully!
+
+      📧 Check your email (${NotificationEmail}) to confirm SNS subscription
+      📊 CloudWatch dashboards will be available in nested stacks
+      🔔 Alerts will be sent to the confirmed email address
+
+      Next Steps:
+      1. Confirm SNS email subscription
+      2. View CloudWatch dashboards for monitoring data
+      3. Test alerts by checking service status
+
+      Documentation: https://github.com/your-org/watchy-core

@@ -1,35 +1,50 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Watchy Monitoring Platform - Slack v3.0.0'
+Description: 'Watchy Slack Monitoring - Nested Stack v4.0.0'
 
 Metadata:
-  Version: '3.0.0'
+  Version: '4.0.0'
   LastUpdated: '2025-01-25'
+  Architecture: 'Nested Stack - Open Source'
   Changelog:
-    - Completely open source architecture - no more Nuitka binaries
-    - Merged Slack monitoring logic directly into Lambda function
-    - Pure Python implementation for better maintainability and transparency
-    - Removed binary distribution dependencies and complexity
-    - Simplified deployment with single Lambda function
-    - Reduced memory requirements from 512MB to 256MB
-    - Eliminated binary download overhead and cold start delays
-    - All monitoring logic now visible in CloudFormation template
-    - Removed one-time infrastructure scripts
-    - Streamlined for open source development and contributions
+    - Redesigned as nested stack for parent platform deployment
+    - Pure Python open source implementation (no binaries)
+    - All monitoring logic visible in CloudFormation template
+    - Receives shared resources from parent stack (SNS, IAM role)
+    - Self-contained Slack monitoring with CloudWatch integration
+    - Simplified deployment with transparent monitoring logic
+    - Removed binary dependencies for community contributions
 
 Parameters:
-  # ===== STANDARDIZED PARAMETERS FROM PARENT =====
+  # ===== INHERITED FROM PARENT STACK =====
   SaasAppName:
     Type: String
     Default: 'Slack'
-    Description: 'Name of the SaaS application'
+    Description: 'Name of the SaaS application being monitored'
 
   ApiUrl:
     Type: String
+    Default: 'https://status.slack.com/api/v2.0.0/current'
     Description: 'Slack Status API endpoint URL'
 
   MonitoringSchedule:
     Type: String
+    Default: 'rate(5 minutes)'
     Description: 'Schedule expression for monitoring frequency'
+
+  TimeoutSeconds:
+    Type: Number
+    Default: 240
+    Description: 'Lambda function timeout in seconds'
+
+  RetryAttempts:
+    Type: Number
+    Default: 3
+    Description: 'Number of retry attempts for failed API calls'
+
+  LogLevel:
+    Type: String
+    Default: 'INFO'
+    Description: 'Log level for monitoring function'
 
   SharedLambdaRoleArn:
     Type: String
@@ -37,26 +52,11 @@ Parameters:
 
   NotificationTopicArn:
     Type: String
-    Description: 'ARN of the shared SNS topic for notifications'
+    Description: 'ARN of the shared SNS topic for notifications from parent stack'
 
   ParentStackName:
     Type: String
     Description: 'Name of the parent platform stack'
-
-  LogLevel:
-    Type: String
-    Default: 'INFO'
-    Description: 'Log level for monitoring'
-
-  TimeoutSeconds:
-    Type: Number
-    Default: 240
-    Description: 'Timeout for monitoring operations'
-
-  RetryAttempts:
-    Type: Number
-    Default: 3
-    Description: 'Number of retry attempts'
 
 Resources:
   # ===== CLOUDWATCH LOG GROUPS =====

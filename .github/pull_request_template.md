@@ -45,7 +45,7 @@ If this PR includes CloudFormation changes:
 
 ```bash
 aws cloudformation deploy \
-  --template-file customer-templates/templates/watchy-slack-monitoring.yaml \
+  --template-file templates/watchy-slack-monitoring.yaml \
   --stack-name test-watchy-pr-[PR-NUMBER] \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
