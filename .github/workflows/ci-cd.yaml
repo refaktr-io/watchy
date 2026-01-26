@@ -87,7 +87,7 @@ jobs:
           echo "🔍 Testing CloudFormation template syntax with AWS CLI..."
           # Test main templates
           aws cloudformation validate-template \
-            --template-body file://templates/watchy-slack-monitoring.yaml \
+            --template-body file://templates/watchy-monitoring-slack.yaml \
             --region ${{ env.AWS_REGION }} --no-cli-pager
           aws cloudformation validate-template \
             --template-body file://templates/watchy-platform.yaml \
@@ -252,7 +252,7 @@ jobs:
           fi
 
           # Test Slack monitoring template (nested stack)
-          if curl -f -s "https://s3.amazonaws.com/watchy-templates/watchy-slack-monitoring.yaml" > /dev/null; then
+          if curl -f -s "https://s3.amazonaws.com/watchy-templates/watchy-monitoring-slack.yaml" > /dev/null; then
             echo "✅ Slack monitoring template (nested stack) is accessible"
           else
             echo "❌ Slack monitoring template (nested stack) is not accessible"
@@ -269,7 +269,7 @@ jobs:
           curl -s "https://s3.amazonaws.com/watchy-templates/watchy-platform.yaml" > deployed-platform-template.yaml
 
           # Download and validate the deployed Slack template (nested stack)
-          curl -s "https://s3.amazonaws.com/watchy-templates/watchy-slack-monitoring.yaml" > deployed-slack-template.yaml
+          curl -s "https://s3.amazonaws.com/watchy-templates/watchy-monitoring-slack.yaml" > deployed-slack-template.yaml
 
           # Validate platform template
           if grep -q "AWSTemplateFormatVersion" deployed-platform-template.yaml; then
@@ -333,7 +333,7 @@ jobs:
           # Copy CloudFormation templates
           mkdir -p public-repo/templates
           cp templates/watchy-platform.yaml public-repo/templates/
-          cp templates/watchy-slack-monitoring.yaml public-repo/templates/
+          cp templates/watchy-monitoring-slack.yaml public-repo/templates/
 
           # Copy documentation
           cp README.md public-repo/
@@ -400,7 +400,7 @@ jobs:
             echo ""
             echo "### ✅ Nested Stack Deployment Successful!"
             echo "🔗 Platform Template (Parent): https://s3.amazonaws.com/watchy-templates/watchy-platform.yaml"
-            echo "🔗 Slack Template (Nested): https://s3.amazonaws.com/watchy-templates/watchy-slack-monitoring.yaml"
+            echo "🔗 Slack Template (Nested): https://s3.amazonaws.com/watchy-templates/watchy-monitoring-slack.yaml"
             echo "📚 Documentation: Updated in repository"
             echo ""
             echo "### 🚀 Quick Deploy Command (Nested Stack):"

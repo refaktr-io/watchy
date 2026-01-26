@@ -12,7 +12,7 @@ Monitor SaaS application status with Amazon CloudWatch using **nested stack arch
 watchy-core/
 ├── templates/
 │   ├── watchy-platform.yaml          # Parent stack (shared resources)
-│   └── watchy-slack-monitoring.yaml  # Slack monitoring nested stack
+│   └── watchy-monitoring-slack.yaml  # Slack monitoring nested stack
 └── README.md                         # This file
 ```
 
@@ -47,7 +47,7 @@ aws cloudformation deploy \
 - **CloudWatch Log Groups**: Platform-level logging infrastructure
 - **Email Subscription**: Automatic SNS email subscription setup
 
-### Slack Monitoring Nested Stack (`watchy-slack-monitoring.yaml`)
+### Slack Monitoring Nested Stack (`watchy-monitoring-slack.yaml`)
 - **Lambda Function**: Pure Python 3.13 monitoring Slack Status API
 - **CloudWatch Metrics**: Tracks 11 Slack service health metrics
 - **CloudWatch Alarms**: Service-specific alerts for incidents and outages
@@ -123,7 +123,7 @@ Each service has its own metric with values:
 ### Alternative: Standalone Deployment
 ```bash
 aws cloudformation deploy \
-  --template-url https://s3.amazonaws.com/watchy-templates/watchy-slack-monitoring.yaml \
+  --template-url https://s3.amazonaws.com/watchy-templates/watchy-monitoring-slack.yaml \
   --stack-name watchy-slack-monitoring \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
