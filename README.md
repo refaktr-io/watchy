@@ -1,6 +1,6 @@
 # Watchy - Open Source SaaS Monitoring Platform
 
-[![Deploy to AWS](https://img.shields.io/badge/Deploy%20to-AWS-FF9900?style=for-the-badge&logo=amazon-aws)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?templateURL=https://s3.amazonaws.com/watchy-templates/watchy-platform.yaml&stackName=Watchy-Platform)
+[![Deploy to AWS](https://img.shields.io/badge/Deploy%20to-AWS-FF9900?style=for-the-badge&logo=amazon-aws)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?templateURL=https://s3.amazonaws.com/watchy-resources/watchy-platform.yaml&stackName=Watchy-Platform)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![GitHub](https://img.shields.io/badge/GitHub-Open%20Source-green?logo=github)](https://github.com/your-org/watchy-core)
 
@@ -30,7 +30,7 @@ Deploy the complete Watchy platform with nested stack architecture:
 
 ```bash
 aws cloudformation deploy \
-  --template-url https://s3.amazonaws.com/watchy-templates/watchy-platform.yaml \
+  --template-url https://s3.amazonaws.com/watchy-resources/watchy-platform.yaml \
   --stack-name Watchy-Platform \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
@@ -123,7 +123,7 @@ Each service has its own metric with values:
 ### Alternative: Standalone Deployment
 ```bash
 aws cloudformation deploy \
-  --template-url https://s3.amazonaws.com/watchy-templates/watchy-monitoring-slack.yaml \
+  --template-url https://s3.amazonaws.com/watchy-resources/watchy-monitoring-slack.yaml \
   --stack-name watchy-slack-monitoring \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
@@ -288,7 +288,7 @@ aws logs describe-log-streams \
 ```bash
 # Update parent stack (will update nested stacks automatically)
 aws cloudformation deploy \
-  --template-url https://s3.amazonaws.com/watchy-templates/watchy-platform.yaml \
+  --template-url https://s3.amazonaws.com/watchy-resources/watchy-platform.yaml \
   --stack-name Watchy-Platform \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \

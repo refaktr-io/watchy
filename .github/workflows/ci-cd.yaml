@@ -198,7 +198,7 @@ jobs:
           VERSION=$(date -u +%Y.%m.%d.%H%M%S)-${GITHUB_SHA:0:7}
 
           # Deploy to production bucket
-          TEMPLATE_BUCKET="watchy-templates"
+          TEMPLATE_BUCKET="watchy-resources"
 
           echo "✅ Deploying templates to bucket: $TEMPLATE_BUCKET"
 
@@ -244,7 +244,7 @@ jobs:
           echo "🧪 Testing template accessibility..."
 
           # Test platform template (parent stack)
-          if curl -f -s "https://s3.amazonaws.com/watchy-templates/watchy-platform.yaml" > /dev/null; then
+          if curl -f -s "https://s3.amazonaws.com/watchy-resources/watchy-platform.yaml" > /dev/null; then
             echo "✅ Platform template (parent stack) is accessible"
           else
             echo "❌ Platform template (parent stack) is not accessible"
@@ -252,7 +252,7 @@ jobs:
           fi
 
           # Test Slack monitoring template (nested stack)
-          if curl -f -s "https://s3.amazonaws.com/watchy-templates/watchy-monitoring-slack.yaml" > /dev/null; then
+          if curl -f -s "https://s3.amazonaws.com/watchy-resources/watchy-monitoring-slack.yaml" > /dev/null; then
             echo "✅ Slack monitoring template (nested stack) is accessible"
           else
             echo "❌ Slack monitoring template (nested stack) is not accessible"
@@ -266,10 +266,10 @@ jobs:
           echo "🔍 Validating deployed templates..."
 
           # Download and validate the deployed platform template (parent stack)
-          curl -s "https://s3.amazonaws.com/watchy-templates/watchy-platform.yaml" > deployed-platform-template.yaml
+          curl -s "https://s3.amazonaws.com/watchy-resources/watchy-platform.yaml" > deployed-platform-template.yaml
 
           # Download and validate the deployed Slack template (nested stack)
-          curl -s "https://s3.amazonaws.com/watchy-templates/watchy-monitoring-slack.yaml" > deployed-slack-template.yaml
+          curl -s "https://s3.amazonaws.com/watchy-resources/watchy-monitoring-slack.yaml" > deployed-slack-template.yaml
 
           # Validate platform template
           if grep -q "AWSTemplateFormatVersion" deployed-platform-template.yaml; then
@@ -399,14 +399,14 @@ jobs:
           if [ "${{ needs.test-deployment.result }}" = "success" ]; then
             echo ""
             echo "### ✅ Nested Stack Deployment Successful!"
-            echo "🔗 Platform Template (Parent): https://s3.amazonaws.com/watchy-templates/watchy-platform.yaml"
-            echo "🔗 Slack Template (Nested): https://s3.amazonaws.com/watchy-templates/watchy-monitoring-slack.yaml"
+            echo "🔗 Platform Template (Parent): https://s3.amazonaws.com/watchy-resources/watchy-platform.yaml"
+            echo "🔗 Slack Template (Nested): https://s3.amazonaws.com/watchy-resources/watchy-monitoring-slack.yaml"
             echo "📚 Documentation: Updated in repository"
             echo ""
             echo "### 🚀 Quick Deploy Command (Nested Stack):"
             echo '```bash'
             echo 'aws cloudformation deploy \'
-            echo '  --template-url https://s3.amazonaws.com/watchy-templates/watchy-platform.yaml \'
+            echo '  --template-url https://s3.amazonaws.com/watchy-resources/watchy-platform.yaml \'
             echo '  --stack-name Watchy-Platform \'
             echo '  --capabilities CAPABILITY_NAMED_IAM \'
             echo '  --parameter-overrides \'

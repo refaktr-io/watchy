@@ -125,7 +125,7 @@ body:
       label: CloudFormation Template Details
       description: If this is related to CloudFormation deployment
       placeholder: |
-        Template URL: https://s3.amazonaws.com/watchy-templates/watchy-platform.yaml
+        Template URL: https://s3.amazonaws.com/watchy-resources/watchy-platform.yaml
         Stack Name:
         Parameters used:
         Error message:

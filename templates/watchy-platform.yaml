@@ -138,7 +138,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Condition: DeploySlackMonitoring
     Properties:
-      TemplateURL: 'https://s3.amazonaws.com/watchy-templates/watchy-monitoring-slack.yaml'
+      TemplateURL: 'https://s3.amazonaws.com/watchy-resources/watchy-monitoring-slack.yaml'
       Parameters:
         SaasAppName: 'Slack'
         ApiUrl: 'https://status.slack.com/api/v2.0.0/current'
@@ -164,7 +164,7 @@ Resources:
   #   Type: AWS::CloudFormation::Stack
   #   Condition: DeployGitHubMonitoring
   #   Properties:
-  #     TemplateURL: 'https://s3.amazonaws.com/watchy-templates/watchy-github-monitoring.yaml'
+  #     TemplateURL: 'https://s3.amazonaws.com/watchy-resources/watchy-github-monitoring.yaml'
   #     Parameters:
   #       SaasAppName: 'GitHub'
   #       ApiUrl: 'https://www.githubstatus.com/api/v2/status.json'
