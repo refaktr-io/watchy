@@ -1,19 +1,10 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Watchy Open Source Monitoring Platform - Parent Stack v6.0.0'
+Description: 'Watchy Monitoring Platform - Parent Stack v1.0.0'
 
 Metadata:
-  Version: '6.0.0'
+  Version: '1.0.0'
   LastUpdated: '2025-01-25'
-  RecommendedStackName: 'Watchy-Platform'
-  Architecture: 'Nested Stack'
-  Changelog:
-    - Restored nested stack architecture for better scalability
-    - Parent stack provides shared resources (SNS, IAM, CloudWatch)
-    - Child stacks contain SaaS-specific monitoring implementations
-    - Pure Python open source implementation (no binaries)
-    - Supports multiple SaaS monitoring services as nested stacks
-    - Simplified deployment with transparent monitoring logic
-    - Removed binary dependencies for community contributions
+  RecommendedStackName: 'Watchy'
 
 Parameters:
   # ===== GLOBAL CONFIGURATION =====

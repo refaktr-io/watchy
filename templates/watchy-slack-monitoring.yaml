@@ -1,18 +1,9 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Watchy Slack Monitoring - Nested Stack v4.0.0'
+Description: 'Watchy Slack Monitoring - Nested Stack v1.0.0'
 
 Metadata:
-  Version: '4.0.0'
+  Version: '1.0.0'
   LastUpdated: '2025-01-25'
-  Architecture: 'Nested Stack - Open Source'
-  Changelog:
-    - Redesigned as nested stack for parent platform deployment
-    - Pure Python open source implementation (no binaries)
-    - All monitoring logic visible in CloudFormation template
-    - Receives shared resources from parent stack (SNS, IAM role)
-    - Self-contained Slack monitoring with CloudWatch integration
-    - Simplified deployment with transparent monitoring logic
-    - Removed binary dependencies for community contributions
 
 Parameters:
   # ===== INHERITED FROM PARENT STACK =====
