@@ -108,10 +108,6 @@ Resources:
           from datetime import datetime, timedelta, timezone
           from typing import Dict, Any, List
 
-          # Version information
-          VERSION = "2.0.0-lambda"
-          BUILD_DATE = "2025-01-25T10:30:00Z"
-
           def log_json(level: str, message: str, **kwargs):
               """Log structured JSON messages to reduce visual clutter"""
               if level in ['ERROR', 'WARN', 'INFO']:
