@@ -193,7 +193,7 @@ jobs:
     name: Build Lambda Functions
     runs-on: ubuntu-latest
     needs: [detect-changes, validate]
-    # Always run on manual dispatch, or when lambda/templates change on main branch
+    # Run when: manual dispatch, OR on main branch when anything changes that requires deployment
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.ref == 'refs/heads/main' && 

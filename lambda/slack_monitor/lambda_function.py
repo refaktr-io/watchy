@@ -12,7 +12,7 @@ from typing import Dict, Any, List
 # Version information - will be set during build
 VERSION = os.getenv('LAMBDA_VERSION', '1.0.0')
 
-# Build trigger: Updated 2025-01-26 - Force rebuild
+# Build trigger: Updated 2025-01-26 - Force rebuild for S3 deployment fix
 
 def log_json(level: str, message: str, **kwargs):
     """Log structured JSON messages to reduce visual clutter"""
