@@ -233,12 +233,10 @@ jobs:
         cd lambda/slack_monitor
         
         # Set build metadata
-        export BUILD_DATE=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
         export LAMBDA_VERSION="1.0.0-${GITHUB_SHA:0:7}"
         
         echo "Building Slack Monitor Lambda..."
         echo "Version: $LAMBDA_VERSION"
-        echo "Build Date: $BUILD_DATE"
         
         # Create build directory
         mkdir -p build

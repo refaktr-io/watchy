@@ -11,7 +11,6 @@ from typing import Dict, Any, List
 
 # Version information - will be set during build
 VERSION = os.getenv('LAMBDA_VERSION', '1.0.0')
-BUILD_DATE = os.getenv('BUILD_DATE', datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC'))
 
 # Build trigger: Updated 2025-01-26 - Force rebuild
 
@@ -396,7 +395,6 @@ def lambda_handler(event, context):
 
     try:
         print(f"Watchy Slack Monitor v{VERSION} starting...")
-        print(f"Build Date: {BUILD_DATE}")
         print("Runtime: Pure Python Lambda")
 
         # Get configuration from environment variables with defaults
