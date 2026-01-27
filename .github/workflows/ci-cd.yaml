@@ -336,7 +336,6 @@ jobs:
           # Deploy templates to S3 (to root of bucket)
           aws s3 sync cloudformation/ \
             s3://${TEMPLATE_BUCKET}/ \
-            --delete \
             --cache-control "max-age=3600" \
             --region ${{ env.AWS_REGION }}
 
