@@ -10,9 +10,16 @@ Monitor SaaS application status with Amazon CloudWatch using **nested stack arch
 
 ```
 watchy-core/
-├── templates/
+├── cloudformation/
 │   ├── watchy-platform.yaml          # Parent stack (shared resources)
 │   └── watchy-monitoring-slack.yaml  # Slack monitoring nested stack
+├── lambda/
+│   ├── slack_monitor/                # Slack monitoring Lambda function
+│   │   ├── lambda_function.py        # Main handler code
+│   │   └── requirements.txt          # Python dependencies
+│   └── README.md                     # Lambda development guide
+├── .github/workflows/
+│   └── ci-cd.yaml                    # Integrated CI/CD pipeline
 └── README.md                         # This file
 ```
 
@@ -30,7 +37,7 @@ Deploy the complete Watchy platform with nested stack architecture:
 
 ```bash
 aws cloudformation deploy \
-  --template-url https://s3.amazonaws.com/watchy-resources/watchy-platform.yaml \
+  --template-url https://s3.amazonaws.com/watchy-resources/cloudformation/watchy-platform.yaml \
   --stack-name Watchy-Platform \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
@@ -123,7 +130,7 @@ Each service has its own metric with values:
 ### Alternative: Standalone Deployment
 ```bash
 aws cloudformation deploy \
-  --template-url https://s3.amazonaws.com/watchy-resources/watchy-monitoring-slack.yaml \
+  --template-url https://s3.amazonaws.com/watchy-resources/cloudformation/watchy-monitoring-slack.yaml \
   --stack-name watchy-slack-monitoring \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
@@ -288,7 +295,7 @@ aws logs describe-log-streams \
 ```bash
 # Update parent stack (will update nested stacks automatically)
 aws cloudformation deploy \
-  --template-url https://s3.amazonaws.com/watchy-resources/watchy-platform.yaml \
+  --template-url https://s3.amazonaws.com/watchy-resources/cloudformation/watchy-platform.yaml \
   --stack-name Watchy-Platform \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
@@ -352,11 +359,47 @@ We welcome contributions! The open source architecture makes it easy to:
 - Fix bugs and add features
 
 ### Development Workflow
+
+#### Local Development
 1. Fork the repository
 2. Create a feature branch
-3. Make changes to the CloudFormation templates in `templates/`
-4. Test with your AWS account
-5. Submit a pull request
+3. Make changes to Lambda functions in `lambda/`
+4. Test locally by running the Python code directly
+5. Update CloudFormation templates in `cloudformation/`
+6. Test with your AWS account
+
+#### Automated Deployment
+The repository includes an integrated CI/CD pipeline for automated building and deployment:
+
+- **Triggers**: Changes to `lambda/`, `cloudformation/`, or workflow files
+- **Process**: 
+  1. Detects what changed (templates, Lambda code, workflows)
+  2. Validates Python syntax and CloudFormation templates
+  3. Builds Lambda deployment packages with versioning
+  4. Uploads Lambda packages to `watchy-resources` S3 bucket
+  5. Deploys CloudFormation templates to S3
+  6. Tests accessibility of all deployed artifacts
+  7. Publishes to public GitHub repository (if configured)
+
+**Pipeline Jobs:**
+- `detect-changes`: Determines what files changed
+- `validate`: Validates syntax and templates
+- `security-scan`: Scans for security issues
+- `build-lambda`: Builds and uploads Lambda packages
+- `deploy-templates`: Deploys CloudFormation templates
+- `test-deployment`: Validates deployed artifacts
+
+#### Adding New Lambda Functions
+1. Create new directory under `lambda/`
+2. Add `lambda_function.py` with handler
+3. Add `requirements.txt` for dependencies
+4. Update GitHub Actions workflow if needed
+5. Create corresponding CloudFormation resources
+
+#### Testing
+- **Local testing**: Use the build script and test functions locally
+- **AWS testing**: Deploy to your own AWS account first
+- **Validation**: GitHub Actions validates all templates automatically
 
 ## 🚀 Roadmap
 

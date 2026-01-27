@@ -1,29 +1,55 @@
-# macOS system files
+# Lambda build artifacts
+lambda/*/build/
+lambda/*/*.zip
+lambda/*/__pycache__/
+lambda/*/.pytest_cache/
+
+# Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.so
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git
+.mypy_cache
+.pytest_cache
+.hypothesis
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
-.AppleDouble
-.LSOverride
-
-# Icon must end with two \r
-Icon
-
-# Thumbnails
+.DS_Store?
 ._*
-
-# Files that might appear in the root of a volume
-.DocumentRevisions-V100
-.fseventsd
 .Spotlight-V100
-.TemporaryItems
 .Trashes
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
+ehthumbs.db
+Thumbs.db
 
-# Directories potentially created on remote AFP share
-.AppleDB
-.AppleDesktop
-Network Trash Folder
-Temporary Items
-.apdisk
+# AWS
+.aws/
+*.pem
 
-# iCloud generated files
-*.icloud
+# Temporary files
+*.tmp
+*.temp
+response.json

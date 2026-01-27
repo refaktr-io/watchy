@@ -1,0 +1,556 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Watchy Slack Monitoring - Nested Stack v1.0.0'
+
+Metadata:
+  Version: '1.0.0'
+  LastUpdated: '2025-01-25'
+
+Parameters:
+  # ===== INHERITED FROM PARENT STACK =====
+  SaasAppName:
+    Type: String
+    Default: 'Slack'
+    Description: 'Name of the SaaS application being monitored'
+
+  ApiUrl:
+    Type: String
+    Default: 'https://status.slack.com/api/v2.0.0/current'
+    Description: 'Slack Status API endpoint URL'
+
+  MonitoringSchedule:
+    Type: String
+    Default: 'rate(5 minutes)'
+    Description: 'Schedule expression for monitoring frequency'
+
+  TimeoutSeconds:
+    Type: Number
+    Default: 240
+    Description: 'Lambda function timeout in seconds'
+
+  RetryAttempts:
+    Type: Number
+    Default: 3
+    Description: 'Number of retry attempts for failed API calls'
+
+  LogLevel:
+    Type: String
+    Default: 'INFO'
+    Description: 'Log level for monitoring function'
+
+  SharedLambdaRoleArn:
+    Type: String
+    Description: 'ARN of the shared Lambda execution role from parent stack'
+
+  NotificationTopicArn:
+    Type: String
+    Description: 'ARN of the shared SNS topic for notifications from parent stack'
+
+  ParentStackName:
+    Type: String
+    Description: 'Name of the parent platform stack'
+
+Resources:
+  # ===== CLOUDWATCH LOG GROUPS =====
+  SlackIncidentLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /watchy/slack
+      RetentionInDays: 30
+
+  SlackLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${ParentStackName}-SlackMonitor'
+      RetentionInDays: 7
+
+  # ===== SLACK MONITORING LAMBDA =====
+  SlackMonitoringLambda:
+    Type: AWS::Lambda::Function
+    DependsOn:
+      - SlackLambdaLogGroup
+    Properties:
+      Architectures:
+        - x86_64
+      Description: 'Watchy Slack status monitoring with pure Python implementation'
+      FunctionName: !Sub '${ParentStackName}-SlackMonitor'
+      Runtime: python3.13
+      Handler: lambda_function.lambda_handler
+      Role: !Ref SharedLambdaRoleArn
+      Timeout: 300
+      MemorySize: 256  # Reduced memory for pure Python implementation
+      Environment:
+        Variables:
+          # Slack-specific configuration
+          SAAS_APP_NAME: !Ref SaasAppName
+          API_URL: !Ref ApiUrl
+          CLOUDWATCH_NAMESPACE: !Sub 'Watchy/${SaasAppName}'
+          CLOUDWATCH_LOG_GROUP: '/watchy/slack'
+          POLLING_INTERVAL_MINUTES: '5'
+
+          # Platform configuration
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopicArn
+
+          # Runtime configuration
+          WATCHY_LOG_LEVEL: !Ref LogLevel
+          WATCHY_TIMEOUT_SECONDS: !Ref TimeoutSeconds
+          WATCHY_RETRY_ATTEMPTS: !Ref RetryAttempts
+          WATCHY_STACK_NAME: !Ref ParentStackName
+          
+          # Version information (set during deployment)
+          LAMBDA_VERSION: '1.0.0'
+          BUILD_DATE: !Sub '${AWS::StackName}-${AWS::Region}'
+      Code:
+        S3Bucket: 'watchy-resources'
+        S3Key: 'lambda/slack-monitor.zip'
+
+  # ===== SLACK MONITORING SCHEDULE =====
+  SlackScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub '${ParentStackName}-SlackSchedule'
+      Description: 'Schedule for Slack status monitoring'
+      ScheduleExpression: !Ref MonitoringSchedule
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt SlackMonitoringLambda.Arn
+          Id: SlackMonitoringTarget
+
+  SlackLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt SlackMonitoringLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt SlackScheduleRule.Arn
+
+  # ===== SLACK CLOUDWATCH ALARMS =====
+  # Slack Service Alarms
+  SlackAPIResponseAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ParentStackName}-Slack-APIResponse'
+      AlarmDescription: 'Slack Status API response monitoring'
+      MetricName: APIResponse
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 200
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: breaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackLoginSSOAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'Watchy-Slack-LoginSSO-${AWS::Region}'
+      AlarmDescription: 'Slack Login/SSO service - alerts on incident (2) and outage (3)'
+      MetricName: LoginSSO
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackMessagingAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'Watchy-Slack-Messaging-${AWS::Region}'
+      AlarmDescription: 'Slack Messaging service - alerts on incident (2) and outage (3)'
+      MetricName: Messaging
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackNotificationsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'Watchy-Slack-Notifications-${AWS::Region}'
+      AlarmDescription: 'Slack Notifications service - alerts on incident (2) and outage (3)'
+      MetricName: Notifications
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackSearchAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'Watchy-Slack-Search-${AWS::Region}'
+      AlarmDescription: 'Slack Search service - alerts on incident (2) and outage (3)'
+      MetricName: Search
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackWorkspaceOrgAdministrationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'Watchy-Slack-WorkspaceOrgAdministration-${AWS::Region}'
+      AlarmDescription: 'Slack Workspace/Org Administration service - alerts on incident (2) and outage (3)'
+      MetricName: WorkspaceOrgAdministration
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackCanvasesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'Watchy-Slack-Canvases-${AWS::Region}'
+      AlarmDescription: 'Slack Canvases service - alerts on incident (2) and outage (3)'
+      MetricName: Canvases
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackConnectivityAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'Watchy-Slack-Connectivity-${AWS::Region}'
+      AlarmDescription: 'Slack Connectivity service - alerts on incident (2) and outage (3)'
+      MetricName: Connectivity
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackFilesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'Watchy-Slack-Files-${AWS::Region}'
+      AlarmDescription: 'Slack Files service - alerts on incident (2) and outage (3)'
+      MetricName: Files
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackHuddlesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'Watchy-Slack-Huddles-${AWS::Region}'
+      AlarmDescription: 'Slack Huddles service - alerts on incident (2) and outage (3)'
+      MetricName: Huddles
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackAppsIntegrationsAPIsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'Watchy-Slack-AppsIntegrationsAPIs-${AWS::Region}'
+      AlarmDescription: 'Slack Apps/Integrations/APIs service - alerts on incident (2) and outage (3)'
+      MetricName: AppsIntegrationsAPIs
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  SlackWorkflowsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'Watchy-Slack-Workflows-${AWS::Region}'
+      AlarmDescription: 'Slack Workflows service - alerts on incident (2) and outage (3)'
+      MetricName: Workflows
+      Namespace: Watchy/Slack
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  # ===== CLOUDWATCH DASHBOARD =====
+  SlackMonitoringDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub '${ParentStackName}-Slack'
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "properties": {
+                "metrics": [
+                  ["Watchy/Slack", "LoginSSO", {"label": "Login/SSO", "color": "#1f77b4"}],
+                  [".", "Messaging", {"label": "Messaging", "color": "#ff7f0e"}],
+                  [".", "Notifications", {"label": "Notifications", "color": "#2ca02c"}],
+                  [".", "Search", {"label": "Search", "color": "#d62728"}],
+                  [".", "WorkspaceOrgAdministration", {"label": "Workspace/Org Admin", "color": "#9467bd"}],
+                  [".", "Canvases", {"label": "Canvases", "color": "#8c564b"}],
+                  [".", "Connectivity", {"label": "Connectivity", "color": "#e377c2"}],
+                  [".", "Files", {"label": "Files", "color": "#7f7f7f"}],
+                  [".", "Huddles", {"label": "Huddles", "color": "#bcbd22"}],
+                  [".", "AppsIntegrationsAPIs", {"label": "Apps/Integrations/APIs", "color": "#17becf"}],
+                  [".", "Workflows", {"label": "Workflows", "color": "#ff9896"}]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Slack Service Health Status",
+                "period": 300,
+                "stat": "Average",
+                "yAxis": {
+                  "left": {
+                    "min": 0,
+                    "max": 3,
+                    "label": "Status"
+                  }
+                },
+                "annotations": {
+                  "horizontal": [
+                    {
+                      "label": "Outage",
+                      "value": 3,
+                      "fill": "above",
+                      "color": "#d62728"
+                    },
+                    {
+                      "label": "Incident",
+                      "value": 2,
+                      "fill": "above",
+                      "color": "#ff7f0e"
+                    },
+                    {
+                      "label": "Notice",
+                      "value": 1,
+                      "fill": "above",
+                      "color": "#ffbb78"
+                    },
+                    {
+                      "label": "Healthy",
+                      "value": 0,
+                      "color": "#2ca02c"
+                    }
+                  ]
+                },
+                "legend": {
+                  "position": "bottom"
+                }
+              },
+              "width": 24,
+              "height": 6
+            },
+            {
+              "type": "metric",
+              "properties": {
+                "metrics": [
+                  ["Watchy/Slack", "ActiveIncidents", {"label": "Active Incidents", "stat": "Maximum", "color": "#d62728"}]
+                ],
+                "view": "singleValue",
+                "region": "${AWS::Region}",
+                "title": "Active Incidents",
+                "period": 300,
+                "stat": "Maximum"
+              },
+              "width": 6,
+              "height": 6
+            },
+            {
+              "type": "metric",
+              "properties": {
+                "metrics": [
+                  ["Watchy/Slack", "APIResponse", {"label": "API Response Code", "color": "#2ca02c"}]
+                ],
+                "view": "singleValue",
+                "region": "${AWS::Region}",
+                "title": "Slack Status API",
+                "period": 300,
+                "stat": "Average"
+              },
+              "width": 6,
+              "height": 6
+            },
+            {
+              "type": "log",
+              "properties": {
+                "query": "SOURCE '/watchy/slack'\n| fields @timestamp, incident_title, incident_status, note_body\n| filter ispresent(incident_id)\n| sort @timestamp desc\n| limit 20",
+                "region": "${AWS::Region}",
+                "title": "Recent Incident Updates",
+                "stacked": false
+              },
+              "width": 12,
+              "height": 6
+            },
+            {
+              "type": "metric",
+              "properties": {
+                "metrics": [
+                  ["AWS/Lambda", "Invocations", {"stat": "Sum", "label": "Invocations", "id": "m1"}],
+                  [".", "Errors", {"stat": "Sum", "label": "Errors", "color": "#d62728", "id": "m2"}],
+                  [".", "Duration", {"stat": "Average", "label": "Avg Duration (ms)", "yAxis": "right", "id": "m3"}]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Lambda Function Metrics",
+                "period": 300,
+                "yAxis": {
+                  "right": {
+                    "label": "Duration (ms)"
+                  },
+                  "left": {
+                    "label": "Count"
+                  }
+                }
+              },
+              "width": 12,
+              "height": 6
+            },
+            {
+              "type": "metric",
+              "properties": {
+                "metrics": [
+                  ["Watchy/Slack", "LoginSSO", {"stat": "Maximum"}],
+                  [".", "Messaging", {"stat": "Maximum"}],
+                  [".", "Notifications", {"stat": "Maximum"}],
+                  [".", "Search", {"stat": "Maximum"}],
+                  [".", "WorkspaceOrgAdministration", {"stat": "Maximum"}],
+                  [".", "Canvases", {"stat": "Maximum"}],
+                  [".", "Connectivity", {"stat": "Maximum"}],
+                  [".", "Files", {"stat": "Maximum"}],
+                  [".", "Huddles", {"stat": "Maximum"}],
+                  [".", "AppsIntegrationsAPIs", {"stat": "Maximum"}],
+                  [".", "Workflows", {"stat": "Maximum"}]
+                ],
+                "view": "singleValue",
+                "region": "${AWS::Region}",
+                "title": "Current Service Status (0=OK, 1=Notice, 2=Incident, 3=Outage)",
+                "period": 300,
+                "stat": "Maximum"
+              },
+              "width": 12,
+              "height": 6
+            }
+          ]
+        }
+
+Outputs:
+  LambdaFunctionName:
+    Description: 'Slack monitoring Lambda function name'
+    Value: !Ref SlackMonitoringLambda
+
+  LambdaFunctionArn:
+    Description: 'Slack monitoring Lambda function ARN'
+    Value: !GetAtt SlackMonitoringLambda.Arn
+
+  IncidentLogGroup:
+    Description: 'CloudWatch Log Group for Slack incidents'
+    Value: !Ref SlackIncidentLogGroup
+
+  LambdaLogGroup:
+    Description: 'CloudWatch Log Group for Lambda execution logs'
+    Value: !Ref SlackLambdaLogGroup
+
+  APIResponseAlarm:
+    Description: 'Slack API Response alarm ARN'
+    Value: !GetAtt SlackAPIResponseAlarm.Arn
+
+  LoginSSOAlarm:
+    Description: 'Slack Login/SSO alarm ARN'
+    Value: !GetAtt SlackLoginSSOAlarm.Arn
+
+  MessagingAlarm:
+    Description: 'Slack Messaging alarm ARN'
+    Value: !GetAtt SlackMessagingAlarm.Arn
+
+  NotificationsAlarm:
+    Description: 'Slack Notifications alarm ARN'
+    Value: !GetAtt SlackNotificationsAlarm.Arn
+
+  SearchAlarm:
+    Description: 'Slack Search alarm ARN'
+    Value: !GetAtt SlackSearchAlarm.Arn
+
+  WorkspaceOrgAdministrationAlarm:
+    Description: 'Slack Workspace/Org Administration alarm ARN'
+    Value: !GetAtt SlackWorkspaceOrgAdministrationAlarm.Arn
+
+  CanvasesAlarm:
+    Description: 'Slack Canvases alarm ARN'
+    Value: !GetAtt SlackCanvasesAlarm.Arn
+
+  ConnectivityAlarm:
+    Description: 'Slack Connectivity alarm ARN'
+    Value: !GetAtt SlackConnectivityAlarm.Arn
+
+  FilesAlarm:
+    Description: 'Slack Files alarm ARN'
+    Value: !GetAtt SlackFilesAlarm.Arn
+
+  HuddlesAlarm:
+    Description: 'Slack Huddles alarm ARN'
+    Value: !GetAtt SlackHuddlesAlarm.Arn
+
+  AppsIntegrationsAPIsAlarm:
+    Description: 'Slack Apps/Integrations/APIs alarm ARN'
+    Value: !GetAtt SlackAppsIntegrationsAPIsAlarm.Arn
+
+  WorkflowsAlarm:
+    Description: 'Slack Workflows alarm ARN'
+    Value: !GetAtt SlackWorkflowsAlarm.Arn
+
+  DashboardName:
+    Description: 'CloudWatch Dashboard name for Slack monitoring'
+    Value: !Ref SlackMonitoringDashboard
+
+  DashboardURL:
+    Description: 'CloudWatch Dashboard URL'
+    Value: !Sub 'https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=${SlackMonitoringDashboard}'

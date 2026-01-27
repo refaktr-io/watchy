@@ -33,6 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       templates: ${{ steps.changes.outputs.templates }}
+      lambda: ${{ steps.changes.outputs.lambda }}
       workflows: ${{ steps.changes.outputs.workflows }}
 
     steps:
@@ -45,7 +46,9 @@ jobs:
         with:
           filters: |
             templates:
-              - 'templates/**'
+              - 'cloudformation/**'
+            lambda:
+              - 'lambda/**'
             workflows:
               - '.github/workflows/**'
 
@@ -70,7 +73,7 @@ jobs:
       - name: Validate CloudFormation templates
         run: |
           echo "🔍 Validating CloudFormation templates..."
-          find . -name "*.yaml" -path "*/templates/*" | \
+          find . -name "*.yaml" -path "*/cloudformation/*" | \
             xargs cfn-lint
 
       - name: Validate YAML syntax
@@ -78,19 +81,28 @@ jobs:
           echo "🔍 Validating YAML syntax..."
           # Only validate CloudFormation templates and issue templates
           # Skip GitHub Actions workflows as they have different standards
-          find . -name "*.yaml" -path "*/templates/*" \
+          find . -name "*.yaml" -path "*/cloudformation/*" \
             -o -name "*.yaml" -path "*/.github/ISSUE_TEMPLATE/*" | \
             xargs yamllint -d relaxed
+
+      - name: Validate Lambda code
+        run: |
+          echo "🔍 Validating Lambda Python code..."
+          find lambda -name "*.py" | while read file; do
+            echo "Checking $file..."
+            python -m py_compile "$file"
+          done
+          echo "✅ All Lambda Python files are syntactically valid"
 
       - name: Test CloudFormation template syntax
         run: |
           echo "🔍 Testing CloudFormation template syntax with AWS CLI..."
           # Test main templates
           aws cloudformation validate-template \
-            --template-body file://templates/watchy-monitoring-slack.yaml \
+            --template-body file://cloudformation/watchy-monitoring-slack.yaml \
             --region ${{ env.AWS_REGION }} --no-cli-pager
           aws cloudformation validate-template \
-            --template-body file://templates/watchy-platform.yaml \
+            --template-body file://cloudformation/watchy-platform.yaml \
             --region ${{ env.AWS_REGION }} --no-cli-pager
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -145,7 +157,7 @@ jobs:
         run: |
           echo "🔒 Checking CloudFormation templates for security issues..."
 
-          find templates -name "*.yaml" -o -name "*.yml" | \
+          find cloudformation -name "*.yaml" -o -name "*.yml" | \
           while read template; do
             echo "📋 Checking: $template"
 
@@ -170,14 +182,99 @@ jobs:
           done
         continue-on-error: true
 
-  # ===== DEPLOY TEMPLATES TO S3 =====
-  deploy-templates:
-    name: Deploy Templates to S3
+  # ===== BUILD LAMBDA FUNCTIONS =====
+  build-lambda:
+    name: Build Lambda Functions
     runs-on: ubuntu-latest
     needs: [detect-changes, validate]
     if: |
       (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
-      (needs.detect-changes.outputs.templates == 'true' || github.event_name == 'workflow_dispatch')
+      (needs.detect-changes.outputs.lambda == 'true' || github.event_name == 'workflow_dispatch')
+    
+    permissions:
+      id-token: write   # Required for OIDC
+      contents: read    # Required to checkout code
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.13'
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Build Slack Monitor Lambda
+      run: |
+        cd lambda/slack_monitor
+        
+        # Set build metadata
+        export BUILD_DATE=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+        export LAMBDA_VERSION="1.0.0-${GITHUB_SHA:0:7}"
+        
+        echo "Building Slack Monitor Lambda..."
+        echo "Version: $LAMBDA_VERSION"
+        echo "Build Date: $BUILD_DATE"
+        
+        # Create build directory
+        mkdir -p build
+        
+        # Copy Lambda function
+        cp lambda_function.py build/
+        
+        # Install dependencies if requirements.txt has actual dependencies
+        if grep -v '^#' requirements.txt | grep -v '^$' > /dev/null 2>&1; then
+          echo "Installing Python dependencies..."
+          pip install -r requirements.txt -t build/
+        else
+          echo "No external dependencies to install"
+        fi
+        
+        # Create deployment package
+        cd build
+        zip -r ../slack-monitor.zip .
+        cd ..
+        
+        # Verify zip contents
+        echo "Lambda package contents:"
+        unzip -l slack-monitor.zip
+        
+        # Get package size
+        PACKAGE_SIZE=$(stat -c%s slack-monitor.zip)
+        echo "Package size: $PACKAGE_SIZE bytes"
+        
+        if [ $PACKAGE_SIZE -gt 52428800 ]; then  # 50MB limit
+          echo "ERROR: Package size exceeds Lambda limit of 50MB"
+          exit 1
+        fi
+    
+    - name: Upload Lambda packages to S3
+      run: |
+        cd lambda/slack_monitor
+        
+        # Upload with versioning
+        aws s3 cp slack-monitor.zip s3://watchy-resources/lambda/slack-monitor.zip
+        aws s3 cp slack-monitor.zip s3://watchy-resources/lambda/versions/slack-monitor-${GITHUB_SHA:0:7}.zip
+        
+        echo "Lambda package uploaded to S3:"
+        echo "  Main: s3://watchy-resources/lambda/slack-monitor.zip"
+        echo "  Versioned: s3://watchy-resources/lambda/versions/slack-monitor-${GITHUB_SHA:0:7}.zip"
+
+  # ===== DEPLOY TEMPLATES TO S3 =====
+  deploy-templates:
+    name: Deploy Templates to S3
+    runs-on: ubuntu-latest
+    needs: [detect-changes, validate, build-lambda]
+    if: |
+      (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
+      (needs.detect-changes.outputs.templates == 'true' || needs.detect-changes.outputs.lambda == 'true' || github.event_name == 'workflow_dispatch')
 
     steps:
       - name: Checkout code
@@ -202,9 +299,9 @@ jobs:
 
           echo "✅ Deploying templates to bucket: $TEMPLATE_BUCKET"
 
-          # Deploy templates to S3
-          aws s3 sync templates/ \
-            s3://${TEMPLATE_BUCKET}/ \
+          # Deploy templates to S3 (now from cloudformation/ directory)
+          aws s3 sync cloudformation/ \
+            s3://${TEMPLATE_BUCKET}/cloudformation/ \
             --delete \
             --cache-control "max-age=3600" \
             --region ${{ env.AWS_REGION }}
@@ -244,7 +341,7 @@ jobs:
           echo "🧪 Testing template accessibility..."
 
           # Test platform template (parent stack)
-          if curl -f -s "https://s3.amazonaws.com/watchy-resources/watchy-platform.yaml" > /dev/null; then
+          if curl -f -s "https://s3.amazonaws.com/watchy-resources/cloudformation/watchy-platform.yaml" > /dev/null; then
             echo "✅ Platform template (parent stack) is accessible"
           else
             echo "❌ Platform template (parent stack) is not accessible"
@@ -252,10 +349,18 @@ jobs:
           fi
 
           # Test Slack monitoring template (nested stack)
-          if curl -f -s "https://s3.amazonaws.com/watchy-resources/watchy-monitoring-slack.yaml" > /dev/null; then
+          if curl -f -s "https://s3.amazonaws.com/watchy-resources/cloudformation/watchy-monitoring-slack.yaml" > /dev/null; then
             echo "✅ Slack monitoring template (nested stack) is accessible"
           else
             echo "❌ Slack monitoring template (nested stack) is not accessible"
+            exit 1
+          fi
+
+          # Test Lambda package
+          if curl -f -s "https://s3.amazonaws.com/watchy-resources/lambda/slack-monitor.zip" > /dev/null; then
+            echo "✅ Slack Lambda package is accessible"
+          else
+            echo "❌ Slack Lambda package is not accessible"
             exit 1
           fi
 
@@ -266,10 +371,10 @@ jobs:
           echo "🔍 Validating deployed templates..."
 
           # Download and validate the deployed platform template (parent stack)
-          curl -s "https://s3.amazonaws.com/watchy-resources/watchy-platform.yaml" > deployed-platform-template.yaml
+          curl -s "https://s3.amazonaws.com/watchy-resources/cloudformation/watchy-platform.yaml" > deployed-platform-template.yaml
 
           # Download and validate the deployed Slack template (nested stack)
-          curl -s "https://s3.amazonaws.com/watchy-resources/watchy-monitoring-slack.yaml" > deployed-slack-template.yaml
+          curl -s "https://s3.amazonaws.com/watchy-resources/cloudformation/watchy-monitoring-slack.yaml" > deployed-slack-template.yaml
 
           # Validate platform template
           if grep -q "AWSTemplateFormatVersion" deployed-platform-template.yaml; then
@@ -294,10 +399,10 @@ jobs:
             exit 1
           fi
 
-          if grep -q "lambda_handler" deployed-slack-template.yaml; then
-            echo "✅ Slack template contains Lambda function code"
+          if grep -q "lambda_function.lambda_handler" deployed-slack-template.yaml; then
+            echo "✅ Slack template references external Lambda package"
           else
-            echo "❌ Slack template is missing Lambda function code"
+            echo "❌ Slack template is missing Lambda function reference"
             exit 1
           fi
 
@@ -331,9 +436,17 @@ jobs:
           echo "📋 Copying files to public repository..."
 
           # Copy CloudFormation templates
-          mkdir -p public-repo/templates
-          cp templates/watchy-platform.yaml public-repo/templates/
-          cp templates/watchy-monitoring-slack.yaml public-repo/templates/
+          mkdir -p public-repo/cloudformation
+          cp cloudformation/watchy-platform.yaml public-repo/cloudformation/
+          cp cloudformation/watchy-monitoring-slack.yaml public-repo/cloudformation/
+
+          # Copy Lambda source code
+          mkdir -p public-repo/lambda
+          cp -r lambda/* public-repo/lambda/
+
+          # Copy workflows
+          mkdir -p public-repo/.github/workflows
+          cp .github/workflows/ci-cd.yaml public-repo/.github/workflows/
 
           # Copy documentation
           cp README.md public-repo/
@@ -363,8 +476,10 @@ jobs:
           COMMIT_SHA="${GITHUB_SHA:0:7}"
           git commit -m "Update Watchy open source platform v${VERSION}
 
-          - CloudFormation templates updated with pure Python implementation
-          - Documentation updated for open source architecture
+          - CloudFormation templates updated with external Lambda packages
+          - Lambda functions extracted to separate source files
+          - CI/CD pipeline updated for Lambda building and deployment
+          - Documentation updated for new architecture
           - Source commit: ${GITHUB_SHA}
 
           Published from: https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
@@ -378,7 +493,7 @@ jobs:
   notify:
     name: Deployment Summary
     runs-on: ubuntu-latest
-    needs: [test-deployment, detect-changes, validate, security-scan]
+    needs: [test-deployment, detect-changes, validate, security-scan, build-lambda]
     if: always() && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
 
     steps:
@@ -387,26 +502,29 @@ jobs:
           echo "## 🚀 Watchy Open Source Deployment Summary"
           echo "### Changes Detected:"
           echo "- Templates: ${{ needs.detect-changes.outputs.templates }}"
+          echo "- Lambda: ${{ needs.detect-changes.outputs.lambda }}"
           echo "- Workflows: ${{ needs.detect-changes.outputs.workflows }}"
 
           echo ""
           echo "### Job Results:"
           echo "- Validation: ${{ needs.validate.result }}"
           echo "- Security Scan: ${{ needs.security-scan.result }}"
+          echo "- Lambda Build: ${{ needs.build-lambda.result }}"
           echo "- Template Deployment: ${{ needs.deploy-templates.result }}"
           echo "- Testing: ${{ needs.test-deployment.result }}"
 
           if [ "${{ needs.test-deployment.result }}" = "success" ]; then
             echo ""
-            echo "### ✅ Nested Stack Deployment Successful!"
-            echo "🔗 Platform Template (Parent): https://s3.amazonaws.com/watchy-resources/watchy-platform.yaml"
-            echo "🔗 Slack Template (Nested): https://s3.amazonaws.com/watchy-resources/watchy-monitoring-slack.yaml"
+            echo "### ✅ Deployment Successful!"
+            echo "🔗 Platform Template: https://s3.amazonaws.com/watchy-resources/cloudformation/watchy-platform.yaml"
+            echo "🔗 Slack Template: https://s3.amazonaws.com/watchy-resources/cloudformation/watchy-monitoring-slack.yaml"
+            echo "📦 Lambda Package: https://s3.amazonaws.com/watchy-resources/lambda/slack-monitor.zip"
             echo "📚 Documentation: Updated in repository"
             echo ""
-            echo "### 🚀 Quick Deploy Command (Nested Stack):"
+            echo "### 🚀 Quick Deploy Command:"
             echo '```bash'
             echo 'aws cloudformation deploy \'
-            echo '  --template-url https://s3.amazonaws.com/watchy-resources/watchy-platform.yaml \'
+            echo '  --template-url https://s3.amazonaws.com/watchy-resources/cloudformation/watchy-platform.yaml \'
             echo '  --stack-name Watchy-Platform \'
             echo '  --capabilities CAPABILITY_NAMED_IAM \'
             echo '  --parameter-overrides \'
@@ -421,16 +539,16 @@ jobs:
           fi
 
           echo ""
-          echo "## 🌟 Nested Stack Architecture Benefits"
+          echo "## 🏗️ Architecture Benefits"
+          echo "- ✅ Separated Lambda source code for better maintainability"
+          echo "- ✅ Automated Lambda building and deployment"
+          echo "- ✅ Version-controlled Lambda functions"
+          echo "- ✅ CI/CD pipeline for both templates and code"
           echo "- ✅ Pure Python implementation - no binaries"
-          echo "- ✅ All monitoring logic visible in CloudFormation"
+          echo "- ✅ All monitoring logic visible and auditable"
           echo "- ✅ Shared resources reduce costs and complexity"
           echo "- ✅ Easy to add new SaaS monitoring services"
-          echo "- ✅ Centralized management and configuration"
           echo "- ✅ Community-friendly development"
-          echo "- ✅ Faster cold starts and lower memory usage"
-          echo "- ✅ Community-friendly development"
-          echo "- ✅ Transparent security auditing"
 
           echo ""
           echo "## 🔒 Security Summary"
