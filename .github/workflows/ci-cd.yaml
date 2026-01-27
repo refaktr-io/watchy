@@ -246,13 +246,7 @@ jobs:
         # Copy Lambda function
         cp lambda_function.py build/
         
-        # Install dependencies if requirements.txt has actual dependencies
-        if grep -v '^#' requirements.txt | grep -v '^$' > /dev/null 2>&1; then
-          echo "Installing Python dependencies..."
-          pip install -r requirements.txt -t build/
-        else
-          echo "No external dependencies to install"
-        fi
+        # No external dependencies needed - uses only Python standard library and boto3 (AWS provided)
         
         # Create deployment package
         cd build
@@ -289,12 +283,12 @@ jobs:
         
         # Upload with versioning
         echo "Uploading to S3..."
-        aws s3 cp slack-monitor.zip s3://watchy-resources/lambda/slack-monitor.zip
-        aws s3 cp slack-monitor.zip s3://watchy-resources/lambda/versions/slack-monitor-${GITHUB_SHA:0:7}.zip
+        aws s3 cp slack-monitor.zip s3://watchy-resources/slack-monitor.zip
+        aws s3 cp slack-monitor.zip s3://watchy-resources/versions/slack-monitor-${GITHUB_SHA:0:7}.zip
         
         echo "Lambda package uploaded to S3:"
-        echo "  Main: s3://watchy-resources/lambda/slack-monitor.zip"
-        echo "  Versioned: s3://watchy-resources/lambda/versions/slack-monitor-${GITHUB_SHA:0:7}.zip"
+        echo "  Main: s3://watchy-resources/slack-monitor.zip"
+        echo "  Versioned: s3://watchy-resources/versions/slack-monitor-${GITHUB_SHA:0:7}.zip"
 
   # ===== DEPLOY TEMPLATES TO S3 =====
   # ===== COORDINATE DEPLOYMENT =====
@@ -349,9 +343,9 @@ jobs:
 
           echo "✅ Deploying templates to bucket: $TEMPLATE_BUCKET"
 
-          # Deploy templates to S3 (now from cloudformation/ directory)
+          # Deploy templates to S3 (to root of bucket)
           aws s3 sync cloudformation/ \
-            s3://${TEMPLATE_BUCKET}/cloudformation/ \
+            s3://${TEMPLATE_BUCKET}/ \
             --delete \
             --cache-control "max-age=3600" \
             --region ${{ env.AWS_REGION }}
@@ -391,7 +385,7 @@ jobs:
           echo "🧪 Testing template accessibility..."
 
           # Test platform template (parent stack)
-          if curl -f -s "https://s3.amazonaws.com/watchy-resources/cloudformation/watchy-platform.yaml" > /dev/null; then
+          if curl -f -s "https://s3.amazonaws.com/watchy-resources/watchy-platform.yaml" > /dev/null; then
             echo "✅ Platform template (parent stack) is accessible"
           else
             echo "❌ Platform template (parent stack) is not accessible"
@@ -399,7 +393,7 @@ jobs:
           fi
 
           # Test Slack monitoring template (nested stack)
-          if curl -f -s "https://s3.amazonaws.com/watchy-resources/cloudformation/watchy-monitoring-slack.yaml" > /dev/null; then
+          if curl -f -s "https://s3.amazonaws.com/watchy-resources/watchy-monitoring-slack.yaml" > /dev/null; then
             echo "✅ Slack monitoring template (nested stack) is accessible"
           else
             echo "❌ Slack monitoring template (nested stack) is not accessible"
@@ -407,7 +401,7 @@ jobs:
           fi
 
           # Test Lambda package
-          if curl -f -s "https://s3.amazonaws.com/watchy-resources/lambda/slack-monitor.zip" > /dev/null; then
+          if curl -f -s "https://s3.amazonaws.com/watchy-resources/slack-monitor.zip" > /dev/null; then
             echo "✅ Slack Lambda package is accessible"
           else
             echo "❌ Slack Lambda package is not accessible"
@@ -421,10 +415,10 @@ jobs:
           echo "🔍 Validating deployed templates..."
 
           # Download and validate the deployed platform template (parent stack)
-          curl -s "https://s3.amazonaws.com/watchy-resources/cloudformation/watchy-platform.yaml" > deployed-platform-template.yaml
+          curl -s "https://s3.amazonaws.com/watchy-resources/watchy-platform.yaml" > deployed-platform-template.yaml
 
           # Download and validate the deployed Slack template (nested stack)
-          curl -s "https://s3.amazonaws.com/watchy-resources/cloudformation/watchy-monitoring-slack.yaml" > deployed-slack-template.yaml
+          curl -s "https://s3.amazonaws.com/watchy-resources/watchy-monitoring-slack.yaml" > deployed-slack-template.yaml
 
           # Validate platform template
           if grep -q "AWSTemplateFormatVersion" deployed-platform-template.yaml; then
@@ -486,15 +480,15 @@ jobs:
           if [ "${{ needs.test-deployment.result }}" = "success" ]; then
             echo ""
             echo "### ✅ Deployment Successful!"
-            echo "🔗 Platform Template: https://s3.amazonaws.com/watchy-resources/cloudformation/watchy-platform.yaml"
-            echo "🔗 Slack Template: https://s3.amazonaws.com/watchy-resources/cloudformation/watchy-monitoring-slack.yaml"
-            echo "📦 Lambda Package: https://s3.amazonaws.com/watchy-resources/lambda/slack-monitor.zip"
+            echo "🔗 Platform Template: https://s3.amazonaws.com/watchy-resources/watchy-platform.yaml"
+            echo "🔗 Slack Template: https://s3.amazonaws.com/watchy-resources/watchy-monitoring-slack.yaml"
+            echo "📦 Lambda Package: https://s3.amazonaws.com/watchy-resources/slack-monitor.zip"
             echo "📚 Documentation: Updated in repository"
             echo ""
             echo "### 🚀 Quick Deploy Command:"
             echo '```bash'
             echo 'aws cloudformation deploy \'
-            echo '  --template-url https://s3.amazonaws.com/watchy-resources/cloudformation/watchy-platform.yaml \'
+            echo '  --template-url https://s3.amazonaws.com/watchy-resources/watchy-platform.yaml \'
             echo '  --stack-name Watchy-Platform \'
             echo '  --capabilities CAPABILITY_NAMED_IAM \'
             echo '  --parameter-overrides \'

@@ -15,8 +15,7 @@ watchy-core/
 │   └── watchy-monitoring-slack.yaml  # Slack monitoring nested stack
 ├── lambda/
 │   ├── slack_monitor/                # Slack monitoring Lambda function
-│   │   ├── lambda_function.py        # Main handler code
-│   │   └── requirements.txt          # Python dependencies
+│   │   └── lambda_function.py        # Main handler code (no external dependencies)
 │   └── README.md                     # Lambda development guide
 ├── .github/workflows/
 │   └── ci-cd.yaml                    # Integrated CI/CD pipeline
@@ -37,7 +36,7 @@ Deploy the complete Watchy platform with nested stack architecture:
 
 ```bash
 aws cloudformation deploy \
-  --template-url https://s3.amazonaws.com/watchy-resources/cloudformation/watchy-platform.yaml \
+  --template-url https://s3.amazonaws.com/watchy-resources/watchy-platform.yaml \
   --stack-name Watchy-Platform \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
@@ -130,7 +129,7 @@ Each service has its own metric with values:
 ### Alternative: Standalone Deployment
 ```bash
 aws cloudformation deploy \
-  --template-url https://s3.amazonaws.com/watchy-resources/cloudformation/watchy-monitoring-slack.yaml \
+  --template-url https://s3.amazonaws.com/watchy-resources/watchy-monitoring-slack.yaml \
   --stack-name watchy-slack-monitoring \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
@@ -295,7 +294,7 @@ aws logs describe-log-streams \
 ```bash
 # Update parent stack (will update nested stacks automatically)
 aws cloudformation deploy \
-  --template-url https://s3.amazonaws.com/watchy-resources/cloudformation/watchy-platform.yaml \
+  --template-url https://s3.amazonaws.com/watchy-resources/watchy-platform.yaml \
   --stack-name Watchy-Platform \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \

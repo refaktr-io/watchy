@@ -1,1 +1,0 @@
-# No external dependencies required - uses only Python standard library and boto3 (provided by AWS Lambda runtime)

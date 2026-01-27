@@ -104,7 +104,7 @@ Resources:
           BUILD_DATE: !Sub '${AWS::StackName}-${AWS::Region}'
       Code:
         S3Bucket: 'watchy-resources'
-        S3Key: 'lambda/slack-monitor.zip'
+        S3Key: 'slack-monitor.zip'
 
   # ===== SLACK MONITORING SCHEDULE =====
   SlackScheduleRule:
