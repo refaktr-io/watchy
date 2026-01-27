@@ -447,12 +447,7 @@ Resources:
             {
               "type": "log",
               "properties": {
-                "query": >-
-                  SOURCE '/watchy/slack'
-                  | fields @timestamp, incident_title, incident_status, note_body
-                  | filter ispresent(incident_id)
-                  | sort @timestamp desc
-                  | limit 20,
+                "query": "SOURCE '/watchy/slack' | fields @timestamp, incident_title, incident_status, note_body | filter ispresent(incident_id) | sort @timestamp desc | limit 20",
                 "region": "${AWS::Region}",
                 "title": "Recent Incident Updates",
                 "stacked": false
@@ -506,8 +501,7 @@ Resources:
                 ],
                 "view": "singleValue",
                 "region": "${AWS::Region}",
-                "title": >-
-                  Current Service Status (0=OK, 1=Notice, 2=Incident, 3=Outage),
+                "title": "Current Service Status (0=OK, 1=Notice, 2=Incident, 3=Outage)",
                 "period": 300,
                 "stat": "Maximum"
               },
