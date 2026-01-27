@@ -13,6 +13,8 @@ from typing import Dict, Any, List
 VERSION = os.getenv('LAMBDA_VERSION', '1.0.0')
 BUILD_DATE = os.getenv('BUILD_DATE', datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC'))
 
+# Build trigger: Updated 2025-01-26
+
 def log_json(level: str, message: str, **kwargs):
     """Log structured JSON messages to reduce visual clutter"""
     if level in ['ERROR', 'WARN', 'INFO']:

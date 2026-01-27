@@ -52,6 +52,12 @@ jobs:
             workflows:
               - '.github/workflows/**'
 
+      - name: Debug change detection
+        run: |
+          echo "Templates changed: ${{ steps.changes.outputs.templates }}"
+          echo "Lambda changed: ${{ steps.changes.outputs.lambda }}"
+          echo "Workflows changed: ${{ steps.changes.outputs.workflows }}"
+
   # ===== VALIDATION (Always Run) =====
   validate:
     name: Validate Templates & Code
@@ -187,15 +193,26 @@ jobs:
     name: Build Lambda Functions
     runs-on: ubuntu-latest
     needs: [detect-changes, validate]
+    # Always run on manual dispatch, or when lambda/templates change on main branch
     if: |
-      (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
-      (needs.detect-changes.outputs.lambda == 'true' || github.event_name == 'workflow_dispatch')
+      github.event_name == 'workflow_dispatch' ||
+      (github.ref == 'refs/heads/main' && 
+       (needs.detect-changes.outputs.lambda == 'true' || 
+        needs.detect-changes.outputs.templates == 'true'))
     
     permissions:
       id-token: write   # Required for OIDC
       contents: read    # Required to checkout code
     
     steps:
+    - name: Debug job execution
+      run: |
+        echo "Build Lambda job is running because:"
+        echo "- Branch: ${{ github.ref }}"
+        echo "- Event: ${{ github.event_name }}"
+        echo "- Lambda changed: ${{ needs.detect-changes.outputs.lambda }}"
+        echo "- Templates changed: ${{ needs.detect-changes.outputs.templates }}"
+        
     - name: Checkout code
       uses: actions/checkout@v4
     
@@ -259,7 +276,19 @@ jobs:
       run: |
         cd lambda/slack_monitor
         
+        # Debug: Show current directory and files
+        echo "Current directory: $(pwd)"
+        echo "Files in directory:"
+        ls -la
+        
+        # Check if zip file exists
+        if [ ! -f "slack-monitor.zip" ]; then
+          echo "ERROR: slack-monitor.zip not found!"
+          exit 1
+        fi
+        
         # Upload with versioning
+        echo "Uploading to S3..."
         aws s3 cp slack-monitor.zip s3://watchy-resources/lambda/slack-monitor.zip
         aws s3 cp slack-monitor.zip s3://watchy-resources/lambda/versions/slack-monitor-${GITHUB_SHA:0:7}.zip
         
