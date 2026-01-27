@@ -291,9 +291,8 @@ jobs:
         aws s3 ls s3://watchy-resources/slack-monitor.zip
 
   # ===== DEPLOY TEMPLATES TO S3 =====
-  # ===== COORDINATE DEPLOYMENT =====
-  coordinate-deployment:
-    name: Coordinate Deployment
+  deploy-templates:
+    name: Deploy Templates to S3
     runs-on: ubuntu-latest
     needs: [detect-changes, validate, build-lambda]
     if: |
@@ -302,23 +301,6 @@ jobs:
       (needs.detect-changes.outputs.templates == 'true' || needs.detect-changes.outputs.lambda == 'true' || github.event_name == 'workflow_dispatch') &&
       needs.validate.result == 'success' &&
       (needs.build-lambda.result == 'success' || needs.build-lambda.result == 'skipped')
-    
-    outputs:
-      ready-to-deploy: ${{ steps.check.outputs.ready }}
-    
-    steps:
-      - name: Check deployment readiness
-        id: check
-        run: |
-          echo "All prerequisites met for deployment"
-          echo "ready=true" >> $GITHUB_OUTPUT
-
-  # ===== DEPLOY TEMPLATES TO S3 =====
-  deploy-templates:
-    name: Deploy Templates to S3
-    runs-on: ubuntu-latest
-    needs: [coordinate-deployment]
-    if: needs.coordinate-deployment.outputs.ready-to-deploy == 'true'
 
     steps:
       - name: Checkout code
@@ -490,7 +472,7 @@ jobs:
   notify:
     name: Deployment Summary
     runs-on: ubuntu-latest
-    needs: [test-deployment, detect-changes, validate, security-scan, build-lambda, coordinate-deployment]
+    needs: [test-deployment, detect-changes, validate, security-scan, build-lambda]
     if: always() && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
 
     steps:
