@@ -432,11 +432,17 @@ jobs:
           # Download and validate the deployed Slack template (nested stack)
           curl -s "https://s3.amazonaws.com/watchy-resources/watchy-monitoring-slack.yaml" > deployed-slack-template.yaml
 
+          # Debug: Show what we downloaded
+          echo "Platform template size: $(wc -c < deployed-platform-template.yaml) bytes"
+          echo "Slack template size: $(wc -c < deployed-slack-template.yaml) bytes"
+
           # Validate platform template
           if grep -q "AWSTemplateFormatVersion" deployed-platform-template.yaml; then
             echo "✅ Platform template has valid CloudFormation format"
           else
             echo "❌ Platform template is missing CloudFormation format version"
+            echo "First 10 lines of platform template:"
+            head -10 deployed-platform-template.yaml
             exit 1
           fi
 
@@ -444,6 +450,8 @@ jobs:
             echo "✅ Platform template contains nested stack resources"
           else
             echo "❌ Platform template is missing nested stack configuration"
+            echo "Searching for stack references:"
+            grep -i "stack" deployed-platform-template.yaml | head -5 || echo "No stack references found"
             exit 1
           fi
 
@@ -452,17 +460,31 @@ jobs:
             echo "✅ Slack template has valid CloudFormation format"
           else
             echo "❌ Slack template is missing CloudFormation format version"
+            echo "First 10 lines of Slack template:"
+            head -10 deployed-slack-template.yaml
             exit 1
           fi
 
-          if grep -q "lambda_function.lambda_handler" deployed-slack-template.yaml; then
+          # Check for Lambda handler reference (more flexible pattern)
+          if grep -q "Handler.*lambda_function.lambda_handler" deployed-slack-template.yaml; then
             echo "✅ Slack template references external Lambda package"
           else
             echo "❌ Slack template is missing Lambda function reference"
+            echo "Searching for Lambda handler references:"
+            grep -i "handler\|lambda_function" deployed-slack-template.yaml | head -5 || echo "No handler references found"
             exit 1
           fi
 
-          echo "✅ Nested stack template validation completed"
+          # Additional validation: Check for S3 code reference
+          if grep -q "S3Bucket.*watchy-resources" deployed-slack-template.yaml; then
+            echo "✅ Slack template references S3 Lambda package"
+          else
+            echo "⚠️  Slack template may not reference S3 Lambda package correctly"
+            echo "Searching for S3 references:"
+            grep -i "s3" deployed-slack-template.yaml | head -3 || echo "No S3 references found"
+          fi
+
+          echo "✅ Template validation completed successfully"
 
   # ===== NOTIFICATION =====
   notify:
