@@ -281,14 +281,12 @@ jobs:
           exit 1
         fi
         
-        # Upload with versioning
+        # Upload to S3
         echo "Uploading to S3..."
         aws s3 cp slack-monitor.zip s3://watchy-resources/slack-monitor.zip
-        aws s3 cp slack-monitor.zip s3://watchy-resources/versions/slack-monitor-${GITHUB_SHA:0:7}.zip
         
         echo "Lambda package uploaded to S3:"
         echo "  Main: s3://watchy-resources/slack-monitor.zip"
-        echo "  Versioned: s3://watchy-resources/versions/slack-monitor-${GITHUB_SHA:0:7}.zip"
 
   # ===== DEPLOY TEMPLATES TO S3 =====
   # ===== COORDINATE DEPLOYMENT =====
