@@ -285,6 +285,10 @@ jobs:
         
         echo "Lambda package uploaded to S3:"
         echo "  Main: s3://watchy-resources/slack-monitor.zip"
+        
+        # Debug: Verify upload
+        echo "Verifying S3 upload:"
+        aws s3 ls s3://watchy-resources/slack-monitor.zip
 
   # ===== DEPLOY TEMPLATES TO S3 =====
   # ===== COORDINATE DEPLOYMENT =====
@@ -338,6 +342,14 @@ jobs:
           TEMPLATE_BUCKET="watchy-resources"
 
           echo "✅ Deploying templates to bucket: $TEMPLATE_BUCKET"
+          
+          # Debug: Check if bucket exists and is accessible
+          echo "Testing bucket access..."
+          aws s3 ls s3://${TEMPLATE_BUCKET}/ --region ${{ env.AWS_REGION }} || echo "Bucket access failed"
+          
+          # Debug: Show what files we're about to deploy
+          echo "Files in cloudformation/ directory:"
+          ls -la cloudformation/
 
           # Deploy templates to S3 (to root of bucket)
           aws s3 sync cloudformation/ \
@@ -347,6 +359,10 @@ jobs:
             --region ${{ env.AWS_REGION }}
 
           echo "✅ Templates deployed successfully"
+          
+          # Debug: Verify what was uploaded
+          echo "Files now in S3 bucket:"
+          aws s3 ls s3://${TEMPLATE_BUCKET}/ --region ${{ env.AWS_REGION }}
 
           # Invalidate CloudFront cache if distribution exists
           echo "🔍 Looking for CloudFront distribution..."
