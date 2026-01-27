@@ -11,14 +11,17 @@ Parameters:
   # ===== GLOBAL CONFIGURATION =====
   NotificationEmail:
     Type: String
-    Description: 'Email address for CloudWatch alarm notifications sent via Simple Notification Service (SNS)'
+    Description: >-
+      Email address for CloudWatch alarm notifications sent via Simple
+      Notification Service (SNS)
     AllowedPattern: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
     ConstraintDescription: 'Must be a valid email address'
 
   MonitoringSchedule:
     Type: String
     Default: 'rate(5 minutes)'
-    Description: 'Watchy monitoring poll interval (e.g., rate(5 minutes), rate(1 hour))'
+    Description: >-
+      Watchy monitoring poll interval (e.g., rate(5 minutes), rate(1 hour))
 
   TimeoutSeconds:
     Type: Number
@@ -112,8 +115,10 @@ Resources:
                   - logs:PutLogEvents
                   - logs:DescribeLogGroups
                 Resource:
-                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*Watchy*'
-                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/watchy/*'
+                  - !Sub >-
+                    arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*Watchy*
+                  - !Sub >-
+                    arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/watchy/*
               # SNS Publish for custom notifications
               - Effect: Allow
                 Action:

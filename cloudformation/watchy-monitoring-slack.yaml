@@ -416,7 +416,8 @@ Resources:
               "type": "metric",
               "properties": {
                 "metrics": [
-                  ["Watchy/Slack", "ActiveIncidents", {"label": "Active Incidents", "stat": "Maximum", "color": "#d62728"}]
+                  ["Watchy/Slack", "ActiveIncidents",
+                   {"label": "Active Incidents", "stat": "Maximum", "color": "#d62728"}]
                 ],
                 "view": "singleValue",
                 "region": "${AWS::Region}",
@@ -431,7 +432,8 @@ Resources:
               "type": "metric",
               "properties": {
                 "metrics": [
-                  ["Watchy/Slack", "APIResponse", {"label": "API Response Code", "color": "#2ca02c"}]
+                  ["Watchy/Slack", "APIResponse",
+                   {"label": "API Response Code", "color": "#2ca02c"}]
                 ],
                 "view": "singleValue",
                 "region": "${AWS::Region}",
@@ -445,7 +447,12 @@ Resources:
             {
               "type": "log",
               "properties": {
-                "query": "SOURCE '/watchy/slack'\n| fields @timestamp, incident_title, incident_status, note_body\n| filter ispresent(incident_id)\n| sort @timestamp desc\n| limit 20",
+                "query": >-
+                  SOURCE '/watchy/slack'
+                  | fields @timestamp, incident_title, incident_status, note_body
+                  | filter ispresent(incident_id)
+                  | sort @timestamp desc
+                  | limit 20,
                 "region": "${AWS::Region}",
                 "title": "Recent Incident Updates",
                 "stacked": false
@@ -457,9 +464,12 @@ Resources:
               "type": "metric",
               "properties": {
                 "metrics": [
-                  ["AWS/Lambda", "Invocations", {"stat": "Sum", "label": "Invocations", "id": "m1"}],
-                  [".", "Errors", {"stat": "Sum", "label": "Errors", "color": "#d62728", "id": "m2"}],
-                  [".", "Duration", {"stat": "Average", "label": "Avg Duration (ms)", "yAxis": "right", "id": "m3"}]
+                  ["AWS/Lambda", "Invocations",
+                   {"stat": "Sum", "label": "Invocations", "id": "m1"}],
+                  [".", "Errors",
+                   {"stat": "Sum", "label": "Errors", "color": "#d62728", "id": "m2"}],
+                  [".", "Duration",
+                   {"stat": "Average", "label": "Avg Duration (ms)", "yAxis": "right", "id": "m3"}]
                 ],
                 "view": "timeSeries",
                 "stacked": false,
@@ -496,7 +506,8 @@ Resources:
                 ],
                 "view": "singleValue",
                 "region": "${AWS::Region}",
-                "title": "Current Service Status (0=OK, 1=Notice, 2=Incident, 3=Outage)",
+                "title": >-
+                  Current Service Status (0=OK, 1=Notice, 2=Incident, 3=Outage),
                 "period": 300,
                 "stat": "Maximum"
               },
@@ -577,4 +588,5 @@ Outputs:
 
   DashboardURL:
     Description: 'CloudWatch Dashboard URL'
-    Value: !Sub 'https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=${SlackMonitoringDashboard}'
+    Value: !Sub >-
+      https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=${SlackMonitoringDashboard}
