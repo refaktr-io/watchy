@@ -1,3 +1,4 @@
+---
 AWSTemplateFormatVersion: '2010-09-09'
 Description: 'Watchy Slack Monitoring - Nested Stack v1.0.0'
 
@@ -43,7 +44,8 @@ Parameters:
 
   NotificationTopicArn:
     Type: String
-    Description: 'ARN of the shared SNS topic for notifications from parent stack'
+    Description: >-
+      ARN of the shared SNS topic for notifications from parent stack
 
   ParentStackName:
     Type: String
@@ -71,7 +73,8 @@ Resources:
     Properties:
       Architectures:
         - x86_64
-      Description: 'Watchy Slack status monitoring with pure Python implementation'
+      Description: >-
+        Watchy Slack status monitoring with pure Python implementation
       FunctionName: !Sub '${ParentStackName}-SlackMonitor'
       Runtime: python3.13
       Handler: lambda_function.lambda_handler
@@ -95,7 +98,7 @@ Resources:
           WATCHY_TIMEOUT_SECONDS: !Ref TimeoutSeconds
           WATCHY_RETRY_ATTEMPTS: !Ref RetryAttempts
           WATCHY_STACK_NAME: !Ref ParentStackName
-          
+
           # Version information (set during deployment)
           LAMBDA_VERSION: '1.0.0'
           BUILD_DATE: !Sub '${AWS::StackName}-${AWS::Region}'
@@ -145,7 +148,8 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Sub 'Watchy-Slack-LoginSSO-${AWS::Region}'
-      AlarmDescription: 'Slack Login/SSO service - alerts on incident (2) and outage (3)'
+      AlarmDescription: >-
+        Slack Login/SSO service - alerts on incident (2) and outage (3)
       MetricName: LoginSSO
       Namespace: Watchy/Slack
       Statistic: Average
@@ -161,7 +165,8 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Sub 'Watchy-Slack-Messaging-${AWS::Region}'
-      AlarmDescription: 'Slack Messaging service - alerts on incident (2) and outage (3)'
+      AlarmDescription: >-
+        Slack Messaging service - alerts on incident (2) and outage (3)
       MetricName: Messaging
       Namespace: Watchy/Slack
       Statistic: Average
@@ -177,7 +182,8 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Sub 'Watchy-Slack-Notifications-${AWS::Region}'
-      AlarmDescription: 'Slack Notifications service - alerts on incident (2) and outage (3)'
+      AlarmDescription: >-
+        Slack Notifications service - alerts on incident (2) and outage (3)
       MetricName: Notifications
       Namespace: Watchy/Slack
       Statistic: Average
@@ -193,7 +199,8 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Sub 'Watchy-Slack-Search-${AWS::Region}'
-      AlarmDescription: 'Slack Search service - alerts on incident (2) and outage (3)'
+      AlarmDescription: >-
+        Slack Search service - alerts on incident (2) and outage (3)
       MetricName: Search
       Namespace: Watchy/Slack
       Statistic: Average
@@ -208,8 +215,9 @@ Resources:
   SlackWorkspaceOrgAdministrationAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: !Sub 'Watchy-Slack-WorkspaceOrgAdministration-${AWS::Region}'
-      AlarmDescription: 'Slack Workspace/Org Administration service - alerts on incident (2) and outage (3)'
+      AlarmName: !Sub 'Watchy-Slack-WorkspaceAdmin-${AWS::Region}'
+      AlarmDescription: >-
+        Slack Workspace/Org Administration service - alerts on incident (2) and outage (3)
       MetricName: WorkspaceOrgAdministration
       Namespace: Watchy/Slack
       Statistic: Average
@@ -225,7 +233,8 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Sub 'Watchy-Slack-Canvases-${AWS::Region}'
-      AlarmDescription: 'Slack Canvases service - alerts on incident (2) and outage (3)'
+      AlarmDescription: >-
+        Slack Canvases service - alerts on incident (2) and outage (3)
       MetricName: Canvases
       Namespace: Watchy/Slack
       Statistic: Average
@@ -241,7 +250,8 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Sub 'Watchy-Slack-Connectivity-${AWS::Region}'
-      AlarmDescription: 'Slack Connectivity service - alerts on incident (2) and outage (3)'
+      AlarmDescription: >-
+        Slack Connectivity service - alerts on incident (2) and outage (3)
       MetricName: Connectivity
       Namespace: Watchy/Slack
       Statistic: Average
@@ -257,7 +267,8 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Sub 'Watchy-Slack-Files-${AWS::Region}'
-      AlarmDescription: 'Slack Files service - alerts on incident (2) and outage (3)'
+      AlarmDescription: >-
+        Slack Files service - alerts on incident (2) and outage (3)
       MetricName: Files
       Namespace: Watchy/Slack
       Statistic: Average
@@ -273,7 +284,8 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Sub 'Watchy-Slack-Huddles-${AWS::Region}'
-      AlarmDescription: 'Slack Huddles service - alerts on incident (2) and outage (3)'
+      AlarmDescription: >-
+        Slack Huddles service - alerts on incident (2) and outage (3)
       MetricName: Huddles
       Namespace: Watchy/Slack
       Statistic: Average
@@ -288,8 +300,9 @@ Resources:
   SlackAppsIntegrationsAPIsAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: !Sub 'Watchy-Slack-AppsIntegrationsAPIs-${AWS::Region}'
-      AlarmDescription: 'Slack Apps/Integrations/APIs service - alerts on incident (2) and outage (3)'
+      AlarmName: !Sub 'Watchy-Slack-AppsAPIs-${AWS::Region}'
+      AlarmDescription: >-
+        Slack Apps/Integrations/APIs service - alerts on incident (2) and outage (3)
       MetricName: AppsIntegrationsAPIs
       Namespace: Watchy/Slack
       Statistic: Average
@@ -305,7 +318,8 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Sub 'Watchy-Slack-Workflows-${AWS::Region}'
-      AlarmDescription: 'Slack Workflows service - alerts on incident (2) and outage (3)'
+      AlarmDescription: >-
+        Slack Workflows service - alerts on incident (2) and outage (3)
       MetricName: Workflows
       Namespace: Watchy/Slack
       Statistic: Average
@@ -329,16 +343,26 @@ Resources:
               "type": "metric",
               "properties": {
                 "metrics": [
-                  ["Watchy/Slack", "LoginSSO", {"label": "Login/SSO", "color": "#1f77b4"}],
-                  [".", "Messaging", {"label": "Messaging", "color": "#ff7f0e"}],
-                  [".", "Notifications", {"label": "Notifications", "color": "#2ca02c"}],
-                  [".", "Search", {"label": "Search", "color": "#d62728"}],
-                  [".", "WorkspaceOrgAdministration", {"label": "Workspace/Org Admin", "color": "#9467bd"}],
-                  [".", "Canvases", {"label": "Canvases", "color": "#8c564b"}],
-                  [".", "Connectivity", {"label": "Connectivity", "color": "#e377c2"}],
-                  [".", "Files", {"label": "Files", "color": "#7f7f7f"}],
-                  [".", "Huddles", {"label": "Huddles", "color": "#bcbd22"}],
-                  [".", "AppsIntegrationsAPIs", {"label": "Apps/Integrations/APIs", "color": "#17becf"}],
+                  ["Watchy/Slack", "LoginSSO",
+                   {"label": "Login/SSO", "color": "#1f77b4"}],
+                  [".", "Messaging",
+                   {"label": "Messaging", "color": "#ff7f0e"}],
+                  [".", "Notifications",
+                   {"label": "Notifications", "color": "#2ca02c"}],
+                  [".", "Search",
+                   {"label": "Search", "color": "#d62728"}],
+                  [".", "WorkspaceOrgAdministration",
+                   {"label": "Workspace/Org Admin", "color": "#9467bd"}],
+                  [".", "Canvases",
+                   {"label": "Canvases", "color": "#8c564b"}],
+                  [".", "Connectivity",
+                   {"label": "Connectivity", "color": "#e377c2"}],
+                  [".", "Files",
+                   {"label": "Files", "color": "#7f7f7f"}],
+                  [".", "Huddles",
+                   {"label": "Huddles", "color": "#bcbd22"}],
+                  [".", "AppsIntegrationsAPIs",
+                   {"label": "Apps/Integrations/APIs", "color": "#17becf"}],
                   [".", "Workflows", {"label": "Workflows", "color": "#ff9896"}]
                 ],
                 "view": "timeSeries",
