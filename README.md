@@ -422,7 +422,7 @@ aws cloudformation deploy \
 #### Deleting Stacks
 ```bash
 # Delete parent stack (will delete nested stacks automatically)
-aws cloudformation delete-stack --stack-name Watchy-Platform
+aws cloudformation delete-stack --stack-name watchy-platform
 ```
 
 ### Testing and Validation
@@ -472,58 +472,6 @@ This will log ALL incident notes (not just recent ones) for troubleshooting dedu
 4. **Test with minimal configuration** first, then add complexity
 5. **Use CloudWatch Insights** to query logs across multiple log groups
 6. **Monitor CloudWatch metrics** to ensure data is being collected
-
-## 🤝 Contributing
-
-We welcome contributions! The open source architecture makes it easy to:
-
-- Add new SaaS monitoring integrations
-- Improve alerting logic
-- Enhance dashboard visualizations
-- Fix bugs and add features
-
-### Development Workflow
-
-#### Local Development
-1. Fork the repository
-2. Create a feature branch
-3. Make changes to Lambda functions in `lambda/`
-4. Test locally by running the Python code directly
-5. Update CloudFormation templates in `cloudformation/`
-6. Test with your AWS account
-
-#### Automated Deployment
-The repository includes an integrated CI/CD pipeline for automated building and deployment:
-
-- **Triggers**: Changes to `lambda/`, `cloudformation/`, or workflow files
-- **Process**: 
-  1. Detects what changed (templates, Lambda code, workflows)
-  2. Validates Python syntax and CloudFormation templates
-  3. Builds Lambda deployment packages with versioning
-  4. Uploads Lambda packages to `watchy-resources` S3 bucket
-  5. Deploys CloudFormation templates to S3
-  6. Tests accessibility of all deployed artifacts
-  7. Publishes to public GitHub repository (if configured)
-
-**Pipeline Jobs:**
-- `detect-changes`: Determines what files changed
-- `validate`: Validates syntax and templates
-- `security-scan`: Scans for security issues
-- `build-lambda`: Builds and uploads Lambda packages
-- `deploy-templates`: Deploys CloudFormation templates
-- `test-deployment`: Validates deployed artifacts
-
-#### Adding New Lambda Functions
-1. Create new directory under `lambda/`
-2. Add `lambda_function.py` with handler
-3. Add `requirements.txt` for dependencies
-4. Update GitHub Actions workflow if needed
-5. Create corresponding CloudFormation resources
-
-#### Testing
-- **Local testing**: Use the build script and test functions locally
-- **AWS testing**: Deploy to your own AWS account first
-- **Validation**: GitHub Actions validates all templates automatically
 
 ## 🚀 Roadmap
 
