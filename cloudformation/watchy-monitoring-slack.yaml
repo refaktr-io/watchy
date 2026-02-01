@@ -455,8 +455,8 @@ Resources:
               "type": "metric",
               "x": 0,
               "y": 6,
-              "width": 6,
-              "height": 6,
+              "width": 4,
+              "height": 4,
               "properties": {
                 "metrics": [
                   ["Watchy/Slack", "ActiveIncidents", {"label": "Active Incidents", "stat": "Maximum", "color": "#d62728"}]
@@ -470,10 +470,10 @@ Resources:
             },
             {
               "type": "metric",
-              "x": 6,
+              "x": 4,
               "y": 6,
-              "width": 6,
-              "height": 6,
+              "width": 4,
+              "height": 4,
               "properties": {
                 "metrics": [
                   ["Watchy/Slack", "APIResponse", {"label": "API Response Code", "color": "#2ca02c"}]
@@ -487,10 +487,10 @@ Resources:
             },
             {
               "type": "log",
-              "x": 12,
+              "x": 8,
               "y": 6,
-              "width": 12,
-              "height": 6,
+              "width": 16,
+              "height": 4,
               "properties": {
                 "query": "SOURCE '/watchy/services/slack' | fields @timestamp, incident_title, incident_status | sort @timestamp desc | limit 20",
                 "region": "${AWS::Region}",
@@ -501,7 +501,7 @@ Resources:
             {
               "type": "metric",
               "x": 0,
-              "y": 12,
+              "y": 10,
               "width": 12,
               "height": 6,
               "properties": {
@@ -528,28 +528,30 @@ Resources:
             {
               "type": "metric",
               "x": 12,
-              "y": 12,
+              "y": 10,
               "width": 12,
               "height": 6,
               "properties": {
                 "metrics": [
-                  ["Watchy/Slack", "LoginSSO", {"stat": "Maximum"}],
-                  [".", "Messaging", {"stat": "Maximum"}],
-                  [".", "Notifications", {"stat": "Maximum"}],
-                  [".", "Search", {"stat": "Maximum"}],
-                  [".", "WorkspaceOrgAdministration", {"stat": "Maximum"}],
-                  [".", "Canvases", {"stat": "Maximum"}],
-                  [".", "Connectivity", {"stat": "Maximum"}],
-                  [".", "Files", {"stat": "Maximum"}],
-                  [".", "Huddles", {"stat": "Maximum"}],
-                  [".", "AppsIntegrationsAPIs", {"stat": "Maximum"}],
-                  [".", "Workflows", {"stat": "Maximum"}]
+                  ["Watchy/Slack", "LoginSSO", {"stat": "Maximum", "label": "Login/SSO"}],
+                  [".", "Messaging", {"stat": "Maximum", "label": "Messaging"}],
+                  [".", "Notifications", {"stat": "Maximum", "label": "Notifications"}],
+                  [".", "Search", {"stat": "Maximum", "label": "Search"}],
+                  [".", "WorkspaceOrgAdministration", {"stat": "Maximum", "label": "Workspace Admin"}],
+                  [".", "Canvases", {"stat": "Maximum", "label": "Canvases"}],
+                  [".", "Connectivity", {"stat": "Maximum", "label": "Connectivity"}],
+                  [".", "Files", {"stat": "Maximum", "label": "Files"}],
+                  [".", "Huddles", {"stat": "Maximum", "label": "Huddles"}],
+                  [".", "AppsIntegrationsAPIs", {"stat": "Maximum", "label": "Apps/APIs"}],
+                  [".", "Workflows", {"stat": "Maximum", "label": "Workflows"}]
                 ],
                 "view": "singleValue",
                 "region": "${AWS::Region}",
                 "title": "Current Service Status (0=OK, 1=Notice, 2=Incident, 3=Outage)",
                 "period": 300,
-                "stat": "Maximum"
+                "stat": "Maximum",
+                "setPeriodToTimeRange": false,
+                "sparkline": false
               }
             }
           ]
