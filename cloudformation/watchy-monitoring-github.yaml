@@ -1,0 +1,441 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Watchy GitHub Monitoring - Nested Stack v1.0.0'
+
+Metadata:
+  Version: '1.0.0'
+  LastUpdated: '2026-02-01'
+
+Parameters:
+  # ===== INHERITED FROM PARENT STACK =====
+  SaasAppName:
+    Type: String
+    Default: 'GitHub'
+    Description: 'Name of the SaaS application being monitored'
+
+  ApiUrl:
+    Type: String
+    Default: 'https://www.githubstatus.com/api/v2/incidents/unresolved.json'
+    Description: 'GitHub Status API endpoint URL for unresolved incidents'
+
+  MonitoringSchedule:
+    Type: String
+    Default: 'rate(5 minutes)'
+    Description: 'Schedule expression for monitoring frequency'
+
+  TimeoutSeconds:
+    Type: Number
+    Default: 240
+    Description: 'Lambda function timeout in seconds'
+
+  RetryAttempts:
+    Type: Number
+    Default: 3
+    Description: 'Number of retry attempts for failed API calls'
+
+  LogLevel:
+    Type: String
+    Default: 'INFO'
+    Description: 'Log level for monitoring function'
+
+  SharedLambdaRoleArn:
+    Type: String
+    Description: 'ARN of the shared Lambda execution role from parent stack'
+
+  NotificationTopicArn:
+    Type: String
+    Description: >-
+      ARN of the shared SNS topic for notifications from parent stack
+
+  ParentStackName:
+    Type: String
+    Description: 'Name of the parent platform stack'
+
+Resources:
+  # ===== CLOUDWATCH LOG GROUPS =====
+  GitHubIncidentLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /watchy/services/github
+      RetentionInDays: 30
+
+  GitHubLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/watchy-github-monitor
+      RetentionInDays: 7
+
+  # ===== GITHUB MONITORING LAMBDA =====
+  GitHubMonitoringLambda:
+    Type: AWS::Lambda::Function
+    DependsOn:
+      - GitHubLambdaLogGroup
+    Properties:
+      Architectures:
+        - x86_64
+      Description: >-
+        Watchy GitHub incident monitoring
+      FunctionName: watchy-github-monitor
+      Runtime: python3.14
+      Handler: lambda_function.lambda_handler
+      Role: !Ref SharedLambdaRoleArn
+      Timeout: 300
+      MemorySize: 256
+      Environment:
+        Variables:
+          # GitHub-specific configuration
+          SAAS_APP_NAME: !Ref SaasAppName
+          API_URL: !Ref ApiUrl
+          CLOUDWATCH_NAMESPACE: !Sub 'Watchy/${SaasAppName}'
+          CLOUDWATCH_LOG_GROUP: '/watchy/services/github'
+          POLLING_INTERVAL_MINUTES: '5'
+
+          # Platform configuration
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopicArn
+
+          # Runtime configuration
+          WATCHY_LOG_LEVEL: !Ref LogLevel
+          WATCHY_TIMEOUT_SECONDS: !Ref TimeoutSeconds
+          WATCHY_RETRY_ATTEMPTS: !Ref RetryAttempts
+          WATCHY_STACK_NAME: !Ref ParentStackName
+
+          # Version information (set during deployment)
+          LAMBDA_VERSION: '1.0.0'
+          BUILD_DATE: !Sub '${AWS::StackName}-${AWS::Region}'
+      Code:
+        S3Bucket: 'watchy-resources'
+        S3Key: 'github-monitor.zip'
+
+  # ===== GITHUB MONITORING SCHEDULE =====
+  GitHubScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: watchy-github-schedule
+      Description: 'Schedule for GitHub incident monitoring'
+      ScheduleExpression: !Ref MonitoringSchedule
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt GitHubMonitoringLambda.Arn
+          Id: GitHubMonitoringTarget
+
+  GitHubLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt GitHubMonitoringLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt GitHubScheduleRule.Arn
+
+  # ===== GITHUB CLOUDWATCH ALARMS =====
+  
+  # API Response Alarm
+  GitHubAPIResponseAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: watchy-github-api-response
+      AlarmDescription: 'GitHub Status API response monitoring'
+      MetricName: APIResponse
+      Namespace: Watchy/GitHub
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 200
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: breaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  # Total Unresolved Incidents Alarm
+  GitHubTotalIncidentsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'Watchy-GitHub-TotalIncidents-${AWS::Region}'
+      AlarmDescription: >-
+        GitHub Total Unresolved Incidents - alerts when any incidents are present
+      MetricName: TotalUnresolvedIncidents
+      Namespace: Watchy/GitHub
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  # Major Incidents Alarm
+  GitHubMajorIncidentsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'Watchy-GitHub-MajorIncidents-${AWS::Region}'
+      AlarmDescription: >-
+        GitHub Major Impact Incidents - alerts on major severity incidents
+      MetricName: IncidentsMajor
+      Namespace: Watchy/GitHub
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  # Critical Incidents Alarm
+  GitHubCriticalIncidentsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'Watchy-GitHub-CriticalIncidents-${AWS::Region}'
+      AlarmDescription: >-
+        GitHub Critical Impact Incidents - alerts on critical severity incidents
+      MetricName: IncidentsCritical
+      Namespace: Watchy/GitHub
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  # Highest Impact Level Alarm (for overall severity alerting)
+  GitHubHighestImpactAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'Watchy-GitHub-HighestImpact-${AWS::Region}'
+      AlarmDescription: >-
+        GitHub Highest Impact Level - alerts when impact level is major (2) or critical (3)
+      MetricName: HighestImpactLevel
+      Namespace: Watchy/GitHub
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationTopicArn
+
+  # ===== CLOUDWATCH DASHBOARD =====
+  GitHubMonitoringDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: watchy-github
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "properties": {
+                "metrics": [
+                  ["Watchy/GitHub", "TotalUnresolvedIncidents",
+                   {"label": "Total Unresolved", "color": "#1f77b4"}],
+                  [".", "IncidentsMinor",
+                   {"label": "Minor Impact", "color": "#ffbb78"}],
+                  [".", "IncidentsMajor",
+                   {"label": "Major Impact", "color": "#ff7f0e"}],
+                  [".", "IncidentsCritical",
+                   {"label": "Critical Impact", "color": "#d62728"}],
+                  [".", "HighestImpactLevel",
+                   {"label": "Highest Impact Level", "color": "#9467bd"}]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "GitHub Incident Status",
+                "period": 300,
+                "stat": "Average",
+                "yAxis": {
+                  "left": {
+                    "min": 0,
+                    "label": "Count / Level"
+                  }
+                },
+                "annotations": {
+                  "horizontal": [
+                    {
+                      "label": "Critical Impact",
+                      "value": 3,
+                      "fill": "above",
+                      "color": "#d62728"
+                    },
+                    {
+                      "label": "Major Impact",
+                      "value": 2,
+                      "fill": "above",
+                      "color": "#ff7f0e"
+                    },
+                    {
+                      "label": "Minor Impact",
+                      "value": 1,
+                      "fill": "above",
+                      "color": "#ffbb78"
+                    },
+                    {
+                      "label": "No Impact",
+                      "value": 0,
+                      "color": "#2ca02c"
+                    }
+                  ]
+                },
+                "legend": {
+                  "position": "bottom"
+                }
+              },
+              "width": 24,
+              "height": 6
+            },
+            {
+              "type": "metric",
+              "properties": {
+                "metrics": [
+                  ["Watchy/GitHub", "TotalUnresolvedIncidents",
+                   {"label": "Total Unresolved", "stat": "Maximum", "color": "#1f77b4"}]
+                ],
+                "view": "singleValue",
+                "region": "${AWS::Region}",
+                "title": "Current Unresolved Incidents",
+                "period": 300,
+                "stat": "Maximum"
+              },
+              "width": 6,
+              "height": 6
+            },
+            {
+              "type": "metric",
+              "properties": {
+                "metrics": [
+                  ["Watchy/GitHub", "HighestImpactLevel",
+                   {"label": "Highest Impact Level", "color": "#d62728"}]
+                ],
+                "view": "singleValue",
+                "region": "${AWS::Region}",
+                "title": "Highest Impact Level (0=None, 1=Minor, 2=Major, 3=Critical)",
+                "period": 300,
+                "stat": "Maximum"
+              },
+              "width": 6,
+              "height": 6
+            },
+            {
+              "type": "metric",
+              "properties": {
+                "metrics": [
+                  ["Watchy/GitHub", "APIResponse",
+                   {"label": "API Response Code", "color": "#2ca02c"}]
+                ],
+                "view": "singleValue",
+                "region": "${AWS::Region}",
+                "title": "GitHub Status API",
+                "period": 300,
+                "stat": "Average"
+              },
+              "width": 6,
+              "height": 6
+            },
+            {
+              "type": "log",
+              "properties": {
+                "query": "SOURCE '/watchy/services/github' | fields @timestamp, incident_name, incident_impact, incident_status, update_body | filter ispresent(incident_id) | sort @timestamp desc | limit 20",
+                "region": "${AWS::Region}",
+                "title": "Recent Incident Updates",
+                "stacked": false
+              },
+              "width": 6,
+              "height": 6
+            },
+            {
+              "type": "metric",
+              "properties": {
+                "metrics": [
+                  ["AWS/Lambda", "Invocations",
+                   {"stat": "Sum", "label": "Invocations", "id": "m1"}],
+                  [".", "Errors",
+                   {"stat": "Sum", "label": "Errors", "color": "#d62728", "id": "m2"}],
+                  [".", "Duration",
+                   {"stat": "Average", "label": "Avg Duration (ms)", "yAxis": "right", "id": "m3"}]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Lambda Function Metrics",
+                "period": 300,
+                "yAxis": {
+                  "right": {
+                    "label": "Duration (ms)"
+                  },
+                  "left": {
+                    "label": "Count"
+                  }
+                }
+              },
+              "width": 12,
+              "height": 6
+            },
+            {
+              "type": "metric",
+              "properties": {
+                "metrics": [
+                  ["Watchy/GitHub", "IncidentsNone", {"stat": "Maximum", "label": "None"}],
+                  [".", "IncidentsMinor", {"stat": "Maximum", "label": "Minor"}],
+                  [".", "IncidentsMajor", {"stat": "Maximum", "label": "Major"}],
+                  [".", "IncidentsCritical", {"stat": "Maximum", "label": "Critical"}]
+                ],
+                "view": "singleValue",
+                "region": "${AWS::Region}",
+                "title": "Current Incidents by Impact Level",
+                "period": 300,
+                "stat": "Maximum"
+              },
+              "width": 6,
+              "height": 6
+            }
+          ]
+        }
+
+Outputs:
+  LambdaFunctionName:
+    Description: 'GitHub monitoring Lambda function name'
+    Value: !Ref GitHubMonitoringLambda
+
+  LambdaFunctionArn:
+    Description: 'GitHub monitoring Lambda function ARN'
+    Value: !GetAtt GitHubMonitoringLambda.Arn
+
+  IncidentLogGroup:
+    Description: 'CloudWatch Log Group for GitHub incidents'
+    Value: !Ref GitHubIncidentLogGroup
+
+  LambdaLogGroup:
+    Description: 'CloudWatch Log Group for Lambda execution logs'
+    Value: !Ref GitHubLambdaLogGroup
+
+  APIResponseAlarm:
+    Description: 'GitHub API Response alarm ARN'
+    Value: !GetAtt GitHubAPIResponseAlarm.Arn
+
+  TotalIncidentsAlarm:
+    Description: 'GitHub Total Incidents alarm ARN'
+    Value: !GetAtt GitHubTotalIncidentsAlarm.Arn
+
+  MajorIncidentsAlarm:
+    Description: 'GitHub Major Incidents alarm ARN'
+    Value: !GetAtt GitHubMajorIncidentsAlarm.Arn
+
+  CriticalIncidentsAlarm:
+    Description: 'GitHub Critical Incidents alarm ARN'
+    Value: !GetAtt GitHubCriticalIncidentsAlarm.Arn
+
+  HighestImpactAlarm:
+    Description: 'GitHub Highest Impact Level alarm ARN'
+    Value: !GetAtt GitHubHighestImpactAlarm.Arn
+
+  DashboardName:
+    Description: 'CloudWatch Dashboard name for GitHub monitoring'
+    Value: !Ref GitHubMonitoringDashboard
+
+  DashboardURL:
+    Description: 'CloudWatch Dashboard URL'
+    Value: !Sub >-
+      https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=${GitHubMonitoringDashboard}

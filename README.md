@@ -12,9 +12,12 @@ Monitor SaaS application status with Amazon CloudWatch using **nested stack arch
 watchy-core/
 ├── cloudformation/
 │   ├── watchy-platform.yaml          # Parent stack (shared resources)
-│   └── watchy-monitoring-slack.yaml  # Slack monitoring nested stack
+│   ├── watchy-monitoring-slack.yaml  # Slack monitoring nested stack
+│   └── watchy-monitoring-github.yaml # GitHub monitoring nested stack
 ├── lambda/
 │   ├── slack_monitor/                # Slack monitoring Lambda function
+│   │   └── lambda_function.py        # Main handler code (no external dependencies)
+│   ├── github_monitor/               # GitHub monitoring Lambda function
 │   │   └── lambda_function.py        # Main handler code (no external dependencies)
 │   └── README.md                     # Lambda development guide
 ├── .github/workflows/
@@ -29,7 +32,7 @@ Deploy the complete Watchy platform with nested stack architecture:
 1. Click the **Deploy to AWS** button above
 2. Enter your notification email address
 3. Configure monitoring settings (schedule, log level, etc.)
-4. Enable desired monitoring services (Slack enabled by default)
+4. Enable desired monitoring services (Slack and GitHub enabled by default)
 5. Click **Create Stack**
 
 ### Manual Deployment
@@ -42,7 +45,8 @@ aws cloudformation deploy \
   --parameter-overrides \
     NotificationEmail=your-email@domain.com \
     MonitoringSchedule="rate(5 minutes)" \
-    EnableSlackMonitoring=true
+    EnableSlackMonitoring=true \
+    EnableGitHubMonitoring=true
 ```
 
 ## 📊 What Gets Deployed
@@ -60,8 +64,16 @@ aws cloudformation deploy \
 - **CloudWatch Dashboard**: Visual monitoring interface with real-time status
 - **EventBridge Schedule**: Automated polling on configured interval
 
-## 🔍 Monitored Slack Services
+### GitHub Monitoring Nested Stack (`watchy-monitoring-github.yaml`)
+- **Lambda Function**: Python 3.14 monitoring GitHub Status API for unresolved incidents
+- **CloudWatch Metrics**: Tracks incidents by impact level (none, minor, major, critical)
+- **CloudWatch Alarms**: Impact-specific alerts for major and critical incidents
+- **CloudWatch Dashboard**: Visual monitoring interface with incident tracking
+- **EventBridge Schedule**: Automated polling on configured interval
 
+## 🔍 Monitored Services
+
+### Slack Services
 Watchy monitors all 11 Slack services:
 
 1. **Login/SSO** - Authentication and single sign-on
@@ -75,6 +87,19 @@ Watchy monitors all 11 Slack services:
 9. **Huddles** - Audio huddles
 10. **Apps/Integrations/APIs** - Third-party integrations
 11. **Workflows** - Workflow Builder functionality
+
+### GitHub Incidents
+Watchy monitors GitHub unresolved incidents by impact level:
+
+- **None** - No impact incidents (informational)
+- **Minor** - Minor impact incidents (yellow)
+- **Major** - Major impact incidents (orange) 
+- **Critical** - Critical impact incidents (red)
+
+**Incident Statuses Monitored:**
+- **Investigating** - GitHub is investigating the issue
+- **Identified** - The issue has been identified
+- **Monitoring** - Fix has been applied and GitHub is monitoring
 
 ## 🌟 Nested Stack Architecture Benefits
 
@@ -97,6 +122,7 @@ Watchy monitors all 11 Slack services:
 | `RetryAttempts` | `3` | Number of retry attempts for failed API calls |
 | `LogLevel` | `INFO` | Log level for all monitoring functions |
 | `EnableSlackMonitoring` | `true` | Enable/disable Slack monitoring nested stack |
+| `EnableGitHubMonitoring` | `true` | Enable/disable GitHub monitoring nested stack |
 
 ### Slack Status API Configuration
 
@@ -105,20 +131,40 @@ The Slack monitoring uses the public Slack Status API:
 https://status.slack.com/api/v2.0.0/current
 ```
 
+### GitHub Status API Configuration
+
+The GitHub monitoring uses the public GitHub Status API:
+```
+https://www.githubstatus.com/api/v2/incidents/unresolved.json
+```
+
 ### CloudWatch Metrics
 
+#### Slack Metrics
 Metrics are published to the `Watchy/Slack` namespace:
 
-#### Service Status Metrics
+##### Service Status Metrics
 Each service has its own metric with values:
 - **0**: Operational (healthy)
 - **1**: Notice (minor issues)
 - **2**: Incident (service degraded)
 - **3**: Outage (service unavailable)
 
-#### Additional Metrics
+##### Additional Metrics
 - **ActiveIncidents**: Total number of active incidents
 - **APIResponse**: HTTP response code from Slack Status API
+
+#### GitHub Metrics
+Metrics are published to the `Watchy/GitHub` namespace:
+
+##### Incident Count Metrics
+- **IncidentsNone**: Count of incidents with no impact
+- **IncidentsMinor**: Count of incidents with minor impact
+- **IncidentsMajor**: Count of incidents with major impact
+- **IncidentsCritical**: Count of incidents with critical impact
+- **TotalUnresolvedIncidents**: Total count of all unresolved incidents
+- **HighestImpactLevel**: Highest impact level (0=none, 1=minor, 2=major, 3=critical)
+- **APIResponse**: HTTP response code from GitHub Status API
 
 ### Monitoring Schedule Options
 - `rate(1 minute)` - Every minute (high frequency, higher cost)
@@ -128,6 +174,7 @@ Each service has its own metric with values:
 
 ### Alternative: Standalone Deployment
 ```bash
+# Deploy Slack monitoring standalone
 aws cloudformation deploy \
   --template-url https://s3.amazonaws.com/watchy-resources/watchy-monitoring-slack.yaml \
   --stack-name watchy-slack-monitoring \
@@ -139,12 +186,26 @@ aws cloudformation deploy \
     SharedLambdaRoleArn=arn:aws:iam::account:role/your-role \
     NotificationTopicArn=arn:aws:sns:region:account:your-topic \
     ParentStackName=your-parent-stack
+
+# Deploy GitHub monitoring standalone
+aws cloudformation deploy \
+  --template-url https://s3.amazonaws.com/watchy-resources/watchy-monitoring-github.yaml \
+  --stack-name watchy-github-monitoring \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    SaasAppName=GitHub \
+    ApiUrl=https://www.githubstatus.com/api/v2/incidents/unresolved.json \
+    MonitoringSchedule="rate(5 minutes)" \
+    SharedLambdaRoleArn=arn:aws:iam::account:role/your-role \
+    NotificationTopicArn=arn:aws:sns:region:account:your-topic \
+    ParentStackName=your-parent-stack
 ```
 
 ### Log Configuration
 - **Platform Logs**: `/watchy/platform/{StackName}`
-- **Slack Incident Logs**: `/watchy/slack`
-- **Lambda Execution Logs**: `/aws/lambda/{ParentStackName}-SlackMonitor`
+- **Slack Incident Logs**: `/watchy/services/slack`
+- **GitHub Incident Logs**: `/watchy/services/github`
+- **Lambda Execution Logs**: `/aws/lambda/{ParentStackName}-SlackMonitor`, `/aws/lambda/{ParentStackName}-GitHubMonitor`
 
 ### Environment Variables
 
@@ -161,20 +222,20 @@ The Lambda function receives these environment variables:
 
 ## 💰 Cost Estimate
 
-Typical monthly cost for complete platform: **$2-5 USD**
+Typical monthly cost for complete platform: **$8-10 USD**
 
 ### Parent Stack Resources
 - SNS Topic: $0.50/month (email notifications)
 - CloudWatch Log Groups: $0.50/month (platform logs)
 
-### Per SaaS Service (e.g., Slack)
+### Per SaaS Service (e.g., Slack or GitHub)
 - Lambda: ~8,640 invocations/month (5-min interval) = $0.18
 - CloudWatch Logs: ~500 MB/month = $0.25
 - CloudWatch Metrics: ~12 custom metrics = $0.36
-- CloudWatch Alarms: ~11 alarms = $1.10
+- CloudWatch Alarms: ~5-11 alarms = $0.50-$1.10
 - CloudWatch Dashboard: 1 dashboard = $3.00
 
-**Total for Platform + Slack**: Approximately $5.89/month
+**Total for Platform + Slack + GitHub**: Approximately $8-10/month
 
 ## 🔧 Implementation
 
@@ -315,20 +376,28 @@ aws cloudformation delete-stack --stack-name Watchy-Platform
 # Test Slack Status API directly
 curl -s https://status.slack.com/api/v2.0.0/current | jq '.'
 
+# Test GitHub Status API directly
+curl -s https://www.githubstatus.com/api/v2/incidents/unresolved.json | jq '.'
+
 # Invoke Lambda function manually
 aws lambda invoke \
   --function-name Watchy-Platform-SlackMonitor \
+  --payload '{}' \
+  response.json && cat response.json
+
+aws lambda invoke \
+  --function-name Watchy-Platform-GitHubMonitor \
   --payload '{}' \
   response.json && cat response.json
 ```
 
 #### Validation Checklist
 - [ ] SNS email subscription confirmed
-- [ ] CloudWatch alarms created for all 11 Slack services
-- [ ] Lambda function executing on schedule
-- [ ] Metrics appearing in CloudWatch (Watchy/Slack namespace)
-- [ ] Incident logs being created during Slack incidents
-- [ ] CloudWatch dashboard showing service status
+- [ ] CloudWatch alarms created for all Slack services and GitHub incidents
+- [ ] Lambda functions executing on schedule
+- [ ] Metrics appearing in CloudWatch (Watchy/Slack and Watchy/GitHub namespaces)
+- [ ] Incident logs being created during incidents
+- [ ] CloudWatch dashboards showing service status
 
 ### Debug Mode
 
@@ -403,7 +472,6 @@ The repository includes an integrated CI/CD pipeline for automated building and 
 ## 🚀 Roadmap
 
 ### Planned Nested Stacks
-- **GitHub Status Monitoring**: Monitor GitHub service status and incidents
 - **Zoom Status Monitoring**: Monitor Zoom service availability
 - **Custom SaaS Integrations**: Template for adding new SaaS monitoring services
 

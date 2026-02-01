@@ -49,8 +49,15 @@ Parameters:
     AllowedValues: ['true', 'false']
     Description: 'Enable Slack monitoring nested stack'
 
+  EnableGitHubMonitoring:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: 'Enable GitHub monitoring nested stack'
+
 Conditions:
   DeploySlackMonitoring: !Equals [!Ref EnableSlackMonitoring, 'true']
+  DeployGitHubMonitoring: !Equals [!Ref EnableGitHubMonitoring, 'true']
 
 Resources:
   # ===== SHARED PLATFORM RESOURCES =====
@@ -165,6 +172,32 @@ Resources:
         - Key: Architecture
           Value: OpenSource
 
+  # GitHub Monitoring Nested Stack
+  GitHubStack:
+    Type: AWS::CloudFormation::Stack
+    Condition: DeployGitHubMonitoring
+    Properties:
+      TemplateURL: 'https://s3.amazonaws.com/watchy-resources/watchy-monitoring-github.yaml'
+      Parameters:
+        SaasAppName: 'GitHub'
+        ApiUrl: 'https://www.githubstatus.com/api/v2/incidents/unresolved.json'
+        MonitoringSchedule: !Ref MonitoringSchedule
+        TimeoutSeconds: !Ref TimeoutSeconds
+        RetryAttempts: !Ref RetryAttempts
+        LogLevel: !Ref LogLevel
+        SharedLambdaRoleArn: !GetAtt WatchySharedLambdaRole.Arn
+        NotificationTopicArn: !Ref WatchyNotificationTopic
+        ParentStackName: !Ref AWS::StackName
+      Tags:
+        - Key: Project
+          Value: Watchy
+        - Key: SaasApp
+          Value: GitHub
+        - Key: ParentStack
+          Value: !Ref AWS::StackName
+        - Key: Architecture
+          Value: OpenSource
+
   # Future: GitHub Monitoring Nested Stack
   # GitHubMonitoringStack:
   #   Type: AWS::CloudFormation::Stack
@@ -214,6 +247,14 @@ Outputs:
     Description: 'Status of Slack monitoring deployment'
     Value: !If [DeploySlackMonitoring, 'Deployed', 'Disabled']
 
+  GitHubMonitoringStackId:
+    Description: 'Stack ID of the GitHub monitoring nested stack'
+    Value: !If [DeployGitHubMonitoring, !Ref GitHubStack, 'Not Deployed']
+
+  GitHubMonitoringStackStatus:
+    Description: 'Status of GitHub monitoring deployment'
+    Value: !If [DeployGitHubMonitoring, 'Deployed', 'Disabled']
+
   # ===== DEPLOYMENT SUMMARY =====
   DeploymentSummary:
     Description: 'Summary of deployed monitoring services'
@@ -227,6 +268,7 @@ Outputs:
 
       Monitoring Services:
       - Slack: ${EnableSlackMonitoring}
+      - GitHub: ${EnableGitHubMonitoring}
 
       Architecture: Open Source
       Region: ${AWS::Region}

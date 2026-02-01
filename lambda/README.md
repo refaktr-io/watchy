@@ -8,6 +8,8 @@ This directory contains the Lambda functions that power the Watchy monitoring pl
 lambda/
 ├── slack_monitor/
 │   └── lambda_function.py        # Slack status monitoring function
+├── github_monitor/
+│   └── lambda_function.py        # GitHub incident monitoring function
 └── README.md                     # This file
 ```
 
@@ -27,6 +29,28 @@ Monitors Slack service status and publishes metrics to CloudWatch.
 **Metrics published:**
 - Service health status: 0=healthy, 1=notice, 2=incident, 3=outage
 - Active incident count
+- API response status
+
+**Implementation:**
+- Python using only standard library + boto3
+- No external dependencies
+- Optimized for fast cold starts and low memory usage
+
+### github_monitor
+
+Monitors GitHub unresolved incidents and publishes metrics to CloudWatch.
+
+**What it does:**
+- Fetches unresolved incidents from the GitHub Status API every 5 minutes
+- Tracks incidents by impact level (none, minor, major, critical)
+- Publishes metrics to CloudWatch for alerting and dashboards
+- Logs incident updates for historical tracking
+- Automatically deduplicates incident updates based on polling interval
+
+**Metrics published:**
+- Incident counts by impact level: 0=none, 1=minor, 2=major, 3=critical
+- Total unresolved incidents
+- Highest impact level (for alerting)
 - API response status
 
 **Implementation:**
