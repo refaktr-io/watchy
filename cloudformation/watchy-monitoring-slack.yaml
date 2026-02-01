@@ -410,8 +410,8 @@ Resources:
                 "stacked": false,
                 "region": "${AWS::Region}",
                 "title": "Slack Service Health Status",
-                "period": 300,
-                "stat": "Average",
+                "period": 60,
+                "stat": "Maximum",
                 "yAxis": {
                   "left": {
                     "min": 0,
