@@ -138,6 +138,13 @@ Resources:
                 Action:
                   - sns:Publish
                 Resource: !Ref WatchyNotificationTopic
+              # EventBridge permissions for custom resources
+              - Effect: Allow
+                Action:
+                  - events:PutTargets
+                  - events:RemoveTargets
+                Resource: !Sub >-
+                  arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/${AWS::StackName}-monitoring-schedule
 
   # Shared CloudWatch Log Groups
   WatchyPlatformLogGroup:
