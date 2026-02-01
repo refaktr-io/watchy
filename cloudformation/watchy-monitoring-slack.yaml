@@ -131,7 +131,7 @@ Resources:
   SlackAPIResponseAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: !Sub '${ParentStackName}-Slack-APIResponse'
+      AlarmName: watchy-slack-api-response
       AlarmDescription: 'Slack Status API response monitoring'
       MetricName: APIResponse
       Namespace: Watchy/Slack
@@ -147,7 +147,7 @@ Resources:
   SlackLoginSSOAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: !Sub 'Watchy-Slack-LoginSSO-${AWS::Region}'
+      AlarmName: watchy-slack-login-sso
       AlarmDescription: >-
         Slack Login/SSO service - alerts on incident (2) and outage (3)
       MetricName: LoginSSO
@@ -335,7 +335,7 @@ Resources:
   SlackMonitoringDashboard:
     Type: AWS::CloudWatch::Dashboard
     Properties:
-      DashboardName: !Sub '${ParentStackName}-Slack'
+      DashboardName: watchy-slack
       DashboardBody: !Sub |
         {
           "widgets": [

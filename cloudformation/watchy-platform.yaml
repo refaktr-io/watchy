@@ -5,7 +5,7 @@ Description: 'Watchy Monitoring Platform - Parent Stack v1.0.0'
 Metadata:
   Version: '1.0.0'
   LastUpdated: '2025-01-25'
-  RecommendedStackName: 'Watchy'
+  RecommendedStackName: 'watchy-platform'
 
 Parameters:
   # ===== GLOBAL CONFIGURATION =====
@@ -59,8 +59,8 @@ Resources:
   WatchyNotificationTopic:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: !Sub 'Watchy-Alerts-${AWS::Region}'
-      DisplayName: !Sub 'Watchy Platform Alerts (${AWS::Region})'
+      TopicName: watchy-alerts
+      DisplayName: 'Watchy Platform Alerts'
       Tags:
         - Key: Project
           Value: Watchy
@@ -81,7 +81,7 @@ Resources:
   WatchySharedLambdaRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub '${AWS::StackName}-SharedLambdaRole-${AWS::Region}'
+      RoleName: watchy-shared-lambda-role
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -92,7 +92,7 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
-        - PolicyName: !Sub 'WatchySharedPolicy-${AWS::Region}'
+        - PolicyName: watchy-shared-policy
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
@@ -140,7 +140,7 @@ Resources:
   # ===== NESTED STACKS FOR SAAS MONITORING =====
 
   # Slack Monitoring Nested Stack
-  SlackMonitoringStack:
+  SlackStack:
     Type: AWS::CloudFormation::Stack
     Condition: DeploySlackMonitoring
     Properties:
@@ -208,7 +208,7 @@ Outputs:
   # ===== NESTED STACK OUTPUTS =====
   SlackMonitoringStackId:
     Description: 'Stack ID of the Slack monitoring nested stack'
-    Value: !If [DeploySlackMonitoring, !Ref SlackMonitoringStack, 'Not Deployed']
+    Value: !If [DeploySlackMonitoring, !Ref SlackStack, 'Not Deployed']
 
   SlackMonitoringStackStatus:
     Description: 'Status of Slack monitoring deployment'
