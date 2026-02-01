@@ -51,6 +51,11 @@ Parameters:
     Type: String
     Description: 'Name of the parent platform stack'
 
+  S3BucketName:
+    Type: String
+    Default: 'watchy-resources'
+    Description: 'S3 bucket containing Lambda packages'
+
 Resources:
   # ===== CLOUDWATCH LOG GROUPS =====
   GitHubIncidentLogGroup:
@@ -103,7 +108,7 @@ Resources:
           LAMBDA_VERSION: '1.0.0'
           BUILD_DATE: !Sub '${AWS::StackName}-${AWS::Region}'
       Code:
-        S3Bucket: 'watchy-resources'
+        S3Bucket: !Ref S3BucketName
         S3Key: 'github-monitor.zip'
 
   # ===== GITHUB MONITORING SCHEDULE =====
@@ -227,172 +232,41 @@ Resources:
           "widgets": [
             {
               "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 6,
               "properties": {
                 "metrics": [
-                  ["Watchy/GitHub", "TotalUnresolvedIncidents",
-                   {"label": "Total Unresolved", "color": "#1f77b4"}],
-                  [".", "IncidentsMinor",
-                   {"label": "Minor Impact", "color": "#ffbb78"}],
-                  [".", "IncidentsMajor",
-                   {"label": "Major Impact", "color": "#ff7f0e"}],
-                  [".", "IncidentsCritical",
-                   {"label": "Critical Impact", "color": "#d62728"}],
-                  [".", "HighestImpactLevel",
-                   {"label": "Highest Impact Level", "color": "#9467bd"}]
+                  [ "Watchy/GitHub", "TotalUnresolvedIncidents" ],
+                  [ ".", "IncidentsMinor" ],
+                  [ ".", "IncidentsMajor" ],
+                  [ ".", "IncidentsCritical" ]
                 ],
                 "view": "timeSeries",
                 "stacked": false,
                 "region": "${AWS::Region}",
                 "title": "GitHub Incident Status",
                 "period": 300,
-                "stat": "Average",
-                "yAxis": {
-                  "left": {
-                    "min": 0,
-                    "label": "Count / Level"
-                  }
-                },
-                "annotations": {
-                  "horizontal": [
-                    {
-                      "label": "Critical Impact",
-                      "value": 3,
-                      "fill": "above",
-                      "color": "#d62728"
-                    },
-                    {
-                      "label": "Major Impact",
-                      "value": 2,
-                      "fill": "above",
-                      "color": "#ff7f0e"
-                    },
-                    {
-                      "label": "Minor Impact",
-                      "value": 1,
-                      "fill": "above",
-                      "color": "#ffbb78"
-                    },
-                    {
-                      "label": "No Impact",
-                      "value": 0,
-                      "color": "#2ca02c"
-                    }
-                  ]
-                },
-                "legend": {
-                  "position": "bottom"
-                }
-              },
-              "width": 24,
-              "height": 6
+                "stat": "Average"
+              }
             },
             {
               "type": "metric",
-              "properties": {
-                "metrics": [
-                  ["Watchy/GitHub", "TotalUnresolvedIncidents",
-                   {"label": "Total Unresolved", "stat": "Maximum", "color": "#1f77b4"}]
-                ],
-                "view": "singleValue",
-                "region": "${AWS::Region}",
-                "title": "Current Unresolved Incidents",
-                "period": 300,
-                "stat": "Maximum"
-              },
+              "x": 12,
+              "y": 0,
               "width": 6,
-              "height": 6
-            },
-            {
-              "type": "metric",
+              "height": 6,
               "properties": {
                 "metrics": [
-                  ["Watchy/GitHub", "HighestImpactLevel",
-                   {"label": "Highest Impact Level", "color": "#d62728"}]
+                  [ "Watchy/GitHub", "APIResponse" ]
                 ],
                 "view": "singleValue",
                 "region": "${AWS::Region}",
-                "title": "Highest Impact Level (0=None, 1=Minor, 2=Major, 3=Critical)",
-                "period": 300,
-                "stat": "Maximum"
-              },
-              "width": 6,
-              "height": 6
-            },
-            {
-              "type": "metric",
-              "properties": {
-                "metrics": [
-                  ["Watchy/GitHub", "APIResponse",
-                   {"label": "API Response Code", "color": "#2ca02c"}]
-                ],
-                "view": "singleValue",
-                "region": "${AWS::Region}",
-                "title": "GitHub Status API",
+                "title": "API Response Code",
                 "period": 300,
                 "stat": "Average"
-              },
-              "width": 6,
-              "height": 6
-            },
-            {
-              "type": "log",
-              "properties": {
-                "query": >-
-                  SOURCE '/watchy/services/github' |
-                  fields @timestamp, incident_name, incident_impact |
-                  sort @timestamp desc | limit 20
-                "region": "${AWS::Region}",
-                "title": "Recent Incident Updates",
-                "stacked": false
-              },
-              "width": 6,
-              "height": 6
-            },
-            {
-              "type": "metric",
-              "properties": {
-                "metrics": [
-                  ["AWS/Lambda", "Invocations",
-                   {"stat": "Sum", "label": "Invocations", "id": "m1"}],
-                  [".", "Errors",
-                   {"stat": "Sum", "label": "Errors", "color": "#d62728", "id": "m2"}],
-                  [".", "Duration",
-                   {"stat": "Average", "label": "Avg Duration (ms)", "yAxis": "right", "id": "m3"}]
-                ],
-                "view": "timeSeries",
-                "stacked": false,
-                "region": "${AWS::Region}",
-                "title": "Lambda Function Metrics",
-                "period": 300,
-                "yAxis": {
-                  "right": {
-                    "label": "Duration (ms)"
-                  },
-                  "left": {
-                    "label": "Count"
-                  }
-                }
-              },
-              "width": 12,
-              "height": 6
-            },
-            {
-              "type": "metric",
-              "properties": {
-                "metrics": [
-                  ["Watchy/GitHub", "IncidentsNone", {"stat": "Maximum", "label": "None"}],
-                  [".", "IncidentsMinor", {"stat": "Maximum", "label": "Minor"}],
-                  [".", "IncidentsMajor", {"stat": "Maximum", "label": "Major"}],
-                  [".", "IncidentsCritical", {"stat": "Maximum", "label": "Critical"}]
-                ],
-                "view": "singleValue",
-                "region": "${AWS::Region}",
-                "title": "Current Incidents by Impact Level",
-                "period": 300,
-                "stat": "Maximum"
-              },
-              "width": 6,
-              "height": 6
+              }
             }
           ]
         }

@@ -55,6 +55,13 @@ Parameters:
     AllowedValues: ['true', 'false']
     Description: 'Enable GitHub monitoring nested stack'
 
+  S3BucketName:
+    Type: String
+    Default: 'watchy-resources'
+    Description: >-
+      S3 bucket containing CloudFormation templates and Lambda packages.
+      Must exist before deployment.
+
 Conditions:
   DeploySlackMonitoring: !Equals [!Ref EnableSlackMonitoring, 'true']
   DeployGitHubMonitoring: !Equals [!Ref EnableGitHubMonitoring, 'true']
@@ -88,7 +95,7 @@ Resources:
   WatchySharedLambdaRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: watchy-shared-lambda-role
+      RoleName: !Sub '${AWS::StackName}-shared-lambda-role'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -151,7 +158,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Condition: DeploySlackMonitoring
     Properties:
-      TemplateURL: 'https://s3.amazonaws.com/watchy-resources/watchy-monitoring-slack.yaml'
+      TemplateURL: !Sub 'https://s3.amazonaws.com/${S3BucketName}/watchy-monitoring-slack.yaml'
       Parameters:
         SaasAppName: 'Slack'
         ApiUrl: 'https://status.slack.com/api/v2.0.0/current'
@@ -162,6 +169,7 @@ Resources:
         SharedLambdaRoleArn: !GetAtt WatchySharedLambdaRole.Arn
         NotificationTopicArn: !Ref WatchyNotificationTopic
         ParentStackName: !Ref AWS::StackName
+        S3BucketName: !Ref S3BucketName
       Tags:
         - Key: Project
           Value: Watchy
@@ -177,7 +185,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Condition: DeployGitHubMonitoring
     Properties:
-      TemplateURL: 'https://s3.amazonaws.com/watchy-resources/watchy-monitoring-github.yaml'
+      TemplateURL: !Sub 'https://s3.amazonaws.com/${S3BucketName}/watchy-monitoring-github.yaml'
       Parameters:
         SaasAppName: 'GitHub'
         ApiUrl: 'https://www.githubstatus.com/api/v2/incidents/unresolved.json'
@@ -188,6 +196,7 @@ Resources:
         SharedLambdaRoleArn: !GetAtt WatchySharedLambdaRole.Arn
         NotificationTopicArn: !Ref WatchyNotificationTopic
         ParentStackName: !Ref AWS::StackName
+        S3BucketName: !Ref S3BucketName
       Tags:
         - Key: Project
           Value: Watchy
