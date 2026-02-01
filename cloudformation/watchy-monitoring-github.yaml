@@ -1,9 +1,9 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Watchy GitHub Monitoring - Nested Stack v1.0.0'
+Description: 'Watchy GitHub Monitoring - Nested Stack v1.1.0'
 
 Metadata:
-  Version: '1.0.0'
+  Version: '1.1.0'
   LastUpdated: '2026-02-01'
 
 Parameters:
@@ -17,11 +17,6 @@ Parameters:
     Type: String
     Default: 'https://www.githubstatus.com/api/v2/incidents/unresolved.json'
     Description: 'GitHub Status API endpoint URL for unresolved incidents'
-
-  MonitoringSchedule:
-    Type: String
-    Default: 'rate(5 minutes)'
-    Description: 'Schedule expression for monitoring frequency'
 
   TimeoutSeconds:
     Type: Number
@@ -55,6 +50,10 @@ Parameters:
     Type: String
     Default: 'watchy-resources'
     Description: 'S3 bucket containing Lambda packages'
+
+  SharedScheduleRuleArn:
+    Type: String
+    Description: 'ARN of the shared EventBridge rule from parent stack'
 
 Resources:
   # ===== CLOUDWATCH LOG GROUPS =====
@@ -111,17 +110,14 @@ Resources:
         S3Bucket: !Ref S3BucketName
         S3Key: 'github-monitor.zip'
 
-  # ===== GITHUB MONITORING SCHEDULE =====
-  GitHubScheduleRule:
-    Type: AWS::Events::Rule
+  # ===== SHARED SCHEDULE TARGET =====
+  GitHubScheduleTarget:
+    Type: AWS::CloudFormation::CustomResource
     Properties:
-      Name: watchy-github-schedule
-      Description: 'Schedule for GitHub incident monitoring'
-      ScheduleExpression: !Ref MonitoringSchedule
-      State: ENABLED
-      Targets:
-        - Arn: !GetAtt GitHubMonitoringLambda.Arn
-          Id: GitHubMonitoringTarget
+      ServiceToken: !GetAtt AddTargetFunction.Arn
+      RuleName: !Select [1, !Split ['/', !Select [5, !Split [':', !Ref SharedScheduleRuleArn]]]]
+      TargetArn: !GetAtt GitHubMonitoringLambda.Arn
+      TargetId: GitHubMonitoringTarget
 
   GitHubLambdaPermission:
     Type: AWS::Lambda::Permission
@@ -129,7 +125,45 @@ Resources:
       FunctionName: !GetAtt GitHubMonitoringLambda.Arn
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
-      SourceArn: !GetAtt GitHubScheduleRule.Arn
+      SourceArn: !Ref SharedScheduleRuleArn
+
+  AddTargetFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.14
+      Handler: index.handler
+      Role: !Ref SharedLambdaRoleArn
+      Timeout: 60
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+          
+          def handler(event, context):
+              try:
+                  events_client = boto3.client('events')
+                  
+                  if event['RequestType'] == 'Create' or event['RequestType'] == 'Update':
+                      events_client.put_targets(
+                          Rule=event['ResourceProperties']['RuleName'],
+                          Targets=[{
+                              'Id': event['ResourceProperties']['TargetId'],
+                              'Arn': event['ResourceProperties']['TargetArn']
+                          }]
+                      )
+                  elif event['RequestType'] == 'Delete':
+                      try:
+                          events_client.remove_targets(
+                              Rule=event['ResourceProperties']['RuleName'],
+                              Ids=[event['ResourceProperties']['TargetId']]
+                          )
+                      except:
+                          pass  # Rule might already be deleted
+                  
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+              except Exception as e:
+                  print(f"Error: {str(e)}")
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {})
 
   # ===== GITHUB CLOUDWATCH ALARMS =====
 

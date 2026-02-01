@@ -1,10 +1,10 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Watchy Slack Monitoring - Nested Stack v1.0.0'
+Description: 'Watchy Slack Monitoring - Nested Stack v1.1.0'
 
 Metadata:
-  Version: '1.0.0'
-  LastUpdated: '2025-01-25'
+  Version: '1.1.0'
+  LastUpdated: '2026-02-01'
 
 Parameters:
   # ===== INHERITED FROM PARENT STACK =====
@@ -17,11 +17,6 @@ Parameters:
     Type: String
     Default: 'https://status.slack.com/api/v2.0.0/current'
     Description: 'Slack Status API endpoint URL'
-
-  MonitoringSchedule:
-    Type: String
-    Default: 'rate(5 minutes)'
-    Description: 'Schedule expression for monitoring frequency'
 
   TimeoutSeconds:
     Type: Number
@@ -55,6 +50,10 @@ Parameters:
     Type: String
     Default: 'watchy-resources'
     Description: 'S3 bucket containing Lambda packages'
+
+  SharedScheduleRuleArn:
+    Type: String
+    Description: 'ARN of the shared EventBridge rule from parent stack'
 
 Resources:
   # ===== CLOUDWATCH LOG GROUPS =====
@@ -111,17 +110,14 @@ Resources:
         S3Bucket: !Ref S3BucketName
         S3Key: 'slack-monitor.zip'
 
-  # ===== SLACK MONITORING SCHEDULE =====
-  SlackScheduleRule:
-    Type: AWS::Events::Rule
+  # ===== SHARED SCHEDULE TARGET =====
+  SlackScheduleTarget:
+    Type: AWS::CloudFormation::CustomResource
     Properties:
-      Name: watchy-slack-schedule
-      Description: 'Schedule for Slack status monitoring'
-      ScheduleExpression: !Ref MonitoringSchedule
-      State: ENABLED
-      Targets:
-        - Arn: !GetAtt SlackMonitoringLambda.Arn
-          Id: SlackMonitoringTarget
+      ServiceToken: !GetAtt AddTargetFunction.Arn
+      RuleName: !Select [1, !Split ['/', !Select [5, !Split [':', !Ref SharedScheduleRuleArn]]]]
+      TargetArn: !GetAtt SlackMonitoringLambda.Arn
+      TargetId: SlackMonitoringTarget
 
   SlackLambdaPermission:
     Type: AWS::Lambda::Permission
@@ -129,7 +125,45 @@ Resources:
       FunctionName: !GetAtt SlackMonitoringLambda.Arn
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
-      SourceArn: !GetAtt SlackScheduleRule.Arn
+      SourceArn: !Ref SharedScheduleRuleArn
+
+  AddTargetFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.14
+      Handler: index.handler
+      Role: !Ref SharedLambdaRoleArn
+      Timeout: 60
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+          
+          def handler(event, context):
+              try:
+                  events_client = boto3.client('events')
+                  
+                  if event['RequestType'] == 'Create' or event['RequestType'] == 'Update':
+                      events_client.put_targets(
+                          Rule=event['ResourceProperties']['RuleName'],
+                          Targets=[{
+                              'Id': event['ResourceProperties']['TargetId'],
+                              'Arn': event['ResourceProperties']['TargetArn']
+                          }]
+                      )
+                  elif event['RequestType'] == 'Delete':
+                      try:
+                          events_client.remove_targets(
+                              Rule=event['ResourceProperties']['RuleName'],
+                              Ids=[event['ResourceProperties']['TargetId']]
+                          )
+                      except:
+                          pass  # Rule might already be deleted
+                  
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+              except Exception as e:
+                  print(f"Error: {str(e)}")
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {})
 
   # ===== SLACK CLOUDWATCH ALARMS =====
   # Slack Service Alarms

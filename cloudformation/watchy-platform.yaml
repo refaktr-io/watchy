@@ -1,10 +1,10 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Watchy Monitoring Platform - Parent Stack v1.0.0'
+Description: 'Watchy Monitoring Platform - Parent Stack v1.1.0'
 
 Metadata:
-  Version: '1.0.0'
-  LastUpdated: '2025-01-25'
+  Version: '1.1.0'
+  LastUpdated: '2026-02-01'
   RecommendedStackName: 'watchy-platform'
 
 Parameters:
@@ -151,6 +151,17 @@ Resources:
         - Key: Component
           Value: Platform
 
+  # ===== SHARED MONITORING SCHEDULE =====
+  
+  # Single EventBridge Rule for All Monitoring Functions
+  WatchyMonitoringScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub '${AWS::StackName}-monitoring-schedule'
+      Description: 'Shared schedule for all Watchy monitoring functions'
+      ScheduleExpression: !Ref MonitoringSchedule
+      State: ENABLED
+
   # ===== NESTED STACKS FOR SAAS MONITORING =====
 
   # Slack Monitoring Nested Stack
@@ -170,6 +181,7 @@ Resources:
         NotificationTopicArn: !Ref WatchyNotificationTopic
         ParentStackName: !Ref AWS::StackName
         S3BucketName: !Ref S3BucketName
+        SharedScheduleRuleArn: !GetAtt WatchyMonitoringScheduleRule.Arn
       Tags:
         - Key: Project
           Value: Watchy
@@ -197,6 +209,7 @@ Resources:
         NotificationTopicArn: !Ref WatchyNotificationTopic
         ParentStackName: !Ref AWS::StackName
         S3BucketName: !Ref S3BucketName
+        SharedScheduleRuleArn: !GetAtt WatchyMonitoringScheduleRule.Arn
       Tags:
         - Key: Project
           Value: Watchy
@@ -223,10 +236,10 @@ Resources:
   #       ParentStackName: !Ref AWS::StackName
 
 Outputs:
-  # ===== SHARED PLATFORM OUTPUTS =====
+  # ===== PLATFORM OUTPUTS =====
   PlatformVersion:
     Description: 'Watchy platform version'
-    Value: '6.0.0'
+    Value: '1.1.0'
 
   NotificationTopicArn:
     Description: 'ARN of the shared SNS topic for Watchy monitoring alerts'
@@ -269,18 +282,19 @@ Outputs:
   DeploymentSummary:
     Description: 'Summary of deployed monitoring services'
     Value: !Sub |
-      Watchy Platform v6.0.0 - Nested Stack Architecture
+      Watchy Platform v1.1.0 - Nested Stack Architecture
 
       Shared Resources:
       - SNS Topic: ${WatchyNotificationTopic}
       - IAM Role: ${WatchySharedLambdaRole}
+      - EventBridge Rule: ${WatchyMonitoringScheduleRule}
       - Email: ${NotificationEmail}
 
       Monitoring Services:
       - Slack: ${EnableSlackMonitoring}
       - GitHub: ${EnableGitHubMonitoring}
 
-      Architecture: Open Source
+      Architecture: Single Shared Schedule
       Region: ${AWS::Region}
       Stack: ${AWS::StackName}
 
