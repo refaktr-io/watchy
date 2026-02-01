@@ -152,7 +152,7 @@ Resources:
           Value: Platform
 
   # ===== SHARED MONITORING SCHEDULE =====
-  
+
   # Single EventBridge Rule for All Monitoring Functions
   WatchyMonitoringScheduleRule:
     Type: AWS::Events::Rule
@@ -169,7 +169,8 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Condition: DeploySlackMonitoring
     Properties:
-      TemplateURL: !Sub 'https://s3.amazonaws.com/${S3BucketName}/watchy-monitoring-slack.yaml'
+      TemplateURL: !Sub >-
+        https://s3.amazonaws.com/${S3BucketName}/watchy-monitoring-slack.yaml
       Parameters:
         SaasAppName: 'Slack'
         ApiUrl: 'https://status.slack.com/api/v2.0.0/current'
@@ -197,10 +198,12 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Condition: DeployGitHubMonitoring
     Properties:
-      TemplateURL: !Sub 'https://s3.amazonaws.com/${S3BucketName}/watchy-monitoring-github.yaml'
+      TemplateURL: !Sub >-
+        https://s3.amazonaws.com/${S3BucketName}/watchy-monitoring-github.yaml
       Parameters:
         SaasAppName: 'GitHub'
-        ApiUrl: 'https://www.githubstatus.com/api/v2/incidents/unresolved.json'
+        ApiUrl: >-
+          https://www.githubstatus.com/api/v2/incidents/unresolved.json
         MonitoringSchedule: !Ref MonitoringSchedule
         TimeoutSeconds: !Ref TimeoutSeconds
         RetryAttempts: !Ref RetryAttempts
@@ -226,10 +229,12 @@ Resources:
   #   Condition: DeployGitHubMonitoring
   #   Properties:
   #     TemplateURL: >-
-  #       https://s3.amazonaws.com/watchy-resources/watchy-github-monitoring.yaml
+  #       https://s3.amazonaws.com/watchy-resources/
+  #       watchy-github-monitoring.yaml
   #     Parameters:
   #       SaasAppName: 'GitHub'
-  #       ApiUrl: 'https://www.githubstatus.com/api/v2/status.json'
+  #       ApiUrl: >-
+  #         https://www.githubstatus.com/api/v2/status.json
   #       MonitoringSchedule: !Ref MonitoringSchedule
   #       SharedLambdaRoleArn: !GetAtt WatchySharedLambdaRole.Arn
   #       NotificationTopicArn: !Ref WatchyNotificationTopic
