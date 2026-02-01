@@ -56,13 +56,13 @@ Resources:
   SlackIncidentLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: /watchy/slack
+      LogGroupName: /watchy/services/slack
       RetentionInDays: 30
 
   SlackLambdaLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${ParentStackName}-SlackMonitor'
+      LogGroupName: /aws/lambda/watchy-slack-monitor
       RetentionInDays: 7
 
   # ===== SLACK MONITORING LAMBDA =====
@@ -75,7 +75,7 @@ Resources:
         - x86_64
       Description: >-
         Watchy Slack status monitoring with pure Python implementation
-      FunctionName: !Sub '${ParentStackName}-SlackMonitor'
+      FunctionName: watchy-slack-monitor
       Runtime: python3.13
       Handler: lambda_function.lambda_handler
       Role: !Ref SharedLambdaRoleArn
@@ -87,7 +87,7 @@ Resources:
           SAAS_APP_NAME: !Ref SaasAppName
           API_URL: !Ref ApiUrl
           CLOUDWATCH_NAMESPACE: !Sub 'Watchy/${SaasAppName}'
-          CLOUDWATCH_LOG_GROUP: '/watchy/slack'
+          CLOUDWATCH_LOG_GROUP: '/watchy/services/slack'
           POLLING_INTERVAL_MINUTES: '5'
 
           # Platform configuration
@@ -110,7 +110,7 @@ Resources:
   SlackScheduleRule:
     Type: AWS::Events::Rule
     Properties:
-      Name: !Sub '${ParentStackName}-SlackSchedule'
+      Name: watchy-slack-schedule
       Description: 'Schedule for Slack status monitoring'
       ScheduleExpression: !Ref MonitoringSchedule
       State: ENABLED
@@ -447,7 +447,7 @@ Resources:
             {
               "type": "log",
               "properties": {
-                "query": "SOURCE '/watchy/slack' | fields @timestamp, incident_title, incident_status, note_body | filter ispresent(incident_id) | sort @timestamp desc | limit 20",
+                "query": "SOURCE '/watchy/services/slack' | fields @timestamp, incident_title, incident_status, note_body | filter ispresent(incident_id) | sort @timestamp desc | limit 20",
                 "region": "${AWS::Region}",
                 "title": "Recent Incident Updates",
                 "stacked": false

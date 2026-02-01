@@ -105,7 +105,7 @@ def is_within_polling_interval(note_time: datetime, polling_interval_minutes: in
 
     return within_interval
 
-def publish_incident_logs(incidents: List[Dict], log_group: str = '/watchy/slack', polling_interval: int = 5):
+def publish_incident_logs(incidents: List[Dict], log_group: str = '/watchy/services/slack', polling_interval: int = 5):
     """Publish incident notes to CloudWatch Logs"""
     try:
         if not incidents:
@@ -400,7 +400,7 @@ def lambda_handler(event, context):
         # Get configuration from environment variables with defaults
         api_url = os.getenv('API_URL', 'https://status.slack.com/api/v2.0.0/current')
         namespace = os.getenv('CLOUDWATCH_NAMESPACE', 'Watchy/Slack')
-        log_group = os.getenv('CLOUDWATCH_LOG_GROUP', '/watchy/slack')
+        log_group = os.getenv('CLOUDWATCH_LOG_GROUP', '/watchy/services/slack')
         polling_interval = int(os.getenv('POLLING_INTERVAL_MINUTES', '5'))
 
         # Debug mode: disable time filtering if DEBUG_DISABLE_TIME_FILTER is set

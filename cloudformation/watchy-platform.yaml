@@ -129,7 +129,7 @@ Resources:
   WatchyPlatformLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub '/watchy/platform/${AWS::StackName}'
+      LogGroupName: /watchy/platform
       RetentionInDays: 30
       Tags:
         - Key: Project
