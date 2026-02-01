@@ -222,20 +222,75 @@ The Lambda function receives these environment variables:
 
 ## 💰 Cost Estimate
 
-Typical monthly cost for complete platform: **$7-9 USD**
+### Complete Platform Cost Breakdown
 
-### Parent Stack Resources
-- SNS Topic: $0.50/month (email notifications)
-- CloudWatch Log Groups: $0.50/month (platform logs)
+**Monthly AWS Costs (us-east-1):**
 
-### Per SaaS Service (e.g., Slack or GitHub)
-- Lambda: ~8,640 invocations/month (5-min interval) = $0.14 (ARM64 pricing)
-- CloudWatch Logs: ~500 MB/month = $0.25
-- CloudWatch Metrics: ~12 custom metrics = $0.36
-- CloudWatch Alarms: ~5-11 alarms = $0.50-$1.10
-- CloudWatch Dashboard: 1 dashboard = $3.00
+```
+Core Platform:                 $0.50
+Slack Monitoring:              $9.90
+GitHub Monitoring:             $7.10
+S3 Storage:                    $0.002
+                              ------
+Total Monthly Cost:           $17.50
 
-**Total for Platform + Slack + GitHub**: Approximately $7-9/month
+Key Components:
+- CloudWatch Dashboards:       $6.00 (2 dashboards)
+- CloudWatch Metrics:          $6.90 (23 custom metrics)
+- CloudWatch Alarms:           $1.70 (17 alarms)
+- CloudWatch Logs:             $2.50 (log retention)
+- Lambda Functions:            $0.40 (ARM64, 256MB)
+```
+
+### Detailed Service Costs
+
+**Slack Monitoring Stack ($9.90/month):**
+- Lambda Function (ARM64, 256MB): $0.20
+  - 8,640 invocations/month (5-min polling)
+- CloudWatch Logs (2 groups): $1.00
+- CloudWatch Metrics (15 custom): $4.50
+- CloudWatch Alarms (12 alarms): $1.20
+- CloudWatch Dashboard: $3.00
+
+**GitHub Monitoring Stack ($7.10/month):**
+- Lambda Function (ARM64, 256MB): $0.20
+  - 8,640 invocations/month (5-min polling)
+- CloudWatch Logs (2 groups): $1.00
+- CloudWatch Metrics (8 custom): $2.40
+- CloudWatch Alarms (5 alarms): $0.50
+- CloudWatch Dashboard: $3.00
+
+### Cost Scaling Options
+
+| Polling Interval | Lambda Invocations | Monthly Cost |
+|------------------|-------------------|-------------|
+| **1 minute** | 43,200/month | $22.00 |
+| **5 minutes** (default) | 8,640/month | $17.50 |
+| **15 minutes** | 2,880/month | $15.00 |
+| **1 hour** | 720/month | $13.50 |
+
+### Cost Optimization
+
+**Optimized Configuration (29% savings):**
+- 10-minute polling: -$1.50/month
+- 3-day log retention: -$0.50/month
+- Combined dashboard: -$3.00/month
+- **Optimized Total: $12.50/month**
+
+### Comparison with SaaS Alternatives
+
+| Solution | Monthly Cost | Features |
+|----------|-------------|----------|
+| **Watchy** | $17.50 | Full monitoring, custom dashboards |
+| **StatusGator** | $40-72 | Hosted solution, 3,600+ services |
+| **DataDog** | $45+ | More features, 3x cost |
+| **New Relic** | $25+ | Similar features, higher cost |
+| **PagerDuty** | $21+ | Alerting focus, less monitoring |
+
+**Watchy Savings:**
+- vs StatusGator: $22.50-54.50/month (56-76% savings)
+- vs DataDog: $27.50+/month (61% savings)
+- Annual savings: $270-654/year
 
 ## 🔧 Implementation
 
