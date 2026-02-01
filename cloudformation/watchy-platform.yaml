@@ -174,7 +174,6 @@ Resources:
       Parameters:
         SaasAppName: 'Slack'
         ApiUrl: 'https://status.slack.com/api/v2.0.0/current'
-        MonitoringSchedule: !Ref MonitoringSchedule
         TimeoutSeconds: !Ref TimeoutSeconds
         RetryAttempts: !Ref RetryAttempts
         LogLevel: !Ref LogLevel
@@ -204,7 +203,6 @@ Resources:
         SaasAppName: 'GitHub'
         ApiUrl: >-
           https://www.githubstatus.com/api/v2/incidents/unresolved.json
-        MonitoringSchedule: !Ref MonitoringSchedule
         TimeoutSeconds: !Ref TimeoutSeconds
         RetryAttempts: !Ref RetryAttempts
         LogLevel: !Ref LogLevel
