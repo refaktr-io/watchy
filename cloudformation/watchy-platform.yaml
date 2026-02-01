@@ -228,7 +228,7 @@ Outputs:
       Monitoring Services:
       - Slack: ${EnableSlackMonitoring}
 
-      Architecture: Open Source Pure Python
+      Architecture: Open Source
       Region: ${AWS::Region}
       Stack: ${AWS::StackName}
 

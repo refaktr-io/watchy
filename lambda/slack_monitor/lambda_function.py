@@ -395,7 +395,7 @@ def lambda_handler(event, context):
 
     try:
         print(f"Watchy Slack Monitor v{VERSION} starting...")
-        print("Runtime: Pure Python Lambda")
+        print("Runtime: Python Lambda")
 
         # Get configuration from environment variables with defaults
         api_url = os.getenv('API_URL', 'https://status.slack.com/api/v2.0.0/current')

@@ -74,13 +74,13 @@ Resources:
       Architectures:
         - x86_64
       Description: >-
-        Watchy Slack status monitoring with pure Python implementation
+        Watchy Slack status monitoring
       FunctionName: watchy-slack-monitor
-      Runtime: python3.13
+      Runtime: python3.14
       Handler: lambda_function.lambda_handler
       Role: !Ref SharedLambdaRoleArn
       Timeout: 300
-      MemorySize: 256  # Reduced memory for pure Python implementation
+      MemorySize: 256
       Environment:
         Variables:
           # Slack-specific configuration

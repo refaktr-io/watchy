@@ -114,7 +114,7 @@ body:
       options:
         - label: CloudFormation templates
         - label: S3 template hosting
-        - label: Lambda functions (pure Python)
+        - label: Lambda functions (Python)
         - label: CloudWatch metrics/alarms
         - label: SNS notifications
         - label: Template validation

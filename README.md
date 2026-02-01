@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![GitHub](https://img.shields.io/badge/GitHub-Open%20Source-green?logo=github)](https://github.com/your-org/watchy-core)
 
-Monitor SaaS application status with Amazon CloudWatch using **nested stack architecture** and pure Python implementation. Get real-time alerts for service degradation and incidents - all running transparently in your own AWS account.
+Monitor SaaS application status with Amazon CloudWatch using **nested stack architecture**. Get real-time alerts for service degradation and incidents - all running transparently in your own AWS account.
 
 ## 🏗️ Repository Structure
 
@@ -54,7 +54,7 @@ aws cloudformation deploy \
 - **Email Subscription**: Automatic SNS email subscription setup
 
 ### Slack Monitoring Nested Stack (`watchy-monitoring-slack.yaml`)
-- **Lambda Function**: Pure Python 3.13 monitoring Slack Status API
+- **Lambda Function**: Python 3.14 monitoring Slack Status API
 - **CloudWatch Metrics**: Tracks 11 Slack service health metrics
 - **CloudWatch Alarms**: Service-specific alerts for incidents and outages
 - **CloudWatch Dashboard**: Visual monitoring interface with real-time status
@@ -176,12 +176,12 @@ Typical monthly cost for complete platform: **$2-5 USD**
 
 **Total for Platform + Slack**: Approximately $5.89/month
 
-## 🔧 Pure Python Implementation
+## 🔧 Implementation
 
-Watchy uses **AWS Lambda Python 3.13** runtime with a completely open source architecture:
+Watchy uses **AWS Lambda Python 3.14** runtime with a completely open source architecture:
 
 - **All monitoring logic visible** in CloudFormation templates
-- **Pure Python implementation** for maximum transparency
+- **Standard Python implementation** for maximum transparency
 - **No binary dependencies** or compilation required
 - **Easy to modify, extend, and contribute to**
 - **Faster cold starts** and reduced memory usage (256MB vs 512MB)

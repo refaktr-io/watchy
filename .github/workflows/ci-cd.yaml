@@ -70,7 +70,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.13'
+          python-version: '3.14'
 
       - name: Install validation tools
         run: |
@@ -219,7 +219,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.13'
+        python-version: '3.14'
     
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
@@ -523,7 +523,7 @@ jobs:
           echo "- ✅ Automated Lambda building and deployment"
           echo "- ✅ Version-controlled Lambda functions"
           echo "- ✅ CI/CD pipeline for both templates and code"
-          echo "- ✅ Pure Python implementation - no binaries"
+          echo "- ✅ Python implementation - no binaries"
           echo "- ✅ All monitoring logic visible and auditable"
           echo "- ✅ Shared resources reduce costs and complexity"
           echo "- ✅ Easy to add new SaaS monitoring services"

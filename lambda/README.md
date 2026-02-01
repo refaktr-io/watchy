@@ -30,7 +30,7 @@ Monitors Slack service status and publishes metrics to CloudWatch.
 - API response status
 
 **Implementation:**
-- Pure Python using only standard library + boto3
+- Python using only standard library + boto3
 - No external dependencies
 - Optimized for fast cold starts and low memory usage
 
