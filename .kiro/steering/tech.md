@@ -7,6 +7,7 @@
 
 ## Runtime Environment
 - **AWS Lambda**: Python 3.14 runtime for monitoring functions
+- **Architecture**: ARM64 for optimal price-performance
 - **No External Dependencies**: Uses only Python standard library + boto3
 - **Memory**: 256MB (optimized for fast cold starts)
 - **Timeout**: 240 seconds default (configurable)

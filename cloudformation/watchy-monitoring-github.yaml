@@ -72,7 +72,7 @@ Resources:
       - GitHubLambdaLogGroup
     Properties:
       Architectures:
-        - x86_64
+        - arm64
       Description: >-
         Watchy GitHub incident monitoring
       FunctionName: watchy-github-monitor

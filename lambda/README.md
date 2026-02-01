@@ -33,6 +33,7 @@ Monitors Slack service status and publishes metrics to CloudWatch.
 
 **Implementation:**
 - Python using only standard library + boto3
+- ARM64 architecture for better price-performance
 - No external dependencies
 - Optimized for fast cold starts and low memory usage
 
@@ -55,6 +56,7 @@ Monitors GitHub unresolved incidents and publishes metrics to CloudWatch.
 
 **Implementation:**
 - Python using only standard library + boto3
+- ARM64 architecture for better price-performance
 - No external dependencies
 - Optimized for fast cold starts and low memory usage
 

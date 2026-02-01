@@ -72,7 +72,7 @@ Resources:
       - SlackLambdaLogGroup
     Properties:
       Architectures:
-        - x86_64
+        - arm64
       Description: >-
         Watchy Slack status monitoring
       FunctionName: watchy-slack-monitor

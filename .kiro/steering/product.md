@@ -10,7 +10,7 @@ Watchy is an open-source SaaS monitoring platform that runs in your AWS account 
 
 ## Key Features
 - **Nested Stack Architecture**: Parent stack manages shared resources (SNS, IAM, logs) while nested stacks handle individual SaaS monitoring
-- **Cost Effective**: Typical monthly cost of $2-5 USD for complete platform
+- **Cost Effective**: Typical monthly cost of $7-9 USD for complete platform with ARM64 Lambda architecture
 - **Transparent**: All monitoring logic visible in CloudFormation templates
 - **No External Dependencies**: Uses only AWS services and public APIs
 - **Smart Deduplication**: Avoids duplicate incident notifications

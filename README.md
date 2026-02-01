@@ -222,30 +222,31 @@ The Lambda function receives these environment variables:
 
 ## 💰 Cost Estimate
 
-Typical monthly cost for complete platform: **$8-10 USD**
+Typical monthly cost for complete platform: **$7-9 USD**
 
 ### Parent Stack Resources
 - SNS Topic: $0.50/month (email notifications)
 - CloudWatch Log Groups: $0.50/month (platform logs)
 
 ### Per SaaS Service (e.g., Slack or GitHub)
-- Lambda: ~8,640 invocations/month (5-min interval) = $0.18
+- Lambda: ~8,640 invocations/month (5-min interval) = $0.14 (ARM64 pricing)
 - CloudWatch Logs: ~500 MB/month = $0.25
 - CloudWatch Metrics: ~12 custom metrics = $0.36
 - CloudWatch Alarms: ~5-11 alarms = $0.50-$1.10
 - CloudWatch Dashboard: 1 dashboard = $3.00
 
-**Total for Platform + Slack + GitHub**: Approximately $8-10/month
+**Total for Platform + Slack + GitHub**: Approximately $7-9/month
 
 ## 🔧 Implementation
 
-Watchy uses **AWS Lambda Python 3.14** runtime with a completely open source architecture:
+Watchy uses **AWS Lambda Python 3.14** runtime with ARM64 architecture for optimal price-performance:
 
 - **All monitoring logic visible** in CloudFormation templates
 - **Standard Python implementation** for maximum transparency
 - **No binary dependencies** or compilation required
 - **Easy to modify, extend, and contribute to**
-- **Faster cold starts** and reduced memory usage (256MB vs 512MB)
+- **ARM64 architecture** for better price-performance and lower costs
+- **Faster cold starts** and reduced memory usage (256MB)
 - **Community-friendly development** and debugging
 
 ## 🛡️ Security Features
