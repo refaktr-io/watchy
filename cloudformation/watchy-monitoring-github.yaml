@@ -337,12 +337,7 @@ Resources:
             {
               "type": "log",
               "properties": {
-                "query": >-
-                  SOURCE '/watchy/services/github' |
-                  fields @timestamp, incident_name, incident_impact, incident_status, update_body |
-                  filter ispresent(incident_id) |
-                  sort @timestamp desc |
-                  limit 20
+                "query": "SOURCE '/watchy/services/github' | fields @timestamp, incident_name, incident_impact | sort @timestamp desc | limit 20",
                 "region": "${AWS::Region}",
                 "title": "Recent Incident Updates",
                 "stacked": false
