@@ -108,6 +108,9 @@ jobs:
             --template-body file://cloudformation/watchy-monitoring-slack.yaml \
             --region ${{ env.AWS_REGION }} --no-cli-pager
           aws cloudformation validate-template \
+            --template-body file://cloudformation/watchy-monitoring-github.yaml \
+            --region ${{ env.AWS_REGION }} --no-cli-pager
+          aws cloudformation validate-template \
             --template-body file://cloudformation/watchy-platform.yaml \
             --region ${{ env.AWS_REGION }} --no-cli-pager
         env:
@@ -131,12 +134,12 @@ jobs:
 
           # Check for common secret patterns
           SECRET_PATTERNS=(
-            "password.*[:=].*['\"][^'\"]{8,}['\"]"
-            "api[_-]?key.*[:=].*['\"][^'\"]{16,}['\"]"
-            "secret.*[:=].*['\"][^'\"]{12,}['\"]"
-            "token.*[:=].*['\"][^'\"]{16,}['\"]"
-            "aws[_-]?access[_-]?key.*[:=].*['\"][A-Z0-9]{20}['\"]"
-            "aws[_-]?secret.*[:=].*['\"][A-Za-z0-9/+=]{40}['\"]"
+            "password.*[:=]"
+            "api[_-]?key.*[:=]"
+            "secret.*[:=]"
+            "token.*[:=]"
+            "aws[_-]?access[_-]?key.*[:=]"
+            "aws[_-]?secret.*[:=]"
           )
 
           FOUND_SECRETS=false
@@ -196,14 +199,14 @@ jobs:
     # Run when: manual dispatch, OR on main branch when anything changes that requires deployment
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.ref == 'refs/heads/main' && 
-       (needs.detect-changes.outputs.lambda == 'true' || 
+      (github.ref == 'refs/heads/main' &&
+       (needs.detect-changes.outputs.lambda == 'true' ||
         needs.detect-changes.outputs.templates == 'true'))
-    
+
     permissions:
       id-token: write   # Required for OIDC
       contents: read    # Required to checkout code
-    
+
     steps:
     - name: Debug job execution
       run: |
@@ -212,83 +215,140 @@ jobs:
         echo "- Event: ${{ github.event_name }}"
         echo "- Lambda changed: ${{ needs.detect-changes.outputs.lambda }}"
         echo "- Templates changed: ${{ needs.detect-changes.outputs.templates }}"
-        
+
     - name: Checkout code
       uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.14'
-    
+
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
-    
+
     - name: Build Slack Monitor Lambda
       run: |
         cd lambda/slack_monitor
-        
+
         # Set build metadata
         export LAMBDA_VERSION="1.0.0-${GITHUB_SHA:0:7}"
-        
+
         echo "Building Slack Monitor Lambda..."
         echo "Version: $LAMBDA_VERSION"
-        
+
         # Create build directory
         mkdir -p build
-        
+
         # Copy Lambda function
         cp lambda_function.py build/
-        
+
         # No external dependencies needed - uses only Python standard library and boto3 (AWS provided)
-        
+
         # Create deployment package
         cd build
         zip -r ../slack-monitor.zip .
         cd ..
-        
+
         # Verify zip contents
         echo "Lambda package contents:"
         unzip -l slack-monitor.zip
-        
+
         # Get package size
         PACKAGE_SIZE=$(stat -c%s slack-monitor.zip)
         echo "Package size: $PACKAGE_SIZE bytes"
-        
+
         if [ $PACKAGE_SIZE -gt 52428800 ]; then  # 50MB limit
           echo "ERROR: Package size exceeds Lambda limit of 50MB"
           exit 1
         fi
-    
+
+    - name: Build GitHub Monitor Lambda
+      run: |
+        cd lambda/github_monitor
+
+        # Set build metadata
+        export LAMBDA_VERSION="1.0.0-${GITHUB_SHA:0:7}"
+
+        echo "Building GitHub Monitor Lambda..."
+        echo "Version: $LAMBDA_VERSION"
+
+        # Create build directory
+        mkdir -p build
+
+        # Copy Lambda function
+        cp lambda_function.py build/
+
+        # No external dependencies needed - uses only Python standard library and boto3 (AWS provided)
+
+        # Create deployment package
+        cd build
+        zip -r ../github-monitor.zip .
+        cd ..
+
+        # Verify zip contents
+        echo "Lambda package contents:"
+        unzip -l github-monitor.zip
+
+        # Get package size
+        PACKAGE_SIZE=$(stat -c%s github-monitor.zip)
+        echo "Package size: $PACKAGE_SIZE bytes"
+
+        if [ $PACKAGE_SIZE -gt 52428800 ]; then  # 50MB limit
+          echo "ERROR: Package size exceeds Lambda limit of 50MB"
+          exit 1
+        fi
+
     - name: Upload Lambda packages to S3
       run: |
+        # Upload Slack Monitor
         cd lambda/slack_monitor
-        
+
         # Debug: Show current directory and files
         echo "Current directory: $(pwd)"
         echo "Files in directory:"
         ls -la
-        
+
         # Check if zip file exists
         if [ ! -f "slack-monitor.zip" ]; then
           echo "ERROR: slack-monitor.zip not found!"
           exit 1
         fi
-        
+
         # Upload to S3
-        echo "Uploading to S3..."
+        echo "Uploading Slack Monitor to S3..."
         aws s3 cp slack-monitor.zip s3://watchy-resources/slack-monitor.zip
-        
-        echo "Lambda package uploaded to S3:"
-        echo "  Main: s3://watchy-resources/slack-monitor.zip"
-        
-        # Debug: Verify upload
-        echo "Verifying S3 upload:"
+
+        # Upload GitHub Monitor
+        cd ../github_monitor
+
+        # Debug: Show current directory and files
+        echo "Current directory: $(pwd)"
+        echo "Files in directory:"
+        ls -la
+
+        # Check if zip file exists
+        if [ ! -f "github-monitor.zip" ]; then
+          echo "ERROR: github-monitor.zip not found!"
+          exit 1
+        fi
+
+        # Upload to S3
+        echo "Uploading GitHub Monitor to S3..."
+        aws s3 cp github-monitor.zip s3://watchy-resources/github-monitor.zip
+
+        echo "Lambda packages uploaded to S3:"
+        echo "  Slack: s3://watchy-resources/slack-monitor.zip"
+        echo "  GitHub: s3://watchy-resources/github-monitor.zip"
+
+        # Debug: Verify uploads
+        echo "Verifying S3 uploads:"
         aws s3 ls s3://watchy-resources/slack-monitor.zip
+        aws s3 ls s3://watchy-resources/github-monitor.zip
 
   # ===== DEPLOY TEMPLATES TO S3 =====
   deploy-templates:
@@ -324,11 +384,11 @@ jobs:
           TEMPLATE_BUCKET="watchy-resources"
 
           echo "✅ Deploying templates to bucket: $TEMPLATE_BUCKET"
-          
+
           # Debug: Check if bucket exists and is accessible
           echo "Testing bucket access..."
           aws s3 ls s3://${TEMPLATE_BUCKET}/ --region ${{ env.AWS_REGION }} || echo "Bucket access failed"
-          
+
           # Debug: Show what files we're about to deploy
           echo "Files in cloudformation/ directory:"
           ls -la cloudformation/
@@ -340,7 +400,7 @@ jobs:
             --region ${{ env.AWS_REGION }}
 
           echo "✅ Templates deployed successfully"
-          
+
           # Debug: Verify what was uploaded
           echo "Files now in S3 bucket:"
           aws s3 ls s3://${TEMPLATE_BUCKET}/ --region ${{ env.AWS_REGION }}
@@ -393,11 +453,26 @@ jobs:
             exit 1
           fi
 
-          # Test Lambda package
+          # Test GitHub monitoring template (nested stack)
+          if curl -f -s "https://s3.amazonaws.com/watchy-resources/watchy-monitoring-github.yaml" > /dev/null; then
+            echo "✅ GitHub monitoring template (nested stack) is accessible"
+          else
+            echo "❌ GitHub monitoring template (nested stack) is not accessible"
+            exit 1
+          fi
+
+          # Test Lambda packages
           if curl -f -s "https://s3.amazonaws.com/watchy-resources/slack-monitor.zip" > /dev/null; then
             echo "✅ Slack Lambda package is accessible"
           else
             echo "❌ Slack Lambda package is not accessible"
+            exit 1
+          fi
+
+          if curl -f -s "https://s3.amazonaws.com/watchy-resources/github-monitor.zip" > /dev/null; then
+            echo "✅ GitHub Lambda package is accessible"
+          else
+            echo "❌ GitHub Lambda package is not accessible"
             exit 1
           fi
 
@@ -413,9 +488,13 @@ jobs:
           # Download and validate the deployed Slack template (nested stack)
           curl -s "https://s3.amazonaws.com/watchy-resources/watchy-monitoring-slack.yaml" > deployed-slack-template.yaml
 
+          # Download and validate the deployed GitHub template (nested stack)
+          curl -s "https://s3.amazonaws.com/watchy-resources/watchy-monitoring-github.yaml" > deployed-github-template.yaml
+
           # Debug: Show what we downloaded
           echo "Platform template size: $(wc -c < deployed-platform-template.yaml) bytes"
           echo "Slack template size: $(wc -c < deployed-slack-template.yaml) bytes"
+          echo "GitHub template size: $(wc -c < deployed-github-template.yaml) bytes"
 
           # Validate platform template
           if grep -q "AWSTemplateFormatVersion" deployed-platform-template.yaml; then
@@ -446,6 +525,16 @@ jobs:
             exit 1
           fi
 
+          # Validate GitHub template
+          if grep -q "AWSTemplateFormatVersion" deployed-github-template.yaml; then
+            echo "✅ GitHub template has valid CloudFormation format"
+          else
+            echo "❌ GitHub template is missing CloudFormation format version"
+            echo "First 10 lines of GitHub template:"
+            head -10 deployed-github-template.yaml
+            exit 1
+          fi
+
           # Check for Lambda handler reference (more flexible pattern)
           if grep -q "Handler.*lambda_function.lambda_handler" deployed-slack-template.yaml; then
             echo "✅ Slack template references external Lambda package"
@@ -456,6 +545,15 @@ jobs:
             exit 1
           fi
 
+          if grep -q "Handler.*lambda_function.lambda_handler" deployed-github-template.yaml; then
+            echo "✅ GitHub template references external Lambda package"
+          else
+            echo "❌ GitHub template is missing Lambda function reference"
+            echo "Searching for Lambda handler references:"
+            grep -i "handler\|lambda_function" deployed-github-template.yaml | head -5 || echo "No handler references found"
+            exit 1
+          fi
+
           # Additional validation: Check for S3 code reference
           if grep -q "S3Bucket.*watchy-resources" deployed-slack-template.yaml; then
             echo "✅ Slack template references S3 Lambda package"
@@ -463,6 +561,14 @@ jobs:
             echo "⚠️  Slack template may not reference S3 Lambda package correctly"
             echo "Searching for S3 references:"
             grep -i "s3" deployed-slack-template.yaml | head -3 || echo "No S3 references found"
+          fi
+
+          if grep -q "S3Bucket.*watchy-resources" deployed-github-template.yaml; then
+            echo "✅ GitHub template references S3 Lambda package"
+          else
+            echo "⚠️  GitHub template may not reference S3 Lambda package correctly"
+            echo "Searching for S3 references:"
+            grep -i "s3" deployed-github-template.yaml | head -3 || echo "No S3 references found"
           fi
 
           echo "✅ Template validation completed successfully"
@@ -488,7 +594,6 @@ jobs:
           echo "- Validation: ${{ needs.validate.result }}"
           echo "- Security Scan: ${{ needs.security-scan.result }}"
           echo "- Lambda Build: ${{ needs.build-lambda.result }}"
-          echo "- Deployment Coordination: ${{ needs.coordinate-deployment.result }}"
           echo "- Template Deployment: ${{ needs.deploy-templates.result }}"
           echo "- Testing: ${{ needs.test-deployment.result }}"
 
@@ -497,7 +602,9 @@ jobs:
             echo "### ✅ Deployment Successful!"
             echo "🔗 Platform Template: https://s3.amazonaws.com/watchy-resources/watchy-platform.yaml"
             echo "🔗 Slack Template: https://s3.amazonaws.com/watchy-resources/watchy-monitoring-slack.yaml"
-            echo "📦 Lambda Package: https://s3.amazonaws.com/watchy-resources/slack-monitor.zip"
+            echo "🔗 GitHub Template: https://s3.amazonaws.com/watchy-resources/watchy-monitoring-github.yaml"
+            echo "📦 Slack Lambda Package: https://s3.amazonaws.com/watchy-resources/slack-monitor.zip"
+            echo "📦 GitHub Lambda Package: https://s3.amazonaws.com/watchy-resources/github-monitor.zip"
             echo "📚 Documentation: Updated in repository"
             echo ""
             echo "### 🚀 Quick Deploy Command:"
@@ -509,7 +616,8 @@ jobs:
             echo '  --parameter-overrides \'
             echo '    NotificationEmail=your-email@domain.com \'
             echo '    MonitoringSchedule="rate(5 minutes)" \'
-            echo '    EnableSlackMonitoring=true'
+            echo '    EnableSlackMonitoring=true \'
+            echo '    EnableGitHubMonitoring=true'
             echo '```'
           else
             echo ""

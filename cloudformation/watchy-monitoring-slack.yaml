@@ -447,7 +447,12 @@ Resources:
             {
               "type": "log",
               "properties": {
-                "query": "SOURCE '/watchy/services/slack' | fields @timestamp, incident_title, incident_status, note_body | filter ispresent(incident_id) | sort @timestamp desc | limit 20",
+                "query": >-
+                  SOURCE '/watchy/services/slack' |
+                  fields @timestamp, incident_title, incident_status, note_body |
+                  filter ispresent(incident_id) |
+                  sort @timestamp desc |
+                  limit 20
                 "region": "${AWS::Region}",
                 "title": "Recent Incident Updates",
                 "stacked": false
