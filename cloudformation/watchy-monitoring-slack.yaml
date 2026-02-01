@@ -217,7 +217,8 @@ Resources:
     Properties:
       AlarmName: !Sub 'Watchy-Slack-WorkspaceAdmin-${AWS::Region}'
       AlarmDescription: >-
-        Slack Workspace/Org Administration service - alerts on incident (2) and outage (3)
+        Slack Workspace/Org Administration service - alerts on incident (2)
+        and outage (3)
       MetricName: WorkspaceOrgAdministration
       Namespace: Watchy/Slack
       Statistic: Average
@@ -302,7 +303,8 @@ Resources:
     Properties:
       AlarmName: !Sub 'Watchy-Slack-AppsAPIs-${AWS::Region}'
       AlarmDescription: >-
-        Slack Apps/Integrations/APIs service - alerts on incident (2) and outage (3)
+        Slack Apps/Integrations/APIs service - alerts on incident (2)
+        and outage (3)
       MetricName: AppsIntegrationsAPIs
       Namespace: Watchy/Slack
       Statistic: Average
@@ -447,7 +449,10 @@ Resources:
             {
               "type": "log",
               "properties": {
-                "query": "SOURCE '/watchy/services/slack' | fields @timestamp, incident_title, incident_status | sort @timestamp desc | limit 20",
+                "query": >-
+                  SOURCE '/watchy/services/slack' |
+                  fields @timestamp, incident_title, incident_status |
+                  sort @timestamp desc | limit 20
                 "region": "${AWS::Region}",
                 "title": "Recent Incident Updates",
                 "stacked": false

@@ -206,149 +206,148 @@ jobs:
     permissions:
       id-token: write   # Required for OIDC
       contents: read    # Required to checkout code
-
     steps:
-    - name: Debug job execution
-      run: |
-        echo "Build Lambda job is running because:"
-        echo "- Branch: ${{ github.ref }}"
-        echo "- Event: ${{ github.event_name }}"
-        echo "- Lambda changed: ${{ needs.detect-changes.outputs.lambda }}"
-        echo "- Templates changed: ${{ needs.detect-changes.outputs.templates }}"
+      - name: Debug job execution
+        run: |
+          echo "Build Lambda job is running because:"
+          echo "- Branch: ${{ github.ref }}"
+          echo "- Event: ${{ github.event_name }}"
+          echo "- Lambda changed: ${{ needs.detect-changes.outputs.lambda }}"
+          echo "- Templates changed: ${{ needs.detect-changes.outputs.templates }}"
 
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.14'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.14'
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-    - name: Build Slack Monitor Lambda
-      run: |
-        cd lambda/slack_monitor
+      - name: Build Slack Monitor Lambda
+        run: |
+          cd lambda/slack_monitor
 
-        # Set build metadata
-        export LAMBDA_VERSION="1.0.0-${GITHUB_SHA:0:7}"
+          # Set build metadata
+          export LAMBDA_VERSION="1.0.0-${GITHUB_SHA:0:7}"
 
-        echo "Building Slack Monitor Lambda..."
-        echo "Version: $LAMBDA_VERSION"
+          echo "Building Slack Monitor Lambda..."
+          echo "Version: $LAMBDA_VERSION"
 
-        # Create build directory
-        mkdir -p build
+          # Create build directory
+          mkdir -p build
 
-        # Copy Lambda function
-        cp lambda_function.py build/
+          # Copy Lambda function
+          cp lambda_function.py build/
 
-        # No external dependencies needed - uses only Python standard library and boto3 (AWS provided)
+          # No external dependencies needed - uses only Python standard library and boto3 (AWS provided)
 
-        # Create deployment package
-        cd build
-        zip -r ../slack-monitor.zip .
-        cd ..
+          # Create deployment package
+          cd build
+          zip -r ../slack-monitor.zip .
+          cd ..
 
-        # Verify zip contents
-        echo "Lambda package contents:"
-        unzip -l slack-monitor.zip
+          # Verify zip contents
+          echo "Lambda package contents:"
+          unzip -l slack-monitor.zip
 
-        # Get package size
-        PACKAGE_SIZE=$(stat -c%s slack-monitor.zip)
-        echo "Package size: $PACKAGE_SIZE bytes"
+          # Get package size
+          PACKAGE_SIZE=$(stat -c%s slack-monitor.zip)
+          echo "Package size: $PACKAGE_SIZE bytes"
 
-        if [ $PACKAGE_SIZE -gt 52428800 ]; then  # 50MB limit
-          echo "ERROR: Package size exceeds Lambda limit of 50MB"
-          exit 1
-        fi
+          if [ $PACKAGE_SIZE -gt 52428800 ]; then  # 50MB limit
+            echo "ERROR: Package size exceeds Lambda limit of 50MB"
+            exit 1
+          fi
 
-    - name: Build GitHub Monitor Lambda
-      run: |
-        cd lambda/github_monitor
+      - name: Build GitHub Monitor Lambda
+        run: |
+          cd lambda/github_monitor
 
-        # Set build metadata
-        export LAMBDA_VERSION="1.0.0-${GITHUB_SHA:0:7}"
+          # Set build metadata
+          export LAMBDA_VERSION="1.0.0-${GITHUB_SHA:0:7}"
 
-        echo "Building GitHub Monitor Lambda..."
-        echo "Version: $LAMBDA_VERSION"
+          echo "Building GitHub Monitor Lambda..."
+          echo "Version: $LAMBDA_VERSION"
 
-        # Create build directory
-        mkdir -p build
+          # Create build directory
+          mkdir -p build
 
-        # Copy Lambda function
-        cp lambda_function.py build/
+          # Copy Lambda function
+          cp lambda_function.py build/
 
-        # No external dependencies needed - uses only Python standard library and boto3 (AWS provided)
+          # No external dependencies needed - uses only Python standard library and boto3 (AWS provided)
 
-        # Create deployment package
-        cd build
-        zip -r ../github-monitor.zip .
-        cd ..
+          # Create deployment package
+          cd build
+          zip -r ../github-monitor.zip .
+          cd ..
 
-        # Verify zip contents
-        echo "Lambda package contents:"
-        unzip -l github-monitor.zip
+          # Verify zip contents
+          echo "Lambda package contents:"
+          unzip -l github-monitor.zip
 
-        # Get package size
-        PACKAGE_SIZE=$(stat -c%s github-monitor.zip)
-        echo "Package size: $PACKAGE_SIZE bytes"
+          # Get package size
+          PACKAGE_SIZE=$(stat -c%s github-monitor.zip)
+          echo "Package size: $PACKAGE_SIZE bytes"
 
-        if [ $PACKAGE_SIZE -gt 52428800 ]; then  # 50MB limit
-          echo "ERROR: Package size exceeds Lambda limit of 50MB"
-          exit 1
-        fi
+          if [ $PACKAGE_SIZE -gt 52428800 ]; then  # 50MB limit
+            echo "ERROR: Package size exceeds Lambda limit of 50MB"
+            exit 1
+          fi
 
-    - name: Upload Lambda packages to S3
-      run: |
-        # Upload Slack Monitor
-        cd lambda/slack_monitor
+      - name: Upload Lambda packages to S3
+        run: |
+          # Upload Slack Monitor
+          cd lambda/slack_monitor
 
-        # Debug: Show current directory and files
-        echo "Current directory: $(pwd)"
-        echo "Files in directory:"
-        ls -la
+          # Debug: Show current directory and files
+          echo "Current directory: $(pwd)"
+          echo "Files in directory:"
+          ls -la
 
-        # Check if zip file exists
-        if [ ! -f "slack-monitor.zip" ]; then
-          echo "ERROR: slack-monitor.zip not found!"
-          exit 1
-        fi
+          # Check if zip file exists
+          if [ ! -f "slack-monitor.zip" ]; then
+            echo "ERROR: slack-monitor.zip not found!"
+            exit 1
+          fi
 
-        # Upload to S3
-        echo "Uploading Slack Monitor to S3..."
-        aws s3 cp slack-monitor.zip s3://watchy-resources/slack-monitor.zip
+          # Upload to S3
+          echo "Uploading Slack Monitor to S3..."
+          aws s3 cp slack-monitor.zip s3://watchy-resources/slack-monitor.zip
 
-        # Upload GitHub Monitor
-        cd ../github_monitor
+          # Upload GitHub Monitor
+          cd ../github_monitor
 
-        # Debug: Show current directory and files
-        echo "Current directory: $(pwd)"
-        echo "Files in directory:"
-        ls -la
+          # Debug: Show current directory and files
+          echo "Current directory: $(pwd)"
+          echo "Files in directory:"
+          ls -la
 
-        # Check if zip file exists
-        if [ ! -f "github-monitor.zip" ]; then
-          echo "ERROR: github-monitor.zip not found!"
-          exit 1
-        fi
+          # Check if zip file exists
+          if [ ! -f "github-monitor.zip" ]; then
+            echo "ERROR: github-monitor.zip not found!"
+            exit 1
+          fi
 
-        # Upload to S3
-        echo "Uploading GitHub Monitor to S3..."
-        aws s3 cp github-monitor.zip s3://watchy-resources/github-monitor.zip
+          # Upload to S3
+          echo "Uploading GitHub Monitor to S3..."
+          aws s3 cp github-monitor.zip s3://watchy-resources/github-monitor.zip
 
-        echo "Lambda packages uploaded to S3:"
-        echo "  Slack: s3://watchy-resources/slack-monitor.zip"
-        echo "  GitHub: s3://watchy-resources/github-monitor.zip"
+          echo "Lambda packages uploaded to S3:"
+          echo "  Slack: s3://watchy-resources/slack-monitor.zip"
+          echo "  GitHub: s3://watchy-resources/github-monitor.zip"
 
-        # Debug: Verify uploads
-        echo "Verifying S3 uploads:"
-        aws s3 ls s3://watchy-resources/slack-monitor.zip
-        aws s3 ls s3://watchy-resources/github-monitor.zip
+          # Debug: Verify uploads
+          echo "Verifying S3 uploads:"
+          aws s3 ls s3://watchy-resources/slack-monitor.zip
+          aws s3 ls s3://watchy-resources/github-monitor.zip
 
   # ===== DEPLOY TEMPLATES TO S3 =====
   deploy-templates:

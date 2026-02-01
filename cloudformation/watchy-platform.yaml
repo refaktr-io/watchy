@@ -203,7 +203,8 @@ Resources:
   #   Type: AWS::CloudFormation::Stack
   #   Condition: DeployGitHubMonitoring
   #   Properties:
-  #     TemplateURL: 'https://s3.amazonaws.com/watchy-resources/watchy-github-monitoring.yaml'
+  #     TemplateURL: >-
+  #       https://s3.amazonaws.com/watchy-resources/watchy-github-monitoring.yaml
   #     Parameters:
   #       SaasAppName: 'GitHub'
   #       ApiUrl: 'https://www.githubstatus.com/api/v2/status.json'
