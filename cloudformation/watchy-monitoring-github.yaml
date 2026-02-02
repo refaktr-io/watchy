@@ -177,7 +177,7 @@ Resources:
   GitHubAPIResponseAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: watchy-github-api-response
+      AlarmName: !Sub 'Watchy-GitHub-APIResponse-${AWS::Region}'
       AlarmDescription: 'GitHub Status API response monitoring'
       MetricName: APIResponse
       Namespace: Watchy/GitHub
